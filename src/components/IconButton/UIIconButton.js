@@ -1,16 +1,8 @@
-import React, { memo, useCallback } from "react";
+import React, { memo, useCallback, useMemo } from "react";
 
 import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
 
 import { useUITheme } from "../../theme";
-
-const SIZES = {
-  xs: "xs",
-  sm: "sm",
-  md: "md",
-  lg: "lg",
-  xl: "xl",
-};
 
 const VARIANTS = {
   solid: "solid",
@@ -21,18 +13,46 @@ const VARIANTS = {
   success: "success",
 };
 
+const SIZES = {
+  xs: "xs",
+  sm: "sm",
+  md: "md",
+  lg: "lg",
+  xl: "xl",
+  xxl: "xxl",
+};
+
 const SHAPES = {
   circle: "circle",
   rounded: "rounded",
   square: "square",
 };
 
-const UIIconButtonComponent = ({
+const FALLBACK_COLORS = {
+  primary: "#FF5A1F",
+  primarySoft: "#FFF0EA",
+  primaryPressed: "#E94D17",
+
+  success: "#16A34A",
+  successPressed: "#128238",
+
+  danger: "#DC2626",
+  dangerPressed: "#B91C1C",
+
+  white: "#FFFFFF",
+
+  border: "#E5E5E5",
+
+  disabledBackground: "#E5E5E5",
+  disabledBorder: "#E5E5E5",
+};
+
+function UIIconButtonComponent({
   icon,
 
-  size = "md",
-
   variant = "ghost",
+
+  size = "md",
 
   shape = "circle",
 
@@ -52,35 +72,31 @@ const UIIconButtonComponent = ({
 
   iconContainerStyle,
 
-  activeOpacity = 0.82,
+  hitSlop,
 
-  android_ripple = true,
-
-  hitSlop = 8,
+  testID,
 
   accessibilityLabel,
 
   accessibilityHint,
 
-  testID,
-
   ...props
-}) => {
+}) {
   const { theme } = useUITheme();
 
-  const safeSize = SIZES[size] ? size : SIZES.md;
-
-  const safeVariant = VARIANTS[variant] ? variant : VARIANTS.ghost;
-
-  const safeShape = SHAPES[shape] ? shape : SHAPES.circle;
+  const colors = theme?.colors || {};
 
   const isDisabled = disabled || loading;
 
-  const dimensions = getDimensions(safeSize, theme);
+  const resolvedColors = useMemo(
+    () => getVariantColors(variant, colors, isDisabled),
+    [variant, colors, isDisabled],
+  );
 
-  const colors = getColors(safeVariant, theme.colors);
-
-  const borderRadius = getBorderRadius(safeShape, theme);
+  const dimensions = useMemo(
+    () => getDimensions(size, shape, theme),
+    [size, shape, theme],
+  );
 
   const handlePress = useCallback(
     (event) => {
@@ -126,12 +142,34 @@ const UIIconButtonComponent = ({
     [isDisabled, onPressOut],
   );
 
-  const ripple = android_ripple
-    ? {
-        color: colors.ripple,
-        borderless: false,
-      }
-    : undefined;
+  const buttonStyle = useMemo(
+    () => [
+      styles.button,
+
+      {
+        width: dimensions.size,
+
+        height: dimensions.size,
+
+        minWidth: dimensions.size,
+
+        minHeight: dimensions.size,
+
+        borderRadius: dimensions.borderRadius,
+
+        backgroundColor: resolvedColors.background,
+
+        borderColor: resolvedColors.border,
+
+        borderWidth: resolvedColors.borderWidth,
+
+        opacity: isDisabled ? 0.55 : 1,
+      },
+
+      style,
+    ],
+    [dimensions, resolvedColors, isDisabled, style],
+  );
 
   return (
     <Pressable
@@ -143,173 +181,221 @@ const UIIconButtonComponent = ({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       hitSlop={hitSlop}
-      android_ripple={ripple}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
       accessibilityState={{
         disabled: isDisabled,
+
         busy: loading,
       }}
-      style={({ pressed }) => [
-        styles.button,
-
-        {
-          width: dimensions.size,
-
-          height: dimensions.size,
-
-          borderRadius,
-
-          backgroundColor: colors.background,
-
-          borderColor: colors.border,
-
-          borderWidth: colors.border ? 1 : 0,
-
-          opacity: isDisabled ? 0.5 : pressed ? activeOpacity : 1,
-        },
-
-        style,
-      ]}
+      style={buttonStyle}
     >
       <View style={[styles.iconContainer, iconContainerStyle]}>
         {loading ? (
-          <ActivityIndicator size="small" color={colors.icon} />
+          <ActivityIndicator size="small" color={resolvedColors.icon} />
         ) : (
           icon
         )}
       </View>
     </Pressable>
   );
-};
-
-function getDimensions(size, theme) {
-  switch (size) {
-    case SIZES.xs:
-      return {
-        size: theme.sizes.icon.lg + theme.spacing.sm,
-      };
-
-    case SIZES.sm:
-      return {
-        size: theme.sizes.button.sm,
-      };
-
-    case SIZES.lg:
-      return {
-        size: theme.sizes.button.lg,
-      };
-
-    case SIZES.xl:
-      return {
-        size: theme.sizes.button.xl,
-      };
-
-    case SIZES.md:
-    default:
-      return {
-        size: theme.sizes.button.md,
-      };
-  }
 }
 
-function getBorderRadius(shape, theme) {
-  switch (shape) {
-    case SHAPES.rounded:
-      return theme.radius.lg;
+function getVariantColors(variant, colors, disabled) {
+  const primary = colors.primary || FALLBACK_COLORS.primary;
 
-    case SHAPES.square:
-      return theme.radius.sm;
+  const primarySoft = colors.primarySoft || FALLBACK_COLORS.primarySoft;
 
-    case SHAPES.circle:
-    default:
-      return theme.radius.circle;
+  const primaryPressed =
+    colors.primaryPressed || FALLBACK_COLORS.primaryPressed;
+
+  const success = colors.success || FALLBACK_COLORS.success;
+
+  const successPressed =
+    colors.successPressed || FALLBACK_COLORS.successPressed;
+
+  const danger = colors.danger || FALLBACK_COLORS.danger;
+
+  const dangerPressed = colors.dangerPressed || FALLBACK_COLORS.dangerPressed;
+
+  const white = colors.onPrimary || FALLBACK_COLORS.white;
+
+  if (disabled) {
+    return {
+      background:
+        colors.buttonDisabledBackground || FALLBACK_COLORS.disabledBackground,
+
+      border: colors.buttonDisabledBorder || FALLBACK_COLORS.disabledBorder,
+
+      borderWidth: 1,
+
+      icon: colors.buttonDisabledText || "#A3A3A3",
+
+      pressed:
+        colors.buttonDisabledBackground || FALLBACK_COLORS.disabledBackground,
+    };
   }
-}
 
-function getColors(variant, colors) {
   switch (variant) {
     case VARIANTS.solid:
       return {
-        background: colors.primary,
+        background: colors.buttonPrimaryBackground || primary,
 
-        border: colors.primary,
+        border: colors.buttonPrimaryBackground || primary,
 
-        icon: colors.onPrimary,
+        borderWidth: 1,
 
-        ripple: colors.primaryPressed,
+        icon: colors.buttonPrimaryText || white,
+
+        pressed: colors.buttonPrimaryPressed || primaryPressed,
       };
 
     case VARIANTS.outline:
       return {
-        background: colors.transparent,
+        background: "transparent",
 
-        border: colors.borderStrong,
+        border: colors.buttonOutlineBorder || primary,
 
-        icon: colors.text,
+        borderWidth: 1,
 
-        ripple: colors.surfaceSecondary,
+        icon: colors.buttonOutlineText || primary,
+
+        pressed: colors.buttonSoftBackground || primarySoft,
       };
 
     case VARIANTS.soft:
       return {
-        background: colors.primarySoft,
+        background: colors.buttonSoftBackground || primarySoft,
 
-        border: null,
+        border: colors.buttonSoftBackground || primarySoft,
 
-        icon: colors.primary,
+        borderWidth: 1,
 
-        ripple: colors.primary,
+        icon: colors.buttonSoftText || primary,
+
+        pressed: colors.primaryMuted || primarySoft,
       };
 
     case VARIANTS.danger:
       return {
-        background: colors.danger,
+        background: colors.buttonDangerBackground || danger,
 
-        border: colors.danger,
+        border: colors.buttonDangerBackground || danger,
 
-        icon: colors.onPrimary,
+        borderWidth: 1,
 
-        ripple: colors.dangerSoft,
+        icon: colors.buttonDangerText || white,
+
+        pressed: colors.buttonDangerPressed || dangerPressed,
       };
 
     case VARIANTS.success:
       return {
-        background: colors.success,
+        background: colors.buttonSuccessBackground || success,
 
-        border: colors.success,
+        border: colors.buttonSuccessBackground || success,
 
-        icon: colors.onPrimary,
+        borderWidth: 1,
 
-        ripple: colors.successSoft,
+        icon: colors.buttonSuccessText || white,
+
+        pressed: colors.buttonSuccessPressed || successPressed,
       };
 
     case VARIANTS.ghost:
     default:
       return {
-        background: colors.transparent,
+        background: "transparent",
 
-        border: null,
+        border: "transparent",
 
-        icon: colors.text,
+        borderWidth: 0,
 
-        ripple: colors.surfaceSecondary,
+        icon: colors.buttonGhostText || primary,
+
+        pressed: colors.buttonSoftBackground || primarySoft,
       };
   }
+}
+
+function getDimensions(size, shape, theme) {
+  const iconSizes = theme?.sizes?.icon || {};
+
+  const radius = theme?.radius || {};
+
+  let resolvedSize;
+
+  switch (size) {
+    case SIZES.xs:
+      resolvedSize = iconSizes.xs ? iconSizes.xs + 16 : 32;
+      break;
+
+    case SIZES.sm:
+      resolvedSize = iconSizes.sm ? iconSizes.sm + 16 : 40;
+      break;
+
+    case SIZES.lg:
+      resolvedSize = iconSizes.lg ? iconSizes.lg + 20 : 52;
+      break;
+
+    case SIZES.xl:
+      resolvedSize = iconSizes.xl ? iconSizes.xl + 24 : 60;
+      break;
+
+    case SIZES.xxl:
+      resolvedSize = iconSizes.xxl ? iconSizes.xxl + 28 : 72;
+      break;
+
+    case SIZES.md:
+    default:
+      resolvedSize = iconSizes.md ? iconSizes.md + 20 : 44;
+      break;
+  }
+
+  let borderRadius;
+
+  switch (shape) {
+    case SHAPES.square:
+      borderRadius = radius.sm ?? 6;
+      break;
+
+    case SHAPES.rounded:
+      borderRadius = radius.button ?? 12;
+      break;
+
+    case SHAPES.circle:
+    default:
+      borderRadius = resolvedSize / 2;
+      break;
+  }
+
+  return {
+    size: resolvedSize,
+
+    borderRadius,
+  };
 }
 
 const styles = StyleSheet.create({
   button: {
     alignItems: "center",
+
     justifyContent: "center",
+
     overflow: "hidden",
+
+    flexShrink: 0,
   },
 
   iconContainer: {
+    width: "100%",
+
+    height: "100%",
+
     alignItems: "center",
+
     justifyContent: "center",
-    flex: 1,
   },
 });
 
@@ -318,7 +404,9 @@ export const UIIconButton = memo(UIIconButtonComponent);
 UIIconButton.displayName = "UIIconButton";
 
 export {
-  SIZES as UIIconButtonSizes,
   VARIANTS as UIIconButtonVariants,
+  SIZES as UIIconButtonSizes,
   SHAPES as UIIconButtonShapes,
 };
+
+export default UIIconButton;

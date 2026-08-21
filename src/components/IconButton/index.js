@@ -1,6 +1,6 @@
 export {
   UIIconButton,
-  UIIconButtonSizes,
   UIIconButtonVariants,
+  UIIconButtonSizes,
   UIIconButtonShapes,
 } from "./UIIconButton";

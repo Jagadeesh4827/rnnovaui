@@ -21,7 +21,7 @@ export {
   UIButtonVariants,
   UIButtonSizes,
   UIIconButton,
-  UIIconButtonSizes,
   UIIconButtonVariants,
+  UIIconButtonSizes,
   UIIconButtonShapes,
 } from "./components";

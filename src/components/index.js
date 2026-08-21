@@ -2,7 +2,7 @@ export { UIText } from "./Text";
 export { UIButton, UIButtonVariants, UIButtonSizes } from "./Button";
 export {
   UIIconButton,
-  UIIconButtonSizes,
   UIIconButtonVariants,
+  UIIconButtonSizes,
   UIIconButtonShapes,
 } from "./IconButton";
