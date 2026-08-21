@@ -10,7 +10,7 @@ import {
 
 import { useUITheme } from "../../theme";
 
-const VARIANTS = {
+const BUTTON_VARIANTS = {
   solid: "solid",
   outline: "outline",
   ghost: "ghost",
@@ -19,7 +19,7 @@ const VARIANTS = {
   success: "success",
 };
 
-const SIZES = {
+const BUTTON_SIZES = {
   sm: "sm",
   md: "md",
   lg: "lg",
@@ -35,10 +35,11 @@ function UIButtonComponent({
 
   disabled = false,
   loading = false,
+
   fullWidth = false,
 
-  leftIcon,
-  rightIcon,
+  leftIcon = null,
+  rightIcon = null,
 
   onPress,
   onLongPress,
@@ -52,30 +53,35 @@ function UIButtonComponent({
   activeOpacity = 0.82,
 
   testID,
+
   accessibilityLabel,
   accessibilityHint,
 
   ...props
 }) {
-  const themeResult = useUITheme();
-
   /*
-   * Support both possible provider shapes:
+   * YOUR UIProvider RETURNS:
    *
-   * themeResult.theme.colors
-   * themeResult.colors
+   * {
+   *   theme,
+   *   mode,
+   *   selectedMode,
+   *   setMode
+   * }
    */
-  const theme = themeResult?.theme || themeResult || {};
+  const { theme } = useUITheme();
 
-  const colors = theme.colors || {};
+  const colors = theme.colors;
 
-  const safeVariant = VARIANTS[variant] || VARIANTS.solid;
+  const safeVariant = BUTTON_VARIANTS[variant]
+    ? variant
+    : BUTTON_VARIANTS.solid;
 
-  const safeSize = SIZES[size] || SIZES.md;
+  const safeSize = BUTTON_SIZES[size] ? size : BUTTON_SIZES.md;
 
-  const buttonColors = getButtonColors(safeVariant, colors);
+  const variantStyle = getVariantStyle(safeVariant, colors);
 
-  const dimensions = getButtonDimensions(safeSize);
+  const sizeStyle = getSizeStyle(safeSize, theme);
 
   const isDisabled = disabled || loading;
 
@@ -147,19 +153,19 @@ function UIButtonComponent({
         styles.button,
 
         {
-          height: dimensions.height,
+          height: sizeStyle.height,
 
-          minHeight: dimensions.height,
+          minHeight: sizeStyle.height,
 
-          paddingHorizontal: dimensions.paddingHorizontal,
+          paddingHorizontal: sizeStyle.paddingHorizontal,
 
-          borderRadius: dimensions.borderRadius,
+          borderRadius: sizeStyle.borderRadius,
 
-          backgroundColor: buttonColors.background,
+          backgroundColor: variantStyle.backgroundColor,
 
-          borderColor: buttonColors.border,
+          borderColor: variantStyle.borderColor,
 
-          borderWidth: buttonColors.border ? 1 : 0,
+          borderWidth: variantStyle.borderWidth,
 
           width: fullWidth ? "100%" : undefined,
 
@@ -174,164 +180,217 @@ function UIButtonComponent({
           styles.content,
 
           {
-            gap: dimensions.gap,
+            gap: sizeStyle.gap,
           },
 
           contentStyle,
         ]}
       >
         {loading ? (
-          <ActivityIndicator size="small" color={buttonColors.text} />
-        ) : leftIcon ? (
-          <View style={styles.icon}>{leftIcon}</View>
-        ) : null}
+          <ActivityIndicator size="small" color={variantStyle.textColor} />
+        ) : (
+          leftIcon && <View style={styles.icon}>{leftIcon}</View>
+        )}
 
         {hasChildren ? (
           <View style={styles.children}>{children}</View>
-        ) : title ? (
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.text,
+        ) : (
+          title !== undefined &&
+          title !== null && (
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.text,
 
-              {
-                color: buttonColors.text,
+                {
+                  color: variantStyle.textColor,
 
-                fontSize: dimensions.fontSize,
+                  fontSize: sizeStyle.fontSize,
 
-                lineHeight: dimensions.lineHeight,
-              },
+                  lineHeight: sizeStyle.lineHeight,
+                },
 
-              textStyle,
-            ]}
-          >
-            {title}
-          </Text>
-        ) : null}
+                textStyle,
+              ]}
+            >
+              {title}
+            </Text>
+          )
+        )}
 
-        {!loading && rightIcon ? (
-          <View style={styles.icon}>{rightIcon}</View>
-        ) : null}
+        {!loading && rightIcon && <View style={styles.icon}>{rightIcon}</View>}
       </View>
     </Pressable>
   );
 }
 
-/**
- * IMPORTANT:
- *
- * Variant resolution is completely independent
- * from spacing/radius/typography.
- *
- * Therefore even if the theme is incomplete,
- * variants still work.
- */
-function getButtonColors(variant, colors) {
-  const primary = colors.primary || "#FF5A1F";
+function getVariantStyle(variant, colors) {
+  /*
+   * These are FALLBACKS.
+   *
+   * Your colors from colors.js
+   * will always win.
+   */
 
-  const primarySoft = colors.primarySoft || "#FFF0EA";
+  const primary = colors?.primary || "#FF5A1F";
 
-  const success = colors.success || "#16A34A";
+  const primarySoft = colors?.primarySoft || "#FFF0EA";
 
-  const danger = colors.danger || "#DC2626";
+  const success = colors?.success || "#16A34A";
 
-  const text = colors.text || "#111111";
+  const danger = colors?.danger || "#DC2626";
 
-  const onPrimary = colors.onPrimary || "#FFFFFF";
-
-  const border = colors.border || "#E5E5E5";
+  const onPrimary = colors?.onPrimary || "#FFFFFF";
 
   switch (variant) {
-    case VARIANTS.outline:
+    case "outline":
       return {
-        background: "transparent",
-        border: primary,
-        text: primary,
+        backgroundColor: "transparent",
+
+        borderColor: primary,
+
+        borderWidth: 1,
+
+        textColor: primary,
       };
 
-    case VARIANTS.ghost:
+    case "ghost":
       return {
-        background: "transparent",
-        border: null,
-        text: primary,
+        backgroundColor: "transparent",
+
+        borderColor: "transparent",
+
+        borderWidth: 0,
+
+        textColor: primary,
       };
 
-    case VARIANTS.soft:
+    case "soft":
       return {
-        background: primarySoft,
-        border: null,
-        text: primary,
+        backgroundColor: primarySoft,
+
+        borderColor: primarySoft,
+
+        borderWidth: 1,
+
+        textColor: primary,
       };
 
-    case VARIANTS.danger:
+    case "danger":
       return {
-        background: danger,
-        border: danger,
-        text: onPrimary,
+        backgroundColor: danger,
+
+        borderColor: danger,
+
+        borderWidth: 1,
+
+        textColor: onPrimary,
       };
 
-    case VARIANTS.success:
+    case "success":
       return {
-        background: success,
-        border: success,
-        text: onPrimary,
+        backgroundColor: success,
+
+        borderColor: success,
+
+        borderWidth: 1,
+
+        textColor: onPrimary,
       };
 
-    case VARIANTS.solid:
+    case "solid":
     default:
       return {
-        background: primary,
-        border: primary,
-        text: onPrimary,
+        backgroundColor: primary,
+
+        borderColor: primary,
+
+        borderWidth: 1,
+
+        textColor: onPrimary,
       };
   }
 }
 
-/**
- * Sizes intentionally use fixed fallback
- * values so the button cannot break when
- * theme.sizes is missing.
- */
-function getButtonDimensions(size) {
+function getSizeStyle(size, theme) {
+  /*
+   * Use theme sizes when available,
+   * otherwise safe fallback.
+   */
+
+  const buttonSizes = theme?.sizes?.button || {};
+
+  const buttonRadius = theme?.radius?.button ?? 12;
+
+  const spacing = theme?.spacing || {};
+
+  const paddingSmall = spacing.sm ?? 12;
+
+  const paddingMedium = spacing.md ?? 16;
+
+  const paddingLarge = spacing.lg ?? 20;
+
+  const paddingXL = spacing.xl ?? 24;
+
   switch (size) {
-    case SIZES.sm:
+    case "sm":
       return {
-        height: 36,
-        paddingHorizontal: 14,
+        height: buttonSizes.sm ?? 36,
+
+        paddingHorizontal: paddingSmall,
+
         gap: 6,
-        borderRadius: 10,
+
+        borderRadius: buttonRadius,
+
         fontSize: 13,
+
         lineHeight: 18,
       };
 
-    case SIZES.lg:
+    case "lg":
       return {
-        height: 52,
-        paddingHorizontal: 22,
+        height: buttonSizes.lg ?? 52,
+
+        paddingHorizontal: paddingLarge,
+
         gap: 8,
-        borderRadius: 14,
+
+        borderRadius: buttonRadius,
+
         fontSize: 16,
+
         lineHeight: 22,
       };
 
-    case SIZES.xl:
+    case "xl":
       return {
-        height: 60,
-        paddingHorizontal: 26,
+        height: buttonSizes.xl ?? 60,
+
+        paddingHorizontal: paddingXL,
+
         gap: 8,
-        borderRadius: 16,
+
+        borderRadius: buttonRadius,
+
         fontSize: 17,
+
         lineHeight: 24,
       };
 
-    case SIZES.md:
+    case "md":
     default:
       return {
-        height: 44,
-        paddingHorizontal: 18,
+        height: buttonSizes.md ?? 44,
+
+        paddingHorizontal: paddingMedium,
+
         gap: 8,
-        borderRadius: 12,
+
+        borderRadius: buttonRadius,
+
         fontSize: 14,
+
         lineHeight: 20,
       };
   }
@@ -340,34 +399,45 @@ function getButtonDimensions(size) {
 const styles = StyleSheet.create({
   button: {
     flexShrink: 0,
+
     alignItems: "center",
+
     justifyContent: "center",
+
     overflow: "hidden",
   },
 
   content: {
     flexDirection: "row",
+
     alignItems: "center",
+
     justifyContent: "center",
+
     flexShrink: 1,
   },
 
   children: {
-    flexShrink: 1,
     alignItems: "center",
+
     justifyContent: "center",
+
+    flexShrink: 1,
   },
 
   icon: {
     alignItems: "center",
+
     justifyContent: "center",
-    flexShrink: 0,
   },
 
   text: {
     flexShrink: 1,
+
     fontWeight: "600",
+
     textAlign: "center",
+
     includeFontPadding: false,
   },
 });
@@ -376,6 +446,4 @@ export const UIButton = memo(UIButtonComponent);
 
 UIButton.displayName = "UIButton";
 
-export const UIButtonVariants = VARIANTS;
-
-export const UIButtonSizes = SIZES;
+export { BUTTON_VARIANTS as UIButtonVariants, BUTTON_SIZES as UIButtonSizes };

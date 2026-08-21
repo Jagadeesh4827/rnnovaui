@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useMemo } from "react";
+import React, { createContext, useCallback, useContext, useMemo } from "react";
 
 import { useColorScheme } from "react-native";
 
@@ -21,45 +21,106 @@ import { breakpoints } from "./breakpoints";
 const UIContext = createContext(null);
 
 function createTheme(mode, overrides) {
-  const colors = mode === "dark" ? darkColors : lightColors;
+  const baseColors = mode === "dark" ? darkColors : lightColors;
 
   return {
     mode,
 
     colors: {
-      ...colors,
-      ...overrides?.colors,
+      ...baseColors,
+
+      ...(overrides?.colors || {}),
     },
 
-    spacing,
-    radius,
-    typography,
-    sizes,
-    shadows,
-    animation,
-    breakpoints,
+    spacing: {
+      ...spacing,
+
+      ...(overrides?.spacing || {}),
+    },
+
+    radius: {
+      ...radius,
+
+      ...(overrides?.radius || {}),
+    },
+
+    typography: {
+      ...typography,
+
+      ...(overrides?.typography || {}),
+    },
+
+    sizes: {
+      ...sizes,
+
+      ...(overrides?.sizes || {}),
+    },
+
+    shadows: {
+      ...shadows,
+
+      ...(overrides?.shadows || {}),
+    },
+
+    animation: {
+      ...animation,
+
+      ...(overrides?.animation || {}),
+    },
+
+    breakpoints: {
+      ...breakpoints,
+
+      ...(overrides?.breakpoints || {}),
+    },
   };
 }
 
-export function UIProvider({ children, mode = "system", onModeChange, theme }) {
+export function UIProvider({
+  children,
+
+  mode = "system",
+
+  onModeChange,
+
+  theme,
+}) {
   const systemScheme = useColorScheme();
 
   const resolvedMode =
-    mode === "system" ? (systemScheme === "dark" ? "dark" : "light") : mode;
+    mode === "system"
+      ? systemScheme === "dark"
+        ? "dark"
+        : "light"
+      : mode === "dark"
+        ? "dark"
+        : "light";
 
-  const setMode = (nextMode) => {
-    if (nextMode !== "light" && nextMode !== "dark" && nextMode !== "system") {
-      return;
-    }
+  const setMode = useCallback(
+    (nextMode) => {
+      if (
+        nextMode !== "light" &&
+        nextMode !== "dark" &&
+        nextMode !== "system"
+      ) {
+        return;
+      }
 
-    if (onModeChange) {
-      onModeChange(nextMode);
-    }
-  };
+      if (typeof onModeChange === "function") {
+        onModeChange(nextMode);
+      }
+    },
+    [onModeChange],
+  );
+
+  const resolvedTheme = useMemo(
+    () => createTheme(resolvedMode, theme),
+    [resolvedMode, theme],
+  );
 
   const contextValue = useMemo(
     () => ({
-      theme: createTheme(resolvedMode, theme),
+      theme: resolvedTheme,
 
       mode: resolvedMode,
 
@@ -67,7 +128,7 @@ export function UIProvider({ children, mode = "system", onModeChange, theme }) {
 
       setMode,
     }),
-    [resolvedMode, mode, theme, onModeChange],
+    [resolvedTheme, resolvedMode, mode, setMode],
   );
 
   return (
