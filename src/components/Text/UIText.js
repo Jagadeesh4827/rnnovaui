@@ -27,7 +27,7 @@ const UITextComponent = ({
 }) => {
   const { theme } = useUITheme();
 
-  const typography = theme.typography[variant] || theme.typography.body;
+  const typography = theme.typography?.[variant] || theme.typography.body;
 
   return (
     <Text

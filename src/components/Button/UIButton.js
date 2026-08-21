@@ -6,10 +6,7 @@ import { useUITheme } from "../../theme";
 
 import { UIText } from "../Text";
 
-/**
- * Button variants
- */
-const VARIANTS = {
+const BUTTON_VARIANTS = {
   solid: "solid",
   outline: "outline",
   ghost: "ghost",
@@ -18,10 +15,7 @@ const VARIANTS = {
   success: "success",
 };
 
-/**
- * Button sizes
- */
-const SIZES = {
+const BUTTON_SIZES = {
   sm: "sm",
   md: "md",
   lg: "lg",
@@ -33,9 +27,9 @@ const UIButtonComponent = ({
 
   children,
 
-  variant = VARIANTS.solid,
+  variant = "solid",
 
-  size = SIZES.md,
+  size = "md",
 
   disabled = false,
 
@@ -57,9 +51,9 @@ const UIButtonComponent = ({
 
   style,
 
-  textStyle,
-
   contentStyle,
+
+  textStyle,
 
   testID,
 
@@ -75,48 +69,31 @@ const UIButtonComponent = ({
 
   android_ripple = true,
 
-  activeOpacity = 0.9,
+  activeOpacity = 0.82,
 
   ...props
 }) => {
   const { theme } = useUITheme();
 
-  /**
-   * Prevent callbacks when button
-   * cannot currently be interacted with.
-   */
-  const isDisabled = disabled || loading;
+  const safeVariant = BUTTON_VARIANTS[variant]
+    ? variant
+    : BUTTON_VARIANTS.solid;
 
-  /**
-   * Resolve invalid variant safely.
-   */
-  const safeVariant = VARIANTS[variant] ? variant : VARIANTS.solid;
+  const safeSize = BUTTON_SIZES[size] ? size : BUTTON_SIZES.md;
 
-  /**
-   * Resolve invalid size safely.
-   */
-  const safeSize = SIZES[size] ? size : SIZES.md;
+  const isDisabled = Boolean(disabled) || Boolean(loading);
 
-  /**
-   * Theme-dependent colors.
-   */
   const colors = getVariantColors(safeVariant, theme.colors);
 
-  /**
-   * Theme-dependent dimensions.
-   */
   const dimensions = getSizeDimensions(safeSize, theme);
 
-  /**
-   * Stable press callback.
-   */
   const handlePress = useCallback(
     (event) => {
       if (isDisabled) {
         return;
       }
 
-      if (onPress) {
+      if (typeof onPress === "function") {
         onPress(event);
       }
     },
@@ -129,7 +106,7 @@ const UIButtonComponent = ({
         return;
       }
 
-      if (onLongPress) {
+      if (typeof onLongPress === "function") {
         onLongPress(event);
       }
     },
@@ -142,7 +119,7 @@ const UIButtonComponent = ({
         return;
       }
 
-      if (onPressIn) {
+      if (typeof onPressIn === "function") {
         onPressIn(event);
       }
     },
@@ -155,30 +132,34 @@ const UIButtonComponent = ({
         return;
       }
 
-      if (onPressOut) {
+      if (typeof onPressOut === "function") {
         onPressOut(event);
       }
     },
     [isDisabled, onPressOut],
   );
 
-  /**
-   * Loading indicator color.
-   */
-  const indicatorColor = colors.text;
-
-  /**
-   * Android ripple.
-   */
   const ripple = android_ripple
     ? {
         color: colors.ripple,
-
         borderless: false,
       }
     : undefined;
 
-  const label = title ?? children;
+  /*
+   * Important:
+   *
+   * title = text
+   *
+   * children = arbitrary JSX
+   *
+   * We NEVER put arbitrary children
+   * inside UIText.
+   */
+  const hasCustomChildren = children !== undefined && children !== null;
+
+  const accessibilityText =
+    accessibilityLabel ?? (typeof title === "string" ? title : undefined);
 
   return (
     <Pressable
@@ -193,16 +174,14 @@ const UIButtonComponent = ({
       pressRetentionOffset={pressRetentionOffset}
       android_ripple={ripple}
       accessibilityRole={accessibilityRole}
-      accessibilityLabel={
-        accessibilityLabel ?? (typeof label === "string" ? label : undefined)
-      }
+      accessibilityLabel={accessibilityText}
       accessibilityHint={accessibilityHint}
       accessibilityState={{
         disabled: isDisabled,
-        busy: loading,
+        busy: Boolean(loading),
       }}
       style={({ pressed }) => [
-        styles.base,
+        styles.button,
 
         {
           minHeight: dimensions.height,
@@ -217,9 +196,9 @@ const UIButtonComponent = ({
 
           borderWidth: colors.border ? 1 : 0,
 
-          opacity: isDisabled ? 0.55 : pressed ? activeOpacity : 1,
-
           width: fullWidth ? "100%" : undefined,
+
+          opacity: isDisabled ? 0.55 : pressed ? activeOpacity : 1,
         },
 
         style,
@@ -239,34 +218,35 @@ const UIButtonComponent = ({
         ]}
       >
         {loading ? (
-          <ActivityIndicator size="small" color={indicatorColor} />
+          <ActivityIndicator size="small" color={colors.text} />
         ) : (
           leftIcon
         )}
 
-        {!loading && label != null && (
+        {hasCustomChildren ? (
+          <View style={styles.children}>{children}</View>
+        ) : title !== undefined && title !== null ? (
           <UIText
             variant={dimensions.textVariant}
             color={colors.text}
-            style={[styles.label, textStyle]}
+            style={[styles.title, textStyle]}
             numberOfLines={1}
           >
-            {label}
+            {title}
           </UIText>
-        )}
+        ) : null}
 
-        {!loading && rightIcon && <View>{rightIcon}</View>}
+        {!loading && rightIcon ? (
+          <View style={styles.iconRight}>{rightIcon}</View>
+        ) : null}
       </View>
     </Pressable>
   );
 };
 
-/**
- * Variant colors.
- */
 function getVariantColors(variant, colors) {
   switch (variant) {
-    case VARIANTS.outline:
+    case BUTTON_VARIANTS.outline:
       return {
         background: colors.transparent,
 
@@ -277,7 +257,7 @@ function getVariantColors(variant, colors) {
         ripple: colors.primarySoft,
       };
 
-    case VARIANTS.ghost:
+    case BUTTON_VARIANTS.ghost:
       return {
         background: colors.transparent,
 
@@ -288,7 +268,7 @@ function getVariantColors(variant, colors) {
         ripple: colors.primarySoft,
       };
 
-    case VARIANTS.soft:
+    case BUTTON_VARIANTS.soft:
       return {
         background: colors.primarySoft,
 
@@ -299,7 +279,7 @@ function getVariantColors(variant, colors) {
         ripple: colors.primary,
       };
 
-    case VARIANTS.danger:
+    case BUTTON_VARIANTS.danger:
       return {
         background: colors.danger,
 
@@ -307,10 +287,10 @@ function getVariantColors(variant, colors) {
 
         text: colors.onPrimary,
 
-        ripple: colors.dangerSoft,
+        ripple: colors.dangerSoft || colors.danger,
       };
 
-    case VARIANTS.success:
+    case BUTTON_VARIANTS.success:
       return {
         background: colors.success,
 
@@ -318,10 +298,10 @@ function getVariantColors(variant, colors) {
 
         text: colors.onPrimary,
 
-        ripple: colors.successSoft,
+        ripple: colors.successSoft || colors.success,
       };
 
-    case VARIANTS.solid:
+    case BUTTON_VARIANTS.solid:
     default:
       return {
         background: colors.primary,
@@ -330,17 +310,14 @@ function getVariantColors(variant, colors) {
 
         text: colors.onPrimary,
 
-        ripple: colors.primaryPressed,
+        ripple: colors.primaryPressed || colors.primary,
       };
   }
 }
 
-/**
- * Size dimensions.
- */
 function getSizeDimensions(size, theme) {
   switch (size) {
-    case SIZES.sm:
+    case BUTTON_SIZES.sm:
       return {
         height: theme.sizes.button.sm,
 
@@ -351,7 +328,7 @@ function getSizeDimensions(size, theme) {
         textVariant: "label",
       };
 
-    case SIZES.lg:
+    case BUTTON_SIZES.lg:
       return {
         height: theme.sizes.button.lg,
 
@@ -362,7 +339,7 @@ function getSizeDimensions(size, theme) {
         textVariant: "bodyMedium",
       };
 
-    case SIZES.xl:
+    case BUTTON_SIZES.xl:
       return {
         height: theme.sizes.button.xl,
 
@@ -373,7 +350,7 @@ function getSizeDimensions(size, theme) {
         textVariant: "bodyMedium",
       };
 
-    case SIZES.md:
+    case BUTTON_SIZES.md:
     default:
       return {
         height: theme.sizes.button.md,
@@ -388,26 +365,36 @@ function getSizeDimensions(size, theme) {
 }
 
 const styles = StyleSheet.create({
-  base: {
+  button: {
     alignItems: "center",
     justifyContent: "center",
     overflow: "hidden",
+    flexShrink: 0,
   },
 
   content: {
     width: "100%",
-
     flexDirection: "row",
-
     alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 1,
+  },
 
+  children: {
+    flexShrink: 1,
+    alignItems: "center",
     justifyContent: "center",
   },
 
-  label: {
+  title: {
     flexShrink: 1,
-
     textAlign: "center",
+  },
+
+  iconRight: {
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
 });
 
@@ -415,4 +402,4 @@ export const UIButton = memo(UIButtonComponent);
 
 UIButton.displayName = "UIButton";
 
-export { VARIANTS as UIButtonVariants, SIZES as UIButtonSizes };
+export { BUTTON_VARIANTS as UIButtonVariants, BUTTON_SIZES as UIButtonSizes };
