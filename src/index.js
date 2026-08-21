@@ -24,4 +24,7 @@ export {
   UIIconButtonVariants,
   UIIconButtonSizes,
   UIIconButtonShapes,
+  UICard,
+  UICardVariants,
+  UICardRadius,
 } from "./components";

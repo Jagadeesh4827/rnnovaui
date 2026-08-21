@@ -6,3 +6,4 @@ export {
   UIIconButtonSizes,
   UIIconButtonShapes,
 } from "./IconButton";
+export { UICard, UICardVariants, UICardRadius } from "./Card";
