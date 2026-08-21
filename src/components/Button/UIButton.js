@@ -26,28 +26,79 @@ const BUTTON_SIZES = {
   xl: "xl",
 };
 
-function UIButtonComponent({
+const DEFAULT_COLORS = {
+  buttonPrimaryBackground: "#FF5A1F",
+
+  buttonPrimaryPressed: "#E94D17",
+
+  buttonPrimaryText: "#FFFFFF",
+
+  buttonOutlineBackground: "transparent",
+
+  buttonOutlineBorder: "#FF5A1F",
+
+  buttonOutlineText: "#FF5A1F",
+
+  buttonGhostBackground: "transparent",
+
+  buttonGhostText: "#FF5A1F",
+
+  buttonSoftBackground: "#FFF0EA",
+
+  buttonSoftText: "#FF5A1F",
+
+  buttonDangerBackground: "#DC2626",
+
+  buttonDangerPressed: "#B91C1C",
+
+  buttonDangerText: "#FFFFFF",
+
+  buttonSuccessBackground: "#16A34A",
+
+  buttonSuccessPressed: "#128238",
+
+  buttonSuccessText: "#FFFFFF",
+
+  buttonDisabledBackground: "#E5E5E5",
+
+  buttonDisabledText: "#A3A3A3",
+
+  buttonDisabledBorder: "#E5E5E5",
+
+  buttonRipple: "rgba(255,255,255,0.20)",
+};
+
+const UIButtonComponent = ({
   title,
+
   children,
 
   variant = "solid",
+
   size = "md",
 
   disabled = false,
+
   loading = false,
 
   fullWidth = false,
 
   leftIcon = null,
+
   rightIcon = null,
 
   onPress,
+
   onLongPress,
+
   onPressIn,
+
   onPressOut,
 
   style,
+
   contentStyle,
+
   textStyle,
 
   activeOpacity = 0.82,
@@ -55,23 +106,17 @@ function UIButtonComponent({
   testID,
 
   accessibilityLabel,
+
   accessibilityHint,
 
   ...props
-}) {
-  /*
-   * YOUR UIProvider RETURNS:
-   *
-   * {
-   *   theme,
-   *   mode,
-   *   selectedMode,
-   *   setMode
-   * }
-   */
+}) => {
   const { theme } = useUITheme();
 
-  const colors = theme.colors;
+  const colors = {
+    ...DEFAULT_COLORS,
+    ...(theme?.colors || {}),
+  };
 
   const safeVariant = BUTTON_VARIANTS[variant]
     ? variant
@@ -79,11 +124,11 @@ function UIButtonComponent({
 
   const safeSize = BUTTON_SIZES[size] ? size : BUTTON_SIZES.md;
 
-  const variantStyle = getVariantStyle(safeVariant, colors);
+  const isDisabled = disabled || loading;
+
+  const variantStyle = getVariantStyle(safeVariant, colors, isDisabled);
 
   const sizeStyle = getSizeStyle(safeSize, theme);
-
-  const isDisabled = disabled || loading;
 
   const handlePress = useCallback(
     (event) => {
@@ -91,7 +136,9 @@ function UIButtonComponent({
         return;
       }
 
-      onPress?.(event);
+      if (typeof onPress === "function") {
+        onPress(event);
+      }
     },
     [isDisabled, onPress],
   );
@@ -102,7 +149,9 @@ function UIButtonComponent({
         return;
       }
 
-      onLongPress?.(event);
+      if (typeof onLongPress === "function") {
+        onLongPress(event);
+      }
     },
     [isDisabled, onLongPress],
   );
@@ -113,7 +162,9 @@ function UIButtonComponent({
         return;
       }
 
-      onPressIn?.(event);
+      if (typeof onPressIn === "function") {
+        onPressIn(event);
+      }
     },
     [isDisabled, onPressIn],
   );
@@ -124,7 +175,9 @@ function UIButtonComponent({
         return;
       }
 
-      onPressOut?.(event);
+      if (typeof onPressOut === "function") {
+        onPressOut(event);
+      }
     },
     [isDisabled, onPressOut],
   );
@@ -147,33 +200,50 @@ function UIButtonComponent({
       accessibilityHint={accessibilityHint}
       accessibilityState={{
         disabled: isDisabled,
+
         busy: loading,
       }}
-      style={({ pressed }) => [
-        styles.button,
+      style={({ pressed }) => {
+        const backgroundColor = isDisabled
+          ? colors.buttonDisabledBackground
+          : pressed
+            ? variantStyle.pressedBackground
+            : variantStyle.backgroundColor;
 
-        {
-          height: sizeStyle.height,
+        const borderColor = isDisabled
+          ? colors.buttonDisabledBorder
+          : variantStyle.borderColor;
 
-          minHeight: sizeStyle.height,
+        const textColor = isDisabled
+          ? colors.buttonDisabledText
+          : variantStyle.textColor;
 
-          paddingHorizontal: sizeStyle.paddingHorizontal,
+        return [
+          styles.button,
 
-          borderRadius: sizeStyle.borderRadius,
+          {
+            height: sizeStyle.height,
 
-          backgroundColor: variantStyle.backgroundColor,
+            minHeight: sizeStyle.height,
 
-          borderColor: variantStyle.borderColor,
+            paddingHorizontal: sizeStyle.paddingHorizontal,
 
-          borderWidth: variantStyle.borderWidth,
+            borderRadius: sizeStyle.borderRadius,
 
-          width: fullWidth ? "100%" : undefined,
+            backgroundColor,
 
-          opacity: isDisabled ? 0.5 : pressed ? activeOpacity : 1,
-        },
+            borderColor,
 
-        style,
-      ]}
+            borderWidth: variantStyle.borderWidth,
+
+            width: fullWidth ? "100%" : undefined,
+
+            opacity: isDisabled ? 0.55 : 1,
+          },
+
+          style,
+        ];
+      }}
     >
       <View
         style={[
@@ -203,7 +273,9 @@ function UIButtonComponent({
                 styles.text,
 
                 {
-                  color: variantStyle.textColor,
+                  color: isDisabled
+                    ? colors.buttonDisabledText
+                    : variantStyle.textColor,
 
                   fontSize: sizeStyle.fontSize,
 
@@ -222,124 +294,130 @@ function UIButtonComponent({
       </View>
     </Pressable>
   );
-}
+};
 
-function getVariantStyle(variant, colors) {
-  /*
-   * These are FALLBACKS.
-   *
-   * Your colors from colors.js
-   * will always win.
-   */
+function getVariantStyle(variant, colors, disabled) {
+  if (disabled) {
+    return {
+      backgroundColor: colors.buttonDisabledBackground,
 
-  const primary = colors?.primary || "#FF5A1F";
+      pressedBackground: colors.buttonDisabledBackground,
 
-  const primarySoft = colors?.primarySoft || "#FFF0EA";
+      borderColor: colors.buttonDisabledBorder,
 
-  const success = colors?.success || "#16A34A";
+      borderWidth: 1,
 
-  const danger = colors?.danger || "#DC2626";
-
-  const onPrimary = colors?.onPrimary || "#FFFFFF";
+      textColor: colors.buttonDisabledText,
+    };
+  }
 
   switch (variant) {
-    case "outline":
+    case BUTTON_VARIANTS.outline:
       return {
-        backgroundColor: "transparent",
+        backgroundColor: colors.buttonOutlineBackground,
 
-        borderColor: primary,
+        pressedBackground: colors.buttonSoftBackground,
+
+        borderColor: colors.buttonOutlineBorder,
 
         borderWidth: 1,
 
-        textColor: primary,
+        textColor: colors.buttonOutlineText,
       };
 
-    case "ghost":
+    case BUTTON_VARIANTS.ghost:
       return {
-        backgroundColor: "transparent",
+        backgroundColor: colors.buttonGhostBackground,
 
-        borderColor: "transparent",
+        pressedBackground: colors.buttonSoftBackground,
+
+        borderColor: colors.transparent,
 
         borderWidth: 0,
 
-        textColor: primary,
+        textColor: colors.buttonGhostText,
       };
 
-    case "soft":
+    case BUTTON_VARIANTS.soft:
       return {
-        backgroundColor: primarySoft,
+        backgroundColor: colors.buttonSoftBackground,
 
-        borderColor: primarySoft,
+        pressedBackground: colors.primaryMuted || colors.buttonSoftBackground,
+
+        borderColor: colors.buttonSoftBackground,
 
         borderWidth: 1,
 
-        textColor: primary,
+        textColor: colors.buttonSoftText,
       };
 
-    case "danger":
+    case BUTTON_VARIANTS.danger:
       return {
-        backgroundColor: danger,
+        backgroundColor: colors.buttonDangerBackground,
 
-        borderColor: danger,
+        pressedBackground: colors.buttonDangerPressed,
+
+        borderColor: colors.buttonDangerBackground,
 
         borderWidth: 1,
 
-        textColor: onPrimary,
+        textColor: colors.buttonDangerText,
       };
 
-    case "success":
+    case BUTTON_VARIANTS.success:
       return {
-        backgroundColor: success,
+        backgroundColor: colors.buttonSuccessBackground,
 
-        borderColor: success,
+        pressedBackground: colors.buttonSuccessPressed,
+
+        borderColor: colors.buttonSuccessBackground,
 
         borderWidth: 1,
 
-        textColor: onPrimary,
+        textColor: colors.buttonSuccessText,
       };
 
-    case "solid":
+    case BUTTON_VARIANTS.solid:
     default:
       return {
-        backgroundColor: primary,
+        backgroundColor: colors.buttonPrimaryBackground,
 
-        borderColor: primary,
+        pressedBackground: colors.buttonPrimaryPressed,
+
+        borderColor: colors.buttonPrimaryBackground,
 
         borderWidth: 1,
 
-        textColor: onPrimary,
+        textColor: colors.buttonPrimaryText,
       };
   }
 }
 
 function getSizeStyle(size, theme) {
-  /*
-   * Use theme sizes when available,
-   * otherwise safe fallback.
-   */
-
   const buttonSizes = theme?.sizes?.button || {};
 
-  const buttonRadius = theme?.radius?.button ?? 12;
+  const themeRadius = theme?.radius?.button;
+
+  const buttonRadius = typeof themeRadius === "number" ? themeRadius : 12;
 
   const spacing = theme?.spacing || {};
 
-  const paddingSmall = spacing.sm ?? 12;
+  const spacingSM = typeof spacing.sm === "number" ? spacing.sm : 8;
 
-  const paddingMedium = spacing.md ?? 16;
+  const spacingMD = typeof spacing.md === "number" ? spacing.md : 16;
 
-  const paddingLarge = spacing.lg ?? 20;
+  const spacingLG = typeof spacing.lg === "number" ? spacing.lg : 20;
 
-  const paddingXL = spacing.xl ?? 24;
+  const spacingXL = typeof spacing.xl === "number" ? spacing.xl : 24;
 
   switch (size) {
-    case "sm":
+    case BUTTON_SIZES.sm:
       return {
         height: buttonSizes.sm ?? 36,
 
-        paddingHorizontal: paddingSmall,
+        paddingHorizontal: spacingMD,
 
-        gap: 6,
+        gap: spacingSM,
 
         borderRadius: buttonRadius,
 
@@ -348,13 +426,13 @@ function getSizeStyle(size, theme) {
         lineHeight: 18,
       };
 
-    case "lg":
+    case BUTTON_SIZES.lg:
       return {
         height: buttonSizes.lg ?? 52,
 
-        paddingHorizontal: paddingLarge,
+        paddingHorizontal: spacingLG,
 
-        gap: 8,
+        gap: spacingSM,
 
         borderRadius: buttonRadius,
 
@@ -363,13 +441,13 @@ function getSizeStyle(size, theme) {
         lineHeight: 22,
       };
 
-    case "xl":
+    case BUTTON_SIZES.xl:
       return {
         height: buttonSizes.xl ?? 60,
 
-        paddingHorizontal: paddingXL,
+        paddingHorizontal: spacingXL,
 
-        gap: 8,
+        gap: spacingSM,
 
         borderRadius: buttonRadius,
 
@@ -378,14 +456,14 @@ function getSizeStyle(size, theme) {
         lineHeight: 24,
       };
 
-    case "md":
+    case BUTTON_SIZES.md:
     default:
       return {
         height: buttonSizes.md ?? 44,
 
-        paddingHorizontal: paddingMedium,
+        paddingHorizontal: spacingLG,
 
-        gap: 8,
+        gap: spacingSM,
 
         borderRadius: buttonRadius,
 
@@ -418,17 +496,19 @@ const styles = StyleSheet.create({
   },
 
   children: {
+    flexShrink: 1,
+
     alignItems: "center",
 
     justifyContent: "center",
-
-    flexShrink: 1,
   },
 
   icon: {
     alignItems: "center",
 
     justifyContent: "center",
+
+    flexShrink: 0,
   },
 
   text: {
