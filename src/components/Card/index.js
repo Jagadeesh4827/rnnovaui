@@ -1,1 +1,6 @@
-export { UICard, UICardVariants, UICardRadius } from "./UICard";
+export {
+  UICard,
+  UICardVariants,
+  UICardRadius,
+  UICardBadgePositions,
+} from "./UICard";
