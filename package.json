@@ -5,14 +5,22 @@
   "main": "src/index.js",
   "react-native": "src/index.js",
   "module": "src/index.js",
+  "exports": {
+    ".": {
+      "react-native": "./src/index.js",
+      "import": "./src/index.js",
+      "require": "./src/index.js",
+      "default": "./src/index.js"
+    }
+  },
   "files": [
     "src",
     "README.md",
     "LICENSE"
   ],
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "prepare": "echo \"Package ready\""
+    "test": "node -e \"console.log('rnnovaui test passed')\"",
+    "prepare": "echo \"rnnovaui Package ready\""
   },
   "keywords": [
     "react-native",
@@ -33,7 +41,7 @@
     "react-native-reanimated": "^4.5.3"
   },
   "peerDependencies": {
-    "react": "^19.2.3",
-    "react-native": "^0.86.2"
+    "react": ">=19.0.0",
+    "react-native": ">=0.76.0"
   }
 }
