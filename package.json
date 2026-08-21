@@ -1,0 +1,39 @@
+{
+  "name": "rnnovaui",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.js",
+  "react-native": "src/index.js",
+  "module": "src/index.js",
+  "files": [
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepare": "echo \"Package ready\""
+  },
+  "keywords": [
+    "react-native",
+    "expo",
+    "react-native-ui",
+    "ui-components",
+    "component-library",
+    "mobile-ui",
+    "dark-mode",
+    "light-mode"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "devDependencies": {
+    "react": "19.2.3",
+    "react-native": "0.86.2",
+    "react-native-reanimated": "^4.5.3"
+  },
+  "peerDependencies": {
+    "react": "^19.2.3",
+    "react-native": "^0.86.2"
+  }
+}
