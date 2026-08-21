@@ -1,6 +1,13 @@
-import React, { memo, useCallback, useMemo } from "react";
+import React, { memo, useCallback, useMemo, useRef } from "react";
 
-import { ActivityIndicator, Pressable, StyleSheet, View } from "react-native";
+import {
+  ActivityIndicator,
+  Animated,
+  Easing,
+  Pressable,
+  StyleSheet,
+  View,
+} from "react-native";
 
 import { useUITheme } from "../../theme";
 
@@ -41,9 +48,8 @@ const FALLBACK_COLORS = {
 
   white: "#FFFFFF",
 
-  border: "#E5E5E5",
-
   disabledBackground: "#E5E5E5",
+  disabledText: "#A3A3A3",
   disabledBorder: "#E5E5E5",
 };
 
@@ -74,6 +80,12 @@ function UIIconButtonComponent({
 
   hitSlop,
 
+  pressAnimation = true,
+
+  pressScale = 0.94,
+
+  pressAnimationDuration = 100,
+
   testID,
 
   accessibilityLabel,
@@ -88,14 +100,91 @@ function UIIconButtonComponent({
 
   const isDisabled = disabled || loading;
 
-  const resolvedColors = useMemo(
-    () => getVariantColors(variant, colors, isDisabled),
-    [variant, colors, isDisabled],
+  /*
+   * Reusable native animation value.
+   *
+   * Created once for the lifetime
+   * of this component instance.
+   */
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const animationRef = useRef(null);
+
+  const safeVariant = VARIANTS[variant] ? variant : VARIANTS.ghost;
+
+  const safeSize = SIZES[size] ? size : SIZES.md;
+
+  const safeShape = SHAPES[shape] ? shape : SHAPES.circle;
+
+  const variantColors = useMemo(
+    () => getVariantColors(safeVariant, colors, isDisabled),
+    [safeVariant, colors, isDisabled],
   );
 
   const dimensions = useMemo(
-    () => getDimensions(size, shape, theme),
-    [size, shape, theme],
+    () => getDimensions(safeSize, safeShape, theme),
+    [safeSize, safeShape, theme],
+  );
+
+  const stopAnimation = useCallback(() => {
+    if (animationRef.current) {
+      animationRef.current.stop();
+
+      animationRef.current = null;
+    }
+  }, []);
+
+  const animateScale = useCallback(
+    (targetScale) => {
+      if (!pressAnimation || isDisabled) {
+        return;
+      }
+
+      stopAnimation();
+
+      const animation = Animated.timing(scale, {
+        toValue: targetScale,
+
+        duration: pressAnimationDuration,
+
+        easing: Easing.out(Easing.quad),
+
+        useNativeDriver: true,
+      });
+
+      animationRef.current = animation;
+
+      animation.start(() => {
+        animationRef.current = null;
+      });
+    },
+    [pressAnimation, isDisabled, stopAnimation, scale, pressAnimationDuration],
+  );
+
+  const handlePressIn = useCallback(
+    (event) => {
+      if (isDisabled) {
+        return;
+      }
+
+      animateScale(pressScale);
+
+      onPressIn?.(event);
+    },
+    [isDisabled, animateScale, pressScale, onPressIn],
+  );
+
+  const handlePressOut = useCallback(
+    (event) => {
+      if (isDisabled) {
+        return;
+      }
+
+      animateScale(1);
+
+      onPressOut?.(event);
+    },
+    [isDisabled, animateScale, onPressOut],
   );
 
   const handlePress = useCallback(
@@ -120,28 +209,6 @@ function UIIconButtonComponent({
     [isDisabled, onLongPress],
   );
 
-  const handlePressIn = useCallback(
-    (event) => {
-      if (isDisabled) {
-        return;
-      }
-
-      onPressIn?.(event);
-    },
-    [isDisabled, onPressIn],
-  );
-
-  const handlePressOut = useCallback(
-    (event) => {
-      if (isDisabled) {
-        return;
-      }
-
-      onPressOut?.(event);
-    },
-    [isDisabled, onPressOut],
-  );
-
   const buttonStyle = useMemo(
     () => [
       styles.button,
@@ -157,48 +224,56 @@ function UIIconButtonComponent({
 
         borderRadius: dimensions.borderRadius,
 
-        backgroundColor: resolvedColors.background,
+        backgroundColor: variantColors.background,
 
-        borderColor: resolvedColors.border,
+        borderColor: variantColors.border,
 
-        borderWidth: resolvedColors.borderWidth,
+        borderWidth: variantColors.borderWidth,
 
         opacity: isDisabled ? 0.55 : 1,
+
+        transform: [
+          {
+            scale,
+          },
+        ],
       },
 
       style,
     ],
-    [dimensions, resolvedColors, isDisabled, style],
+    [dimensions, variantColors, isDisabled, scale, style],
   );
 
   return (
-    <Pressable
-      {...props}
-      testID={testID}
-      disabled={isDisabled}
-      onPress={handlePress}
-      onLongPress={handleLongPress}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      hitSlop={hitSlop}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
-      accessibilityHint={accessibilityHint}
-      accessibilityState={{
-        disabled: isDisabled,
+    <Animated.View style={buttonStyle}>
+      <Pressable
+        {...props}
+        testID={testID}
+        disabled={isDisabled}
+        onPress={handlePress}
+        onLongPress={handleLongPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        hitSlop={hitSlop}
+        accessibilityRole="button"
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{
+          disabled: isDisabled,
 
-        busy: loading,
-      }}
-      style={buttonStyle}
-    >
-      <View style={[styles.iconContainer, iconContainerStyle]}>
-        {loading ? (
-          <ActivityIndicator size="small" color={resolvedColors.icon} />
-        ) : (
-          icon
-        )}
-      </View>
-    </Pressable>
+          busy: loading,
+        }}
+        style={styles.pressable}
+      >
+        <View style={[styles.iconContainer, iconContainerStyle]}>
+          {loading ? (
+            <ActivityIndicator size="small" color={variantColors.icon} />
+          ) : (
+            icon
+          )}
+        </View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -230,10 +305,7 @@ function getVariantColors(variant, colors, disabled) {
 
       borderWidth: 1,
 
-      icon: colors.buttonDisabledText || "#A3A3A3",
-
-      pressed:
-        colors.buttonDisabledBackground || FALLBACK_COLORS.disabledBackground,
+      icon: colors.buttonDisabledText || FALLBACK_COLORS.disabledText,
     };
   }
 
@@ -247,21 +319,17 @@ function getVariantColors(variant, colors, disabled) {
         borderWidth: 1,
 
         icon: colors.buttonPrimaryText || white,
-
-        pressed: colors.buttonPrimaryPressed || primaryPressed,
       };
 
     case VARIANTS.outline:
       return {
-        background: "transparent",
+        background: colors.buttonOutlineBackground || "transparent",
 
         border: colors.buttonOutlineBorder || primary,
 
         borderWidth: 1,
 
         icon: colors.buttonOutlineText || primary,
-
-        pressed: colors.buttonSoftBackground || primarySoft,
       };
 
     case VARIANTS.soft:
@@ -273,8 +341,6 @@ function getVariantColors(variant, colors, disabled) {
         borderWidth: 1,
 
         icon: colors.buttonSoftText || primary,
-
-        pressed: colors.primaryMuted || primarySoft,
       };
 
     case VARIANTS.danger:
@@ -286,8 +352,6 @@ function getVariantColors(variant, colors, disabled) {
         borderWidth: 1,
 
         icon: colors.buttonDangerText || white,
-
-        pressed: colors.buttonDangerPressed || dangerPressed,
       };
 
     case VARIANTS.success:
@@ -299,22 +363,18 @@ function getVariantColors(variant, colors, disabled) {
         borderWidth: 1,
 
         icon: colors.buttonSuccessText || white,
-
-        pressed: colors.buttonSuccessPressed || successPressed,
       };
 
     case VARIANTS.ghost:
     default:
       return {
-        background: "transparent",
+        background: colors.buttonGhostBackground || "transparent",
 
         border: "transparent",
 
         borderWidth: 0,
 
         icon: colors.buttonGhostText || primary,
-
-        pressed: colors.buttonSoftBackground || primarySoft,
       };
   }
 }
@@ -383,9 +443,17 @@ const styles = StyleSheet.create({
 
     justifyContent: "center",
 
-    overflow: "hidden",
-
     flexShrink: 0,
+  },
+
+  pressable: {
+    width: "100%",
+
+    height: "100%",
+
+    alignItems: "center",
+
+    justifyContent: "center",
   },
 
   iconContainer: {

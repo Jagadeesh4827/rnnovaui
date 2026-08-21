@@ -1,7 +1,9 @@
-import React, { memo, useCallback, useMemo } from "react";
+import React, { memo, useCallback, useMemo, useRef } from "react";
 
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   Pressable,
   StyleSheet,
   Text,
@@ -10,7 +12,7 @@ import {
 
 import { useUITheme } from "../../theme";
 
-const VARIANTS = {
+const BUTTON_VARIANTS = {
   solid: "solid",
   outline: "outline",
   ghost: "ghost",
@@ -19,14 +21,14 @@ const VARIANTS = {
   success: "success",
 };
 
-const SIZES = {
+const BUTTON_SIZES = {
   sm: "sm",
   md: "md",
   lg: "lg",
   xl: "xl",
 };
 
-const FALLBACK = {
+const FALLBACK_COLORS = {
   primary: "#FF5A1F",
   primaryPressed: "#E94D17",
   primarySoft: "#FFF0EA",
@@ -41,9 +43,10 @@ const FALLBACK = {
 
   disabledBackground: "#E5E5E5",
   disabledText: "#A3A3A3",
+  disabledBorder: "#E5E5E5",
 };
 
-function UIButton({
+function UIButtonComponent({
   title,
   children,
 
@@ -55,17 +58,30 @@ function UIButton({
 
   fullWidth = false,
 
-  leftIcon,
-  rightIcon,
+  leftIcon = null,
+  rightIcon = null,
 
   onPress,
   onLongPress,
+  onPressIn,
+  onPressOut,
 
   style,
   contentStyle,
   textStyle,
 
+  activeOpacity = 0.82,
+
+  pressAnimation = true,
+
+  pressScale = 0.97,
+
+  pressAnimationDuration = 100,
+
   testID,
+
+  accessibilityLabel,
+  accessibilityHint,
 
   ...props
 }) {
@@ -73,146 +89,92 @@ function UIButton({
 
   const colors = theme?.colors || {};
 
-  const primary = colors.primary || FALLBACK.primary;
-
-  const primaryPressed = colors.primaryPressed || FALLBACK.primaryPressed;
-
-  const primarySoft = colors.primarySoft || FALLBACK.primarySoft;
-
-  const success = colors.success || FALLBACK.success;
-
-  const successPressed = colors.successPressed || FALLBACK.successPressed;
-
-  const danger = colors.danger || FALLBACK.danger;
-
-  const dangerPressed = colors.dangerPressed || FALLBACK.dangerPressed;
-
-  const white = colors.onPrimary || FALLBACK.white;
-
   const isDisabled = disabled || loading;
 
-  const buttonColors = useMemo(() => {
-    if (isDisabled) {
-      return {
-        background:
-          colors.buttonDisabledBackground || FALLBACK.disabledBackground,
+  /*
+   * Native Animated value.
+   *
+   * Created once and reused.
+   * This avoids creating animation
+   * objects on every render.
+   */
+  const scale = useRef(new Animated.Value(1)).current;
 
-        border: colors.buttonDisabledBorder || FALLBACK.disabledBackground,
+  const animationRef = useRef(null);
 
-        text: colors.buttonDisabledText || FALLBACK.disabledText,
+  const safeVariant = BUTTON_VARIANTS[variant]
+    ? variant
+    : BUTTON_VARIANTS.solid;
 
-        borderWidth: 1,
-      };
+  const safeSize = BUTTON_SIZES[size] ? size : BUTTON_SIZES.md;
+
+  const buttonColors = useMemo(
+    () => getVariantColors(safeVariant, colors, isDisabled),
+    [safeVariant, colors, isDisabled],
+  );
+
+  const dimensions = useMemo(
+    () => getDimensions(safeSize, theme),
+    [safeSize, theme],
+  );
+
+  const stopAnimation = useCallback(() => {
+    if (animationRef.current) {
+      animationRef.current.stop();
+
+      animationRef.current = null;
     }
+  }, []);
 
-    switch (variant) {
-      case "outline":
-        return {
-          background: "transparent",
+  const animateScale = useCallback(
+    (targetScale) => {
+      if (!pressAnimation || isDisabled) {
+        return;
+      }
 
-          border: colors.buttonOutlineBorder || primary,
+      stopAnimation();
 
-          text: colors.buttonOutlineText || primary,
+      animationRef.current = Animated.timing(scale, {
+        toValue: targetScale,
 
-          borderWidth: 1,
-        };
+        duration: pressAnimationDuration,
 
-      case "ghost":
-        return {
-          background: "transparent",
+        easing: Easing.out(Easing.quad),
 
-          border: "transparent",
+        useNativeDriver: true,
+      });
 
-          text: colors.buttonGhostText || primary,
+      animationRef.current.start(() => {
+        animationRef.current = null;
+      });
+    },
+    [pressAnimation, isDisabled, stopAnimation, scale, pressAnimationDuration],
+  );
 
-          borderWidth: 0,
-        };
+  const handlePressIn = useCallback(
+    (event) => {
+      if (isDisabled) {
+        return;
+      }
 
-      case "soft":
-        return {
-          background: colors.buttonSoftBackground || primarySoft,
+      animateScale(pressScale);
 
-          border: colors.buttonSoftBackground || primarySoft,
+      onPressIn?.(event);
+    },
+    [isDisabled, animateScale, pressScale, onPressIn],
+  );
 
-          text: colors.buttonSoftText || primary,
+  const handlePressOut = useCallback(
+    (event) => {
+      if (isDisabled) {
+        return;
+      }
 
-          borderWidth: 1,
-        };
+      animateScale(1);
 
-      case "danger":
-        return {
-          background: colors.buttonDangerBackground || danger,
-
-          border: colors.buttonDangerBackground || danger,
-
-          text: colors.buttonDangerText || white,
-
-          borderWidth: 1,
-        };
-
-      case "success":
-        return {
-          background: colors.buttonSuccessBackground || success,
-
-          border: colors.buttonSuccessBackground || success,
-
-          text: colors.buttonSuccessText || white,
-
-          borderWidth: 1,
-        };
-
-      case "solid":
-      default:
-        return {
-          background: colors.buttonPrimaryBackground || primary,
-
-          border: colors.buttonPrimaryBackground || primary,
-
-          text: colors.buttonPrimaryText || white,
-
-          borderWidth: 1,
-        };
-    }
-  }, [
-    variant,
-    isDisabled,
-    colors,
-    primary,
-    primarySoft,
-    success,
-    danger,
-    white,
-  ]);
-
-  const dimensions = useMemo(() => getDimensions(size, theme), [size, theme]);
-
-  const buttonStyle = useMemo(
-    () => [
-      styles.button,
-
-      {
-        height: dimensions.height,
-
-        minHeight: dimensions.height,
-
-        paddingHorizontal: dimensions.paddingHorizontal,
-
-        borderRadius: dimensions.borderRadius,
-
-        backgroundColor: buttonColors.background,
-
-        borderColor: buttonColors.border,
-
-        borderWidth: buttonColors.borderWidth,
-
-        width: fullWidth ? "100%" : undefined,
-
-        opacity: isDisabled ? 0.55 : 1,
-      },
-
-      style,
-    ],
-    [dimensions, buttonColors, fullWidth, isDisabled, style],
+      onPressOut?.(event);
+    },
+    [isDisabled, animateScale, onPressOut],
   );
 
   const handlePress = useCallback(
@@ -237,59 +199,209 @@ function UIButton({
     [isDisabled, onLongPress],
   );
 
-  return (
-    <Pressable
-      {...props}
-      testID={testID}
-      disabled={isDisabled}
-      onPress={handlePress}
-      onLongPress={handleLongPress}
-      style={buttonStyle}
-    >
-      <View
-        style={[
-          styles.content,
+  const buttonStyle = useMemo(
+    () => [
+      styles.button,
 
+      {
+        height: dimensions.height,
+
+        minHeight: dimensions.height,
+
+        paddingHorizontal: dimensions.paddingHorizontal,
+
+        borderRadius: dimensions.borderRadius,
+
+        backgroundColor: buttonColors.background,
+
+        borderColor: buttonColors.border,
+
+        borderWidth: buttonColors.borderWidth,
+
+        width: fullWidth ? "100%" : undefined,
+
+        opacity: isDisabled ? 0.55 : 1,
+
+        transform: [
           {
-            gap: dimensions.gap,
+            scale,
           },
+        ],
+      },
 
-          contentStyle,
-        ]}
-      >
-        {loading ? (
-          <ActivityIndicator size="small" color={buttonColors.text} />
-        ) : (
-          leftIcon && <View style={styles.icon}>{leftIcon}</View>
-        )}
-
-        {children !== undefined && children !== null ? (
-          <View style={styles.children}>{children}</View>
-        ) : title !== undefined && title !== null ? (
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.text,
-
-              {
-                color: buttonColors.text,
-
-                fontSize: dimensions.fontSize,
-
-                lineHeight: dimensions.lineHeight,
-              },
-
-              textStyle,
-            ]}
-          >
-            {title}
-          </Text>
-        ) : null}
-
-        {!loading && rightIcon && <View style={styles.icon}>{rightIcon}</View>}
-      </View>
-    </Pressable>
+      style,
+    ],
+    [dimensions, buttonColors, fullWidth, isDisabled, scale, style],
   );
+
+  return (
+    <Animated.View style={buttonStyle}>
+      <Pressable
+        {...props}
+        testID={testID}
+        disabled={isDisabled}
+        onPress={handlePress}
+        onLongPress={handleLongPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        accessibilityRole="button"
+        accessibilityLabel={
+          accessibilityLabel || (typeof title === "string" ? title : undefined)
+        }
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{
+          disabled: isDisabled,
+
+          busy: loading,
+        }}
+        style={styles.pressable}
+      >
+        <View
+          style={[
+            styles.content,
+
+            {
+              gap: dimensions.gap,
+            },
+
+            contentStyle,
+          ]}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color={buttonColors.text} />
+          ) : (
+            leftIcon && <View style={styles.icon}>{leftIcon}</View>
+          )}
+
+          {children !== undefined && children !== null ? (
+            <View style={styles.children}>{children}</View>
+          ) : title !== undefined && title !== null ? (
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.text,
+
+                {
+                  color: buttonColors.text,
+
+                  fontSize: dimensions.fontSize,
+
+                  lineHeight: dimensions.lineHeight,
+                },
+
+                textStyle,
+              ]}
+            >
+              {title}
+            </Text>
+          ) : null}
+
+          {!loading && rightIcon && (
+            <View style={styles.icon}>{rightIcon}</View>
+          )}
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+function getVariantColors(variant, colors, disabled) {
+  const primary = colors.primary || FALLBACK_COLORS.primary;
+
+  const primarySoft = colors.primarySoft || FALLBACK_COLORS.primarySoft;
+
+  const success = colors.success || FALLBACK_COLORS.success;
+
+  const successPressed =
+    colors.successPressed || FALLBACK_COLORS.successPressed;
+
+  const danger = colors.danger || FALLBACK_COLORS.danger;
+
+  const dangerPressed = colors.dangerPressed || FALLBACK_COLORS.dangerPressed;
+
+  const white = colors.onPrimary || FALLBACK_COLORS.white;
+
+  if (disabled) {
+    return {
+      background:
+        colors.buttonDisabledBackground || FALLBACK_COLORS.disabledBackground,
+
+      border: colors.buttonDisabledBorder || FALLBACK_COLORS.disabledBorder,
+
+      borderWidth: 1,
+
+      text: colors.buttonDisabledText || FALLBACK_COLORS.disabledText,
+    };
+  }
+
+  switch (variant) {
+    case BUTTON_VARIANTS.outline:
+      return {
+        background: colors.buttonOutlineBackground || "transparent",
+
+        border: colors.buttonOutlineBorder || primary,
+
+        borderWidth: 1,
+
+        text: colors.buttonOutlineText || primary,
+      };
+
+    case BUTTON_VARIANTS.ghost:
+      return {
+        background: colors.buttonGhostBackground || "transparent",
+
+        border: "transparent",
+
+        borderWidth: 0,
+
+        text: colors.buttonGhostText || primary,
+      };
+
+    case BUTTON_VARIANTS.soft:
+      return {
+        background: colors.buttonSoftBackground || primarySoft,
+
+        border: colors.buttonSoftBackground || primarySoft,
+
+        borderWidth: 1,
+
+        text: colors.buttonSoftText || primary,
+      };
+
+    case BUTTON_VARIANTS.danger:
+      return {
+        background: colors.buttonDangerBackground || danger,
+
+        border: colors.buttonDangerBackground || danger,
+
+        borderWidth: 1,
+
+        text: colors.buttonDangerText || white,
+      };
+
+    case BUTTON_VARIANTS.success:
+      return {
+        background: colors.buttonSuccessBackground || success,
+
+        border: colors.buttonSuccessBackground || success,
+
+        borderWidth: 1,
+
+        text: colors.buttonSuccessText || white,
+      };
+
+    case BUTTON_VARIANTS.solid:
+    default:
+      return {
+        background: colors.buttonPrimaryBackground || primary,
+
+        border: colors.buttonPrimaryBackground || primary,
+
+        borderWidth: 1,
+
+        text: colors.buttonPrimaryText || white,
+      };
+  }
 }
 
 function getDimensions(size, theme) {
@@ -301,7 +413,7 @@ function getDimensions(size, theme) {
   const spacing = theme?.spacing || {};
 
   switch (size) {
-    case "sm":
+    case BUTTON_SIZES.sm:
       return {
         height: buttonSizes.sm || 36,
 
@@ -316,7 +428,7 @@ function getDimensions(size, theme) {
         lineHeight: 18,
       };
 
-    case "lg":
+    case BUTTON_SIZES.lg:
       return {
         height: buttonSizes.lg || 52,
 
@@ -331,7 +443,7 @@ function getDimensions(size, theme) {
         lineHeight: 22,
       };
 
-    case "xl":
+    case BUTTON_SIZES.xl:
       return {
         height: buttonSizes.xl || 60,
 
@@ -346,7 +458,7 @@ function getDimensions(size, theme) {
         lineHeight: 24,
       };
 
-    case "md":
+    case BUTTON_SIZES.md:
     default:
       return {
         height: buttonSizes.md || 44,
@@ -366,18 +478,28 @@ function getDimensions(size, theme) {
 
 const styles = StyleSheet.create({
   button: {
-    flexDirection: "row",
+    flexShrink: 0,
 
     alignItems: "center",
 
     justifyContent: "center",
+  },
 
-    overflow: "hidden",
+  pressable: {
+    width: "100%",
 
-    flexShrink: 0,
+    height: "100%",
+
+    alignItems: "center",
+
+    justifyContent: "center",
   },
 
   content: {
+    width: "100%",
+
+    height: "100%",
+
     flexDirection: "row",
 
     alignItems: "center",
@@ -404,16 +526,20 @@ const styles = StyleSheet.create({
   },
 
   text: {
+    flexShrink: 1,
+
     fontWeight: "600",
 
     textAlign: "center",
 
     includeFontPadding: false,
-
-    flexShrink: 1,
   },
 });
 
-export default memo(UIButton);
+export const UIButton = memo(UIButtonComponent);
 
-export { UIButton, VARIANTS as UIButtonVariants, SIZES as UIButtonSizes };
+UIButton.displayName = "UIButton";
+
+export { BUTTON_VARIANTS as UIButtonVariants, BUTTON_SIZES as UIButtonSizes };
+
+export default UIButton;
