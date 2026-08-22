@@ -19,3 +19,4 @@ export {
   UIDividerTextPositions,
   UIDividerEnds,
 } from "./Divider";
+export { UIInput, UIInputVariants, UIInputSizes, UIInputStates } from "./Input";
