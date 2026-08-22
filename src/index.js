@@ -88,4 +88,13 @@ export {
   UIButtonLinkSizes,
   UIButtonLinkVariants,
   UIButtonLinkUnderlines,
+  UITextArea,
+  UITextAreaSizes,
+  UITextAreaVariants,
+  UIAutocomplete,
+  UIAutocompleteSizes,
+  UIAutocompleteVariants,
+  UICombobox,
+  UIComboboxSizes,
+  UIComboboxVariants,
 } from "./components";

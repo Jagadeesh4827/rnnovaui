@@ -79,3 +79,10 @@ export {
   UIButtonLinkVariants,
   UIButtonLinkUnderlines,
 } from "./ButtonLink";
+export { UITextArea, UITextAreaSizes, UITextAreaVariants } from "./TextArea";
+export {
+  UIAutocomplete,
+  UIAutocompleteSizes,
+  UIAutocompleteVariants,
+} from "./Autocomplete";
+export { UICombobox, UIComboboxSizes, UIComboboxVariants } from "./Combobox";
