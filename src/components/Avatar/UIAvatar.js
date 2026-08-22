@@ -1,345 +1,611 @@
-import React, { memo, useMemo } from "react";
+import React, { forwardRef, memo, useMemo } from "react";
 
-import { ActivityIndicator, Image, StyleSheet, Text, View } from "react-native";
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import { useUITheme } from "../../theme";
 
-const AVATAR_SIZES = {
+const UI_AVATAR_SIZES = {
   xs: "xs",
   sm: "sm",
   md: "md",
   lg: "lg",
   xl: "xl",
-  xxl: "xxl",
 };
 
-const AVATAR_VARIANTS = {
+const UI_AVATAR_SHAPES = {
   circle: "circle",
   rounded: "rounded",
   square: "square",
 };
 
-const AVATAR_STATUS = {
+const UI_AVATAR_STATUSES = {
   online: "online",
   offline: "offline",
   busy: "busy",
   away: "away",
+  none: "none",
 };
 
-const AVATAR_FALLBACK_COLORS = {
-  primary: "#FF5A1F",
-  secondary: "#7CFF32",
-  white: "#FFFFFF",
-  text: "#111111",
-  textSecondary: "#525252",
-  border: "#E5E5E5",
-  success: "#16A34A",
-  danger: "#DC2626",
-  warning: "#D97706",
-  muted: "#737373",
+const UI_AVATAR_STATUS_POSITIONS = {
+  bottomRight: "bottomRight",
+  bottomLeft: "bottomLeft",
+  topRight: "topRight",
+  topLeft: "topLeft",
 };
 
-function UIAvatarComponent({
-  source,
+const SIZE_CONFIG = {
+  xs: {
+    size: 28,
+    text: 10,
+    status: 8,
+    badgeText: 8,
+    badgeMin: 15,
+  },
 
-  uri,
+  sm: {
+    size: 36,
+    text: 12,
+    status: 10,
+    badgeText: 9,
+    badgeMin: 17,
+  },
 
-  name,
+  md: {
+    size: 48,
+    text: 15,
+    status: 12,
+    badgeText: 10,
+    badgeMin: 19,
+  },
 
-  initials,
+  lg: {
+    size: 64,
+    text: 19,
+    status: 15,
+    badgeText: 11,
+    badgeMin: 22,
+  },
 
-  icon,
+  xl: {
+    size: 88,
+    text: 26,
+    status: 19,
+    badgeText: 12,
+    badgeMin: 25,
+  },
+};
 
-  size = "md",
+const STATUS_COLORS = {
+  online: "#16A34A",
+  offline: "#737373",
+  busy: "#DC2626",
+  away: "#D97706",
+};
 
-  variant = "circle",
+const UIAvatarComponent = forwardRef(function UIAvatar(
+  {
+    source,
+    uri,
 
-  backgroundColor,
+    name,
+    initials,
 
-  textColor,
+    size = "md",
+    shape = "circle",
 
-  borderColor,
+    backgroundColor,
+    textColor,
 
-  borderWidth = 0,
+    status = "none",
+    statusColor,
+    statusPosition = "bottomRight",
 
-  status,
+    badge,
+    badgeColor,
+    badgeTextColor,
 
-  statusColor,
+    icon,
+    fallbackIcon,
 
-  statusSize,
+    borderWidth = 0,
+    borderColor,
 
-  loading = false,
+    loading = false,
+    disabled = false,
 
-  fallback = true,
+    onPress,
+    onLongPress,
 
-  style,
+    activeOpacity = 0.7,
 
-  imageStyle,
+    accessibilityLabel,
 
-  textStyle,
+    containerStyle,
+    imageStyle,
+    textStyle,
+    iconStyle,
+    statusStyle,
+    badgeStyle,
 
-  iconContainerStyle,
+    testID,
 
-  statusStyle,
-
-  testID,
-
-  ...props
-}) {
+    ...props
+  },
+  ref,
+) {
   const { theme } = useUITheme();
 
   const colors = theme?.colors || {};
 
-  const safeSize = AVATAR_SIZES[size] ? size : AVATAR_SIZES.md;
+  /*
+   * --------------------------------------------------
+   * SAFE SIZE
+   * --------------------------------------------------
+   */
 
-  const safeVariant = AVATAR_VARIANTS[variant]
-    ? variant
-    : AVATAR_VARIANTS.circle;
+  const safeSize = UI_AVATAR_SIZES[size] ? size : UI_AVATAR_SIZES.md;
 
-  const dimensions = useMemo(() => getDimensions(safeSize), [safeSize]);
+  const config = SIZE_CONFIG[safeSize];
 
-  const radius = useMemo(
-    () => getRadius(safeVariant, dimensions.size, theme),
-    [safeVariant, dimensions.size, theme],
-  );
+  /*
+   * --------------------------------------------------
+   * SAFE SHAPE
+   * --------------------------------------------------
+   */
 
-  const resolvedBackground =
-    backgroundColor || colors.primary || AVATAR_FALLBACK_COLORS.primary;
+  const safeShape = UI_AVATAR_SHAPES[shape] ? shape : UI_AVATAR_SHAPES.circle;
 
-  const resolvedTextColor =
-    textColor || colors.onPrimary || AVATAR_FALLBACK_COLORS.white;
+  /*
+   * --------------------------------------------------
+   * SAFE STATUS
+   * --------------------------------------------------
+   */
 
-  const resolvedBorder =
-    borderColor || colors.border || AVATAR_FALLBACK_COLORS.border;
+  const safeStatus = UI_AVATAR_STATUSES[status]
+    ? status
+    : UI_AVATAR_STATUSES.none;
+
+  const safeStatusPosition = UI_AVATAR_STATUS_POSITIONS[statusPosition]
+    ? statusPosition
+    : UI_AVATAR_STATUS_POSITIONS.bottomRight;
+
+  /*
+   * --------------------------------------------------
+   * SOURCE
+   * --------------------------------------------------
+   */
 
   const imageSource = source || (uri ? { uri } : null);
 
+  /*
+   * --------------------------------------------------
+   * INITIALS
+   * --------------------------------------------------
+   */
+
   const resolvedInitials = initials || getInitials(name);
 
-  const resolvedStatusColor = statusColor || getStatusColor(status, colors);
+  /*
+   * --------------------------------------------------
+   * COLORS
+   * --------------------------------------------------
+   */
 
-  const resolvedStatusSize = statusSize || dimensions.statusSize;
+  const resolvedBackground = backgroundColor || colors.primarySoft || "#FFF0EA";
 
-  const shouldShowFallback = fallback && !imageSource;
+  const resolvedTextColor = textColor || colors.primary || "#FF5A1F";
 
-  return (
+  const resolvedBorderColor = borderColor || colors.border || "#E5E5E5";
+
+  const resolvedStatusColor =
+    statusColor || STATUS_COLORS[safeStatus] || colors.primary || "#FF5A1F";
+
+  const resolvedBadgeColor = badgeColor || colors.danger || "#DC2626";
+
+  const resolvedBadgeTextColor =
+    badgeTextColor || colors.onPrimary || "#FFFFFF";
+
+  /*
+   * --------------------------------------------------
+   * BORDER RADIUS
+   * --------------------------------------------------
+   */
+
+  const borderRadius = getBorderRadius(safeShape, config.size);
+
+  /*
+   * --------------------------------------------------
+   * BADGE
+   * --------------------------------------------------
+   */
+
+  const badgeValue =
+    badge !== undefined && badge !== null ? formatBadge(badge) : null;
+
+  /*
+   * --------------------------------------------------
+   * CONTENT
+   * --------------------------------------------------
+   */
+
+  const content = loading ? (
     <View
-      {...props}
-      testID={testID}
       style={[
-        styles.wrapper,
+        styles.fallback,
 
         {
-          width: dimensions.size,
+          width: config.size,
 
-          height: dimensions.size,
+          height: config.size,
+
+          borderRadius,
+
+          backgroundColor: resolvedBackground,
         },
-
-        style,
       ]}
     >
-      <View
+      <ActivityIndicator size="small" color={resolvedTextColor} />
+    </View>
+  ) : imageSource ? (
+    <Image
+      source={imageSource}
+      style={[
+        styles.image,
+
+        {
+          width: config.size,
+
+          height: config.size,
+
+          borderRadius,
+
+          opacity: disabled ? 0.5 : 1,
+        },
+
+        imageStyle,
+      ]}
+      resizeMode="cover"
+    />
+  ) : icon || fallbackIcon ? (
+    <View
+      style={[
+        styles.fallback,
+
+        {
+          width: config.size,
+
+          height: config.size,
+
+          borderRadius,
+
+          backgroundColor: resolvedBackground,
+
+          opacity: disabled ? 0.5 : 1,
+        },
+      ]}
+    >
+      <View style={[iconStyle]}>{icon || fallbackIcon}</View>
+    </View>
+  ) : (
+    <View
+      style={[
+        styles.fallback,
+
+        {
+          width: config.size,
+
+          height: config.size,
+
+          borderRadius,
+
+          backgroundColor: resolvedBackground,
+
+          opacity: disabled ? 0.5 : 1,
+        },
+      ]}
+    >
+      <Text
         style={[
-          styles.avatar,
+          styles.initials,
 
           {
-            width: dimensions.size,
+            fontSize: config.text,
 
-            height: dimensions.size,
-
-            borderRadius: radius,
-
-            backgroundColor: resolvedBackground,
-
-            borderColor: resolvedBorder,
-
-            borderWidth,
+            color: resolvedTextColor,
           },
+
+          textStyle,
         ]}
       >
-        {loading ? (
-          <ActivityIndicator size="small" color={resolvedTextColor} />
-        ) : imageSource ? (
-          <Image
-            source={imageSource}
-            resizeMode="cover"
-            style={[
-              styles.image,
+        {resolvedInitials || "?"}
+      </Text>
+    </View>
+  );
 
-              {
-                borderRadius: radius,
-              },
+  /*
+   * --------------------------------------------------
+   * WRAPPER
+   * --------------------------------------------------
+   */
 
-              imageStyle,
-            ]}
-          />
-        ) : shouldShowFallback ? (
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.initials,
+  const avatarContent = (
+    <View
+      style={[
+        styles.avatar,
 
-              {
-                color: resolvedTextColor,
+        {
+          width: config.size,
 
-                fontSize: dimensions.fontSize,
+          height: config.size,
 
-                lineHeight: dimensions.fontSize + 4,
-              },
+          borderRadius,
 
-              textStyle,
-            ]}
-          >
-            {resolvedInitials}
-          </Text>
-        ) : icon ? (
-          <View style={[styles.iconContainer, iconContainerStyle]}>{icon}</View>
-        ) : null}
-      </View>
+          borderWidth,
 
-      {status ? (
+          borderColor: resolvedBorderColor,
+
+          opacity: disabled ? 0.6 : 1,
+        },
+      ]}
+    >
+      {content}
+
+      {safeStatus !== UI_AVATAR_STATUSES.none ? (
         <View
           style={[
             styles.status,
 
+            getStatusPosition(safeStatusPosition, config.size, config.status),
+
             {
-              width: resolvedStatusSize,
+              width: config.status,
 
-              height: resolvedStatusSize,
+              height: config.status,
 
-              borderRadius: resolvedStatusSize / 2,
+              borderRadius: config.status / 2,
 
               backgroundColor: resolvedStatusColor,
 
-              borderColor:
-                colors.card ||
-                colors.background ||
-                AVATAR_FALLBACK_COLORS.white,
-
-              borderWidth: 2,
+              borderColor: colors.background || "#FFFFFF",
             },
 
             statusStyle,
           ]}
         />
       ) : null}
+
+      {badgeValue !== null ? (
+        <View
+          style={[
+            styles.badge,
+
+            {
+              minWidth: config.badgeMin,
+
+              height: config.badgeMin,
+
+              borderRadius: config.badgeMin / 2,
+
+              backgroundColor: resolvedBadgeColor,
+
+              borderColor: colors.background || "#FFFFFF",
+            },
+
+            getBadgePosition(safeStatusPosition, config.size),
+
+            badgeStyle,
+          ]}
+        >
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.badgeText,
+
+              {
+                fontSize: config.badgeText,
+
+                color: resolvedBadgeTextColor,
+              },
+            ]}
+          >
+            {badgeValue}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
-}
+
+  /*
+   * --------------------------------------------------
+   * PRESSABLE
+   * --------------------------------------------------
+   */
+
+  if (onPress || onLongPress) {
+    return (
+      <Pressable
+        {...props}
+        ref={ref}
+        testID={testID}
+        disabled={disabled}
+        onPress={onPress}
+        onLongPress={onLongPress}
+        accessibilityRole="imagebutton"
+        accessibilityLabel={accessibilityLabel || name || "Avatar"}
+        style={({ pressed }) => [
+          styles.container,
+
+          {
+            opacity: pressed ? activeOpacity : 1,
+          },
+
+          containerStyle,
+        ]}
+      >
+        {avatarContent}
+      </Pressable>
+    );
+  }
+
+  /*
+   * --------------------------------------------------
+   * NON PRESSABLE
+   * --------------------------------------------------
+   */
+
+  return (
+    <View
+      {...props}
+      ref={ref}
+      testID={testID}
+      accessible
+      accessibilityRole="image"
+      accessibilityLabel={accessibilityLabel || name || "Avatar"}
+      style={[styles.container, containerStyle]}
+    >
+      {avatarContent}
+    </View>
+  );
+});
 
 function getInitials(name) {
-  if (!name) {
-    return "?";
+  if (!name || typeof name !== "string") {
+    return "";
   }
 
-  const parts = String(name).trim().split(/\s+/).filter(Boolean);
+  const words = name.trim().split(/\s+/).filter(Boolean);
 
-  if (parts.length === 1) {
-    return parts[0].slice(0, 2).toUpperCase();
+  if (words.length === 1) {
+    return words[0].slice(0, 2).toUpperCase();
   }
 
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  return (words[0][0] + words[words.length - 1][0]).toUpperCase();
 }
 
-function getDimensions(size) {
-  switch (size) {
-    case AVATAR_SIZES.xs:
-      return {
-        size: 28,
-        fontSize: 10,
-        statusSize: 8,
-      };
+function getBorderRadius(shape, size) {
+  switch (shape) {
+    case UI_AVATAR_SHAPES.square:
+      return 0;
 
-    case AVATAR_SIZES.sm:
-      return {
-        size: 36,
-        fontSize: 12,
-        statusSize: 10,
-      };
+    case UI_AVATAR_SHAPES.rounded:
+      return Math.min(14, size * 0.25);
 
-    case AVATAR_SIZES.lg:
-      return {
-        size: 64,
-        fontSize: 20,
-        statusSize: 16,
-      };
-
-    case AVATAR_SIZES.xl:
-      return {
-        size: 80,
-        fontSize: 24,
-        statusSize: 18,
-      };
-
-    case AVATAR_SIZES.xxl:
-      return {
-        size: 104,
-        fontSize: 30,
-        statusSize: 22,
-      };
-
-    case AVATAR_SIZES.md:
-    default:
-      return {
-        size: 48,
-        fontSize: 16,
-        statusSize: 13,
-      };
-  }
-}
-
-function getRadius(variant, size, theme) {
-  switch (variant) {
-    case AVATAR_VARIANTS.square:
-      return theme?.radius?.sm ?? 8;
-
-    case AVATAR_VARIANTS.rounded:
-      return theme?.radius?.md ?? 12;
-
-    case AVATAR_VARIANTS.circle:
+    case UI_AVATAR_SHAPES.circle:
     default:
       return size / 2;
   }
 }
 
-function getStatusColor(status, colors) {
-  switch (status) {
-    case AVATAR_STATUS.online:
-      return colors.success || AVATAR_FALLBACK_COLORS.success;
+function getStatusPosition(position, size, statusSize) {
+  const offset = Math.max(0, statusSize * 0.05);
 
-    case AVATAR_STATUS.busy:
-      return colors.danger || AVATAR_FALLBACK_COLORS.danger;
+  switch (position) {
+    case UI_AVATAR_STATUS_POSITIONS.topLeft:
+      return {
+        top: offset,
+        left: offset,
+      };
 
-    case AVATAR_STATUS.away:
-      return colors.warning || AVATAR_FALLBACK_COLORS.warning;
+    case UI_AVATAR_STATUS_POSITIONS.topRight:
+      return {
+        top: offset,
+        right: offset,
+      };
 
-    case AVATAR_STATUS.offline:
-      return colors.textMuted || AVATAR_FALLBACK_COLORS.muted;
+    case UI_AVATAR_STATUS_POSITIONS.bottomLeft:
+      return {
+        bottom: offset,
+        left: offset,
+      };
 
+    case UI_AVATAR_STATUS_POSITIONS.bottomRight:
     default:
-      return colors.success || AVATAR_FALLBACK_COLORS.success;
+      return {
+        bottom: offset,
+        right: offset,
+      };
   }
 }
 
-const styles = StyleSheet.create({
-  wrapper: {
-    position: "relative",
+function getBadgePosition(position) {
+  switch (position) {
+    case UI_AVATAR_STATUS_POSITIONS.topLeft:
+      return {
+        top: -4,
+        left: -4,
+      };
 
-    flexShrink: 0,
+    case UI_AVATAR_STATUS_POSITIONS.topRight:
+      return {
+        top: -4,
+        right: -4,
+      };
+
+    case UI_AVATAR_STATUS_POSITIONS.bottomLeft:
+      return {
+        bottom: -4,
+        left: -4,
+      };
+
+    case UI_AVATAR_STATUS_POSITIONS.bottomRight:
+    default:
+      return {
+        bottom: -4,
+        right: -4,
+      };
+  }
+}
+
+function formatBadge(value) {
+  if (typeof value === "number") {
+    if (value > 99) {
+      return "99+";
+    }
+
+    return String(value);
+  }
+
+  return String(value);
+}
+
+const styles = StyleSheet.create({
+  container: {
+    alignSelf: "flex-start",
+
+    position: "relative",
   },
 
   avatar: {
+    position: "relative",
+
+    overflow: "visible",
+
+    alignItems: "center",
+
+    justifyContent: "center",
+  },
+
+  image: {
+    position: "absolute",
+
+    top: 0,
+
+    left: 0,
+  },
+
+  fallback: {
     alignItems: "center",
 
     justifyContent: "center",
 
     overflow: "hidden",
-  },
-
-  image: {
-    width: "100%",
-
-    height: "100%",
   },
 
   initials: {
@@ -348,28 +614,34 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
 
     textAlign: "center",
-
-    textTransform: "uppercase",
-  },
-
-  iconContainer: {
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    width: "100%",
-
-    height: "100%",
   },
 
   status: {
     position: "absolute",
 
-    right: -1,
+    borderWidth: 2,
+  },
 
-    bottom: -1,
+  badge: {
+    position: "absolute",
+
+    paddingHorizontal: 4,
+
+    alignItems: "center",
+
+    justifyContent: "center",
+
+    borderWidth: 2,
 
     zIndex: 10,
+  },
+
+  badgeText: {
+    fontWeight: "700",
+
+    includeFontPadding: false,
+
+    textAlign: "center",
   },
 });
 
@@ -378,9 +650,10 @@ export const UIAvatar = memo(UIAvatarComponent);
 UIAvatar.displayName = "UIAvatar";
 
 export {
-  AVATAR_SIZES as UIAvatarSizes,
-  AVATAR_VARIANTS as UIAvatarVariants,
-  AVATAR_STATUS as UIAvatarStatus,
+  UI_AVATAR_SIZES as UIAvatarSizes,
+  UI_AVATAR_SHAPES as UIAvatarShapes,
+  UI_AVATAR_STATUSES as UIAvatarStatuses,
+  UI_AVATAR_STATUS_POSITIONS as UIAvatarStatusPositions,
 };
 
 export default UIAvatar;

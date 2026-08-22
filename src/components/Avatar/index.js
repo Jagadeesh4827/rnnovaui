@@ -1,6 +1,7 @@
 export {
   UIAvatar,
   UIAvatarSizes,
-  UIAvatarVariants,
-  UIAvatarStatus,
+  UIAvatarShapes,
+  UIAvatarStatuses,
+  UIAvatarStatusPositions,
 } from "./UIAvatar";
