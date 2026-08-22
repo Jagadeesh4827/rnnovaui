@@ -12,3 +12,10 @@ export {
   UICardRadius,
   UICardBadgePositions,
 } from "./Card";
+export {
+  UIDivider,
+  UIDividerOrientations,
+  UIDividerVariants,
+  UIDividerTextPositions,
+  UIDividerEnds,
+} from "./Divider";

@@ -28,4 +28,9 @@ export {
   UICardVariants,
   UICardRadius,
   UICardBadgePositions,
+  UIDivider,
+  UIDividerOrientations,
+  UIDividerVariants,
+  UIDividerTextPositions,
+  UIDividerEnds,
 } from "./components";

@@ -74,17 +74,33 @@ function UICardComponent({
 
   imageHeight = 190,
   imageResizeMode = "cover",
-
   imageStyle,
 
+  /*
+   * Example:
+   *
+   * badges={[
+   *   {
+   *     id: 'offer',
+   *     label: '20% OFF',
+   *     position: 'topLeft',
+   *     variant: 'danger',
+   *   },
+   *
+   *   {
+   *     id: 'rating',
+   *     label: '★ 4.8',
+   *     position: 'topRight',
+   *     variant: 'warning',
+   *   }
+   * ]}
+   */
   badges = [],
 
   badgeGap = 8,
 
   badgeStyle,
-
   badgeTextStyle,
-
   badgeContainerStyle,
 
   variant = "default",
@@ -96,19 +112,16 @@ function UICardComponent({
   gap = 12,
 
   style,
-
   headerStyle,
   contentStyle,
   footerStyle,
 
   imageOverlay = null,
-
   imageOverlayStyle,
 
   pressable = false,
 
   disabled = false,
-
   loading = false,
 
   onPress,
@@ -141,9 +154,9 @@ function UICardComponent({
 
   const safeVariant = CARD_VARIANTS[variant] ? variant : CARD_VARIANTS.default;
 
-  const resolvedRadius = CARD_RADIUS[radius] ? radius : CARD_RADIUS.lg;
+  const safeRadius = CARD_RADIUS[radius] ? radius : CARD_RADIUS.lg;
 
-  const radiusValue = getRadiusValue(resolvedRadius, theme);
+  const radiusValue = getRadiusValue(safeRadius, theme);
 
   const cardColors = useMemo(
     () => getCardColors(safeVariant, colors),
@@ -269,13 +282,17 @@ function UICardComponent({
     [cardColors, radiusValue, isDisabled, scale, style],
   );
 
-  const renderImage = Boolean(image || imageSource);
+  const hasImage = Boolean(image || imageSource);
 
-  const renderBody = Boolean(header || content || children || footer);
+  const hasBody = Boolean(header || content || children || footer);
 
   const cardContent = (
     <>
-      {renderImage ? (
+      {/* ------------------------------------------ */}
+      {/* IMAGE */}
+      {/* ------------------------------------------ */}
+
+      {hasImage ? (
         <View
           style={[
             styles.imageSection,
@@ -289,13 +306,19 @@ function UICardComponent({
             },
           ]}
         >
-          {image || (
+          {image ? (
+            image
+          ) : (
             <Image
               source={imageSource}
               resizeMode={imageResizeMode}
               style={[styles.image, imageStyle]}
             />
           )}
+
+          {/* -------------------------------------- */}
+          {/* IMAGE OVERLAY */}
+          {/* -------------------------------------- */}
 
           {imageOverlay ? (
             <View
@@ -306,18 +329,18 @@ function UICardComponent({
             </View>
           ) : null}
 
-          {badges.length > 0 ? (
+          {/* -------------------------------------- */}
+          {/* BADGES */}
+          {/* -------------------------------------- */}
+
+          {Array.isArray(badges) && badges.length > 0 ? (
             <View pointerEvents="box-none" style={styles.badgeLayer}>
               {badges.map((badge, index) => (
                 <CardBadge
-                  key={
-                    badge.id ||
-                    badge.key ||
-                    `${badge.position || "topLeft"}-${index}`
-                  }
+                  key={badge?.id || badge?.key || `badge-${index}`}
                   badge={badge}
                   index={index}
-                  gap={badgeGap}
+                  badgeGap={badgeGap}
                   defaultStyle={badgeStyle}
                   defaultTextStyle={badgeTextStyle}
                   defaultContainerStyle={badgeContainerStyle}
@@ -329,7 +352,11 @@ function UICardComponent({
         </View>
       ) : null}
 
-      {renderBody ? (
+      {/* ------------------------------------------ */}
+      {/* BODY */}
+      {/* ------------------------------------------ */}
+
+      {hasBody ? (
         <View
           style={[
             styles.body,
@@ -340,29 +367,25 @@ function UICardComponent({
             },
           ]}
         >
+          {/* HEADER */}
+
           {header ? (
             <View style={[styles.header, headerStyle]}>{header}</View>
           ) : null}
+
+          {/* CONTENT */}
 
           {content ? (
             <View style={[styles.content, contentStyle]}>{content}</View>
           ) : null}
 
+          {/* CHILDREN */}
+
           {children ? (
-            <View
-              style={[
-                styles.content,
-
-                contentStyle,
-
-                {
-                  marginTop: header || content ? 0 : undefined,
-                },
-              ]}
-            >
-              {children}
-            </View>
+            <View style={[styles.content, contentStyle]}>{children}</View>
           ) : null}
+
+          {/* FOOTER */}
 
           {footer ? (
             <View style={[styles.footer, footerStyle]}>{footer}</View>
@@ -370,11 +393,16 @@ function UICardComponent({
         </View>
       ) : null}
 
+      {/* ------------------------------------------ */}
+      {/* LOADING */}
+      {/* ------------------------------------------ */}
+
       {loading ? (
         <View
           pointerEvents="none"
           style={[
             styles.loadingOverlay,
+
             {
               borderRadius: radiusValue,
             },
@@ -389,6 +417,10 @@ function UICardComponent({
     </>
   );
 
+  /*
+   * Non-pressable card
+   */
+
   if (!pressable) {
     return (
       <Animated.View
@@ -401,6 +433,10 @@ function UICardComponent({
       </Animated.View>
     );
   }
+
+  /*
+   * Pressable card
+   */
 
   return (
     <Animated.View {...props} testID={testID} style={cardStyle}>
@@ -426,28 +462,34 @@ function UICardComponent({
   );
 }
 
-/*
- * --------------------------------------------------
- * CARD BADGE
- * --------------------------------------------------
- */
+/* ================================================= */
+/* CARD BADGE                                        */
+/* ================================================= */
 
 const CardBadge = memo(function CardBadge({
   badge,
   index,
-  gap,
+  badgeGap,
+
   defaultStyle,
   defaultTextStyle,
   defaultContainerStyle,
+
   colors,
 }) {
-  const position = BADGE_POSITIONS[badge.position] ? badge.position : "topLeft";
+  if (!badge) {
+    return null;
+  }
+
+  const position = BADGE_POSITIONS[badge.position]
+    ? badge.position
+    : BADGE_POSITIONS.topLeft;
 
   const badgeColors = getBadgeColors(badge, colors);
 
-  const positionStyle = getBadgePosition(position, index, gap);
+  const positionStyle = getBadgePosition(position, index, badgeGap);
 
-  const badgeContent = badge.content ?? badge.label ?? badge.text ?? "";
+  const label = badge.label ?? badge.text ?? badge.content ?? "";
 
   return (
     <View
@@ -458,11 +500,13 @@ const CardBadge = memo(function CardBadge({
         positionStyle,
 
         {
-          backgroundColor: badgeColors.background,
+          backgroundColor: badge.backgroundColor || badgeColors.background,
 
-          borderColor: badgeColors.border,
+          borderColor: badge.borderColor || badgeColors.border,
 
-          borderWidth: badgeColors.borderWidth,
+          borderWidth: badge.borderWidth ?? badgeColors.borderWidth,
+
+          borderRadius: badge.borderRadius ?? 999,
         },
 
         defaultStyle,
@@ -472,16 +516,29 @@ const CardBadge = memo(function CardBadge({
         defaultContainerStyle,
       ]}
     >
-      {badge.icon ? <View style={styles.badgeIcon}>{badge.icon}</View> : null}
+      {badge.icon ? (
+        <View
+          style={[
+            styles.badgeIcon,
 
-      {badgeContent ? (
+            {
+              marginRight: label ? 5 : 0,
+            },
+          ]}
+        >
+          {badge.icon}
+        </View>
+      ) : null}
+
+      {label !== "" ? (
         <Text
           numberOfLines={1}
+          ellipsizeMode="tail"
           style={[
             styles.badgeText,
 
             {
-              color: badgeColors.text,
+              color: badge.textColor || badgeColors.text,
 
               fontSize: badge.fontSize || 12,
 
@@ -495,7 +552,7 @@ const CardBadge = memo(function CardBadge({
             badge.textStyle,
           ]}
         >
-          {badgeContent}
+          {label}
         </Text>
       ) : null}
     </View>
@@ -504,11 +561,279 @@ const CardBadge = memo(function CardBadge({
 
 CardBadge.displayName = "CardBadge";
 
-/*
- * --------------------------------------------------
- * CARD COLORS
- * --------------------------------------------------
- */
+/* ================================================= */
+/* BADGE POSITIONING                                 */
+/* ================================================= */
+
+function getBadgePosition(position, index, gap) {
+  /*
+   * IMPORTANT:
+   *
+   * Each position has a fixed anchor.
+   *
+   * index only creates an offset for
+   * multiple badges using THE SAME
+   * position.
+   */
+
+  const offset = index * (32 + gap);
+
+  switch (position) {
+    /* -------------------------------------------- */
+    /* TOP LEFT                                     */
+    /* -------------------------------------------- */
+
+    case BADGE_POSITIONS.topLeft:
+      return {
+        top: 12,
+
+        left: 12 + offset,
+      };
+
+    /* -------------------------------------------- */
+    /* TOP CENTER                                   */
+    /* -------------------------------------------- */
+
+    case BADGE_POSITIONS.topCenter:
+      return {
+        top: 12,
+
+        left: "50%",
+
+        transform: [
+          {
+            translateX: -50,
+          },
+        ],
+      };
+
+    /* -------------------------------------------- */
+    /* TOP RIGHT                                    */
+    /* -------------------------------------------- */
+
+    case BADGE_POSITIONS.topRight:
+      return {
+        top: 12,
+
+        right: 12 + offset,
+      };
+
+    /* -------------------------------------------- */
+    /* CENTER LEFT                                  */
+    /* -------------------------------------------- */
+
+    case BADGE_POSITIONS.centerLeft:
+      return {
+        left: 12,
+
+        top: "50%",
+
+        transform: [
+          {
+            translateY: -50,
+          },
+        ],
+      };
+
+    /* -------------------------------------------- */
+    /* CENTER                                       */
+    /* -------------------------------------------- */
+
+    case BADGE_POSITIONS.center:
+      return {
+        left: "50%",
+
+        top: "50%",
+
+        transform: [
+          {
+            translateX: -50,
+          },
+
+          {
+            translateY: -50,
+          },
+        ],
+      };
+
+    /* -------------------------------------------- */
+    /* CENTER RIGHT                                 */
+    /* -------------------------------------------- */
+
+    case BADGE_POSITIONS.centerRight:
+      return {
+        right: 12,
+
+        top: "50%",
+
+        transform: [
+          {
+            translateY: -50,
+          },
+        ],
+      };
+
+    /* -------------------------------------------- */
+    /* BOTTOM LEFT                                  */
+    /* -------------------------------------------- */
+
+    case BADGE_POSITIONS.bottomLeft:
+      return {
+        bottom: 12,
+
+        left: 12 + offset,
+      };
+
+    /* -------------------------------------------- */
+    /* BOTTOM CENTER                                */
+    /* -------------------------------------------- */
+
+    case BADGE_POSITIONS.bottomCenter:
+      return {
+        bottom: 12,
+
+        left: "50%",
+
+        transform: [
+          {
+            translateX: -50,
+          },
+        ],
+      };
+
+    /* -------------------------------------------- */
+    /* BOTTOM RIGHT                                 */
+    /* -------------------------------------------- */
+
+    case BADGE_POSITIONS.bottomRight:
+      return {
+        bottom: 12,
+
+        right: 12 + offset,
+      };
+
+    default:
+      return {
+        top: 12,
+
+        left: 12,
+      };
+  }
+}
+
+/* ================================================= */
+/* BADGE COLORS                                     */
+/* ================================================= */
+
+function getBadgeColors(badge, colors) {
+  const variant = badge.variant || badge.type || "primary";
+
+  switch (variant) {
+    case "success":
+      return {
+        background: colors.success || FALLBACK_COLORS.success,
+
+        border: colors.success || FALLBACK_COLORS.success,
+
+        borderWidth: 0,
+
+        text: colors.onSuccess || FALLBACK_COLORS.white,
+      };
+
+    case "danger":
+      return {
+        background: colors.danger || FALLBACK_COLORS.danger,
+
+        border: colors.danger || FALLBACK_COLORS.danger,
+
+        borderWidth: 0,
+
+        text: colors.onDanger || FALLBACK_COLORS.white,
+      };
+
+    case "warning":
+      return {
+        background: colors.warning || FALLBACK_COLORS.warning,
+
+        border: colors.warning || FALLBACK_COLORS.warning,
+
+        borderWidth: 0,
+
+        text: colors.onWarning || FALLBACK_COLORS.white,
+      };
+
+    case "info":
+      return {
+        background: colors.info || FALLBACK_COLORS.info,
+
+        border: colors.info || FALLBACK_COLORS.info,
+
+        borderWidth: 0,
+
+        text: colors.onInfo || FALLBACK_COLORS.white,
+      };
+
+    case "soft":
+      return {
+        background: colors.primarySoft || FALLBACK_COLORS.primarySoft,
+
+        border: "transparent",
+
+        borderWidth: 0,
+
+        text: colors.primary || FALLBACK_COLORS.primary,
+      };
+
+    case "secondary":
+      return {
+        background: colors.secondary || "#7CFF32",
+
+        border: colors.secondary || "#7CFF32",
+
+        borderWidth: 0,
+
+        text: colors.onSecondary || FALLBACK_COLORS.black,
+      };
+
+    case "neutral":
+      return {
+        background: colors.surface || FALLBACK_COLORS.surface,
+
+        border: colors.border || FALLBACK_COLORS.border,
+
+        borderWidth: 1,
+
+        text: colors.textSecondary || FALLBACK_COLORS.textSecondary,
+      };
+
+    case "custom":
+      return {
+        background: badge.backgroundColor || FALLBACK_COLORS.primary,
+
+        border: badge.borderColor || "transparent",
+
+        borderWidth: badge.borderWidth ?? 0,
+
+        text: badge.textColor || FALLBACK_COLORS.white,
+      };
+
+    case "primary":
+    default:
+      return {
+        background: colors.primary || FALLBACK_COLORS.primary,
+
+        border: colors.primary || FALLBACK_COLORS.primary,
+
+        borderWidth: 0,
+
+        text: colors.onPrimary || FALLBACK_COLORS.white,
+      };
+  }
+}
+
+/* ================================================= */
+/* CARD COLORS                                      */
+/* ================================================= */
 
 function getCardColors(variant, colors) {
   const background = colors.card || colors.surface || FALLBACK_COLORS.card;
@@ -563,207 +888,9 @@ function getCardColors(variant, colors) {
   }
 }
 
-/*
- * --------------------------------------------------
- * BADGE COLORS
- * --------------------------------------------------
- */
-
-function getBadgeColors(badge, colors) {
-  const type = badge.variant || badge.type || "primary";
-
-  switch (type) {
-    case "success":
-      return {
-        background:
-          badge.backgroundColor || colors.success || FALLBACK_COLORS.success,
-
-        border: badge.borderColor || colors.success || FALLBACK_COLORS.success,
-
-        borderWidth: badge.borderWidth ?? 0,
-
-        text: badge.textColor || colors.onSuccess || FALLBACK_COLORS.white,
-      };
-
-    case "danger":
-      return {
-        background:
-          badge.backgroundColor || colors.danger || FALLBACK_COLORS.danger,
-
-        border: badge.borderColor || colors.danger || FALLBACK_COLORS.danger,
-
-        borderWidth: badge.borderWidth ?? 0,
-
-        text: badge.textColor || colors.onDanger || FALLBACK_COLORS.white,
-      };
-
-    case "warning":
-      return {
-        background:
-          badge.backgroundColor || colors.warning || FALLBACK_COLORS.warning,
-
-        border: badge.borderColor || colors.warning || FALLBACK_COLORS.warning,
-
-        borderWidth: badge.borderWidth ?? 0,
-
-        text: badge.textColor || colors.onWarning || FALLBACK_COLORS.white,
-      };
-
-    case "info":
-      return {
-        background:
-          badge.backgroundColor || colors.info || FALLBACK_COLORS.info,
-
-        border: badge.borderColor || colors.info || FALLBACK_COLORS.info,
-
-        borderWidth: badge.borderWidth ?? 0,
-
-        text: badge.textColor || colors.onInfo || FALLBACK_COLORS.white,
-      };
-
-    case "soft":
-      return {
-        background:
-          badge.backgroundColor ||
-          colors.primarySoft ||
-          FALLBACK_COLORS.primarySoft,
-
-        border: badge.borderColor || "transparent",
-
-        borderWidth: badge.borderWidth ?? 0,
-
-        text: badge.textColor || colors.primary || FALLBACK_COLORS.primary,
-      };
-
-    case "custom":
-      return {
-        background: badge.backgroundColor || FALLBACK_COLORS.primary,
-
-        border: badge.borderColor || "transparent",
-
-        borderWidth: badge.borderWidth ?? 0,
-
-        text: badge.textColor || FALLBACK_COLORS.white,
-      };
-
-    case "primary":
-    default:
-      return {
-        background:
-          badge.backgroundColor || colors.primary || FALLBACK_COLORS.primary,
-
-        border: badge.borderColor || colors.primary || FALLBACK_COLORS.primary,
-
-        borderWidth: badge.borderWidth ?? 0,
-
-        text: badge.textColor || colors.onPrimary || FALLBACK_COLORS.white,
-      };
-  }
-}
-
-/*
- * --------------------------------------------------
- * BADGE POSITION
- * --------------------------------------------------
- */
-
-function getBadgePosition(position, index, gap) {
-  const offset = index * (28 + gap);
-
-  switch (position) {
-    case BADGE_POSITIONS.topCenter:
-      return {
-        top: 12 + offset,
-
-        alignSelf: "center",
-      };
-
-    case BADGE_POSITIONS.topRight:
-      return {
-        top: 12 + offset,
-
-        right: 12,
-      };
-
-    case BADGE_POSITIONS.centerLeft:
-      return {
-        left: 12 + offset,
-
-        top: "50%",
-
-        transform: [
-          {
-            translateY: -12,
-          },
-        ],
-      };
-
-    case BADGE_POSITIONS.center:
-      return {
-        top: "50%",
-
-        left: "50%",
-
-        transform: [
-          {
-            translateX: -50,
-          },
-
-          {
-            translateY: -12,
-          },
-        ],
-      };
-
-    case BADGE_POSITIONS.centerRight:
-      return {
-        right: 12 + offset,
-
-        top: "50%",
-
-        transform: [
-          {
-            translateY: -12,
-          },
-        ],
-      };
-
-    case BADGE_POSITIONS.bottomLeft:
-      return {
-        bottom: 12,
-
-        left: 12 + offset,
-      };
-
-    case BADGE_POSITIONS.bottomCenter:
-      return {
-        bottom: 12 + offset,
-
-        alignSelf: "center",
-      };
-
-    case BADGE_POSITIONS.bottomRight:
-      return {
-        bottom: 12,
-
-        right: 12 + offset,
-      };
-
-    case BADGE_POSITIONS.topLeft:
-    default:
-      return {
-        top: 12 + offset,
-
-        left: 12,
-      };
-  }
-}
-
-/*
- * --------------------------------------------------
- * RADIUS
- * --------------------------------------------------
- */
+/* ================================================= */
+/* RADIUS                                           */
+/* ================================================= */
 
 function getRadiusValue(radius, theme) {
   const themeRadius = theme?.radius || {};
@@ -786,6 +913,10 @@ function getRadiusValue(radius, theme) {
       return themeRadius.lg ?? 16;
   }
 }
+
+/* ================================================= */
+/* STYLES                                           */
+/* ================================================= */
 
 const styles = StyleSheet.create({
   card: {
@@ -817,27 +948,32 @@ const styles = StyleSheet.create({
   imageOverlay: {
     ...StyleSheet.absoluteFillObject,
 
-    justifyContent: "center",
-
-    alignItems: "center",
+    zIndex: 5,
   },
 
+  /*
+   * This is the key fix.
+   *
+   * The badge layer fills the complete
+   * image section and does not participate
+   * in normal layout.
+   */
   badgeLayer: {
     ...StyleSheet.absoluteFillObject,
 
-    pointerEvents: "box-none",
+    zIndex: 20,
+
+    elevation: 20,
   },
 
   badge: {
     position: "absolute",
 
-    minHeight: 26,
+    minHeight: 28,
 
     paddingHorizontal: 10,
 
     paddingVertical: 5,
-
-    borderRadius: 999,
 
     flexDirection: "row",
 
@@ -845,11 +981,13 @@ const styles = StyleSheet.create({
 
     justifyContent: "center",
 
-    maxWidth: "80%",
+    maxWidth: "75%",
 
-    zIndex: 10,
+    zIndex: 30,
 
-    elevation: 3,
+    elevation: 30,
+
+    overflow: "hidden",
   },
 
   badgeText: {
@@ -861,11 +999,11 @@ const styles = StyleSheet.create({
   },
 
   badgeIcon: {
-    marginRight: 5,
-
     alignItems: "center",
 
     justifyContent: "center",
+
+    flexShrink: 0,
   },
 
   body: {
@@ -901,6 +1039,7 @@ const styles = StyleSheet.create({
 
     shadowOffset: {
       width: 0,
+
       height: 4,
     },
 
