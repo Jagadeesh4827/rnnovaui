@@ -93,3 +93,4 @@ export {
   UIRadioGroupOrientations,
   UIRadioGroupSizes,
 } from "./RadioGroup";
+export { UISlider, UISliderSizes, UISliderOrientations } from "./Slider";

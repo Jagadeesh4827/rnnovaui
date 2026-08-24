@@ -102,4 +102,7 @@ export {
   UIRadioOption,
   UIRadioGroupOrientations,
   UIRadioGroupSizes,
+  UISlider,
+  UISliderSizes,
+  UISliderOrientations,
 } from "./components";
