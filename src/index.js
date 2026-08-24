@@ -63,8 +63,6 @@ export {
   UISelectVariants,
   UIToast,
   UIToastVariants,
-  UIToastPositions,
-  UIToastSizes,
   UIToastProvider,
   useUIToast,
   UIBadge,
@@ -112,4 +110,9 @@ export {
   UISpinner,
   UISpinnerSizes,
   UISpinnerLabelPositions,
+  UIAlert,
+  UIAlertVariants,
+  UIAlertSizes,
+  UIAlertStyles,
+  UIAlertPositions,
 } from "./components";

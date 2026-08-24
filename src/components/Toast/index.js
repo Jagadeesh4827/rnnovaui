@@ -1,8 +1,3 @@
-export {
-  UIToast,
-  UIToastVariants,
-  UIToastPositions,
-  UIToastSizes,
-} from "./UIToast";
+export { default as UIToast, UIToastVariants } from "./UIToast";
 
 export { UIToastProvider, useUIToast } from "./UIToastProvider";

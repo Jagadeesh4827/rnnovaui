@@ -43,14 +43,7 @@ export {
   UISeparatorSizes,
 } from "./Separator";
 export { UISelect, UISelectSizes, UISelectVariants } from "./Select";
-export {
-  UIToast,
-  UIToastVariants,
-  UIToastPositions,
-  UIToastSizes,
-  UIToastProvider,
-  useUIToast,
-} from "./Toast";
+export { UIToast, UIToastVariants, UIToastProvider, useUIToast } from "./Toast";
 export {
   UIBadge,
   UIBadgeVariants,
@@ -102,3 +95,10 @@ export {
   UIProgressStatuses,
 } from "./Progress";
 export { UISpinner, UISpinnerSizes, UISpinnerLabelPositions } from "./Spinner";
+export {
+  UIAlert,
+  UIAlertVariants,
+  UIAlertSizes,
+  UIAlertStyles,
+  UIAlertPositions,
+} from "./Alert";

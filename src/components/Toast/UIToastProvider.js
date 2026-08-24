@@ -7,141 +7,204 @@ import React, {
   useState,
 } from "react";
 
-import { StyleSheet, View } from "react-native";
+import { Animated, StyleSheet, View } from "react-native";
 
-import { UIToast } from "./UIToast";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-const ToastContext = createContext(null);
+import UIToast from "./UIToast";
+
+const UIToastContext = createContext(null);
 
 const DEFAULT_MAX_TOASTS = 3;
 
-let toastIdCounter = 0;
-
-function createToastId() {
-  toastIdCounter += 1;
-
-  return `ui-toast-${Date.now()}-${toastIdCounter}`;
-}
-
-function UIToastProvider({
+export function UIToastProvider({
   children,
+
+  position = "top",
+
   maxToasts = DEFAULT_MAX_TOASTS,
-  defaultDuration = 3000,
+
+  duration = 3000,
+
+  animationDuration = 220,
+
+  offset = 12,
+
+  useSafeArea = true,
+
+  topOffset = 0,
+
+  bottomOffset = 0,
 }) {
   const [toasts, setToasts] = useState([]);
 
-  const mountedRef = useRef(true);
+  const timers = useRef(new Map()).current;
 
-  const timersRef = useRef(new Map());
+  const insets = useSafeAreaInsets();
 
-  const removeToast = useCallback((id) => {
-    const timer = timersRef.current.get(id);
+  const removeToast = useCallback(
+    (id) => {
+      setToasts((current) => current.filter((item) => item.id !== id));
 
-    if (timer) {
-      clearTimeout(timer);
+      const timer = timers.get(id);
 
-      timersRef.current.delete(id);
-    }
-
-    if (!mountedRef.current) {
-      return;
-    }
-
-    setToasts((previous) => previous.filter((toast) => toast.id !== id));
-  }, []);
-
-  const scheduleDismiss = useCallback(
-    (id, duration) => {
-      if (!duration || duration <= 0) {
-        return;
+      if (timer) {
+        clearTimeout(timer);
+        timers.delete(id);
       }
-
-      const existingTimer = timersRef.current.get(id);
-
-      if (existingTimer) {
-        clearTimeout(existingTimer);
-      }
-
-      const timer = setTimeout(() => {
-        timersRef.current.delete(id);
-
-        removeToast(id);
-      }, duration);
-
-      timersRef.current.set(id, timer);
     },
-    [removeToast],
+    [timers],
   );
 
-  const showToast = useCallback(
+  const addToast = useCallback(
     (options = {}) => {
-      const id = options.id || createToastId();
-
-      const duration =
-        options.duration !== undefined ? options.duration : defaultDuration;
+      const id =
+        options.id || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
       const toast = {
-        ...options,
-
         id,
 
-        visible: true,
+        variant: options.variant || "info",
 
-        duration,
+        title: options.title,
+
+        description: options.description,
+
+        message: options.message,
+
+        icon: options.icon,
+
+        size: options.size || "md",
+
+        duration: options.duration ?? duration,
+
+        action: options.action,
+
+        actionLabel: options.actionLabel,
+
+        onAction: options.onAction,
+
+        closeable: options.closeable ?? true,
+
+        onClose: options.onClose,
+
+        disabled: options.disabled ?? false,
+
+        backgroundColor: options.backgroundColor,
+
+        accentColor: options.accentColor,
+
+        textColor: options.textColor,
+
+        descriptionColor: options.descriptionColor,
+
+        iconColor: options.iconColor,
+
+        actionColor: options.actionColor,
+
+        closeColor: options.closeColor,
+
+        style: options.style,
+
+        contentStyle: options.contentStyle,
+
+        titleStyle: options.titleStyle,
+
+        descriptionStyle: options.descriptionStyle,
+
+        iconStyle: options.iconStyle,
+
+        actionStyle: options.actionStyle,
+
+        closeStyle: options.closeStyle,
+
+        autoDismissOnAction: options.autoDismissOnAction,
       };
 
-      setToasts((previous) => {
-        const filtered = previous.filter((item) => item.id !== id);
+      setToasts((current) => {
+        const next = [...current, toast];
 
-        const next = [...filtered, toast];
-
-        if (next.length <= maxToasts) {
-          return next;
-        }
-
-        const removed = next.slice(0, next.length - maxToasts);
-
-        removed.forEach((item) => {
-          const timer = timersRef.current.get(item.id);
-
-          if (timer) {
-            clearTimeout(timer);
-
-            timersRef.current.delete(item.id);
-          }
-        });
-
-        return next.slice(-maxToasts);
+        return next.slice(-Math.max(1, maxToasts));
       });
 
-      scheduleDismiss(id, duration);
+      const toastDuration = Number(toast.duration);
+
+      if (toastDuration > 0) {
+        const timer = setTimeout(() => {
+          removeToast(id);
+        }, toastDuration);
+
+        timers.set(id, timer);
+      }
 
       return id;
     },
-    [defaultDuration, maxToasts, scheduleDismiss],
+    [duration, maxToasts, removeToast, timers],
   );
 
-  const updateToast = useCallback(
-    (id, updates = {}) => {
-      setToasts((previous) =>
-        previous.map((toast) =>
-          toast.id === id
-            ? {
-                ...toast,
-                ...updates,
-              }
-            : toast,
-        ),
-      );
-
-      if (updates.duration !== undefined) {
-        scheduleDismiss(id, updates.duration);
-      }
+  const show = useCallback(
+    (options) => {
+      return addToast(options);
     },
-    [scheduleDismiss],
+    [addToast],
   );
 
-  const dismissToast = useCallback(
+  const success = useCallback(
+    (message, options = {}) => {
+      return addToast({
+        ...options,
+        variant: "success",
+        description: message,
+      });
+    },
+    [addToast],
+  );
+
+  const error = useCallback(
+    (message, options = {}) => {
+      return addToast({
+        ...options,
+        variant: "error",
+        description: message,
+      });
+    },
+    [addToast],
+  );
+
+  const warning = useCallback(
+    (message, options = {}) => {
+      return addToast({
+        ...options,
+        variant: "warning",
+        description: message,
+      });
+    },
+    [addToast],
+  );
+
+  const info = useCallback(
+    (message, options = {}) => {
+      return addToast({
+        ...options,
+        variant: "info",
+        description: message,
+      });
+    },
+    [addToast],
+  );
+
+  const neutral = useCallback(
+    (message, options = {}) => {
+      return addToast({
+        ...options,
+        variant: "neutral",
+        description: message,
+      });
+    },
+    [addToast],
+  );
+
+  const dismiss = useCallback(
     (id) => {
       removeToast(id);
     },
@@ -149,180 +212,102 @@ function UIToastProvider({
   );
 
   const dismissAll = useCallback(() => {
-    timersRef.current.forEach((timer) => {
+    setToasts([]);
+
+    timers.forEach((timer) => {
       clearTimeout(timer);
     });
 
-    timersRef.current.clear();
-
-    setToasts([]);
-  }, []);
-
-  const success = useCallback(
-    (message, options = {}) => {
-      return showToast({
-        ...options,
-
-        message,
-
-        variant: "success",
-      });
-    },
-    [showToast],
-  );
-
-  const error = useCallback(
-    (message, options = {}) => {
-      return showToast({
-        ...options,
-
-        message,
-
-        variant: "danger",
-      });
-    },
-    [showToast],
-  );
-
-  const warning = useCallback(
-    (message, options = {}) => {
-      return showToast({
-        ...options,
-
-        message,
-
-        variant: "warning",
-      });
-    },
-    [showToast],
-  );
-
-  const info = useCallback(
-    (message, options = {}) => {
-      return showToast({
-        ...options,
-
-        message,
-
-        variant: "info",
-      });
-    },
-    [showToast],
-  );
-
-  const primary = useCallback(
-    (message, options = {}) => {
-      return showToast({
-        ...options,
-
-        message,
-
-        variant: "primary",
-      });
-    },
-    [showToast],
-  );
-
-  const toast = useCallback(
-    (message, options = {}) => {
-      return showToast({
-        ...options,
-
-        message,
-
-        variant: options.variant || "default",
-      });
-    },
-    [showToast],
-  );
-
-  /*
-   * Cleanup timers when
-   * provider unmounts.
-   */
-  React.useEffect(() => {
-    mountedRef.current = true;
-
-    return () => {
-      mountedRef.current = false;
-
-      timersRef.current.forEach((timer) => {
-        clearTimeout(timer);
-      });
-
-      timersRef.current.clear();
-    };
-  }, []);
+    timers.clear();
+  }, [timers]);
 
   const contextValue = useMemo(
     () => ({
-      toasts,
-
-      showToast,
-
-      updateToast,
-
-      dismissToast,
-
-      dismissAll,
-
-      toast,
+      show,
 
       success,
-
       error,
-
       warning,
-
       info,
+      neutral,
 
-      primary,
+      dismiss,
+      dismissAll,
     }),
-    [
-      toasts,
-      showToast,
-      updateToast,
-      dismissToast,
-      dismissAll,
-      toast,
-      success,
-      error,
-      warning,
-      info,
-      primary,
-    ],
+    [show, success, error, warning, info, neutral, dismiss, dismissAll],
   );
 
+  const topInset = useSafeArea ? insets.top : 0;
+
+  const bottomInset = useSafeArea ? insets.bottom : 0;
+
+  const containerPosition =
+    position === "bottom"
+      ? {
+          bottom: bottomInset + bottomOffset + offset,
+        }
+      : {
+          top: topInset + topOffset + offset,
+        };
+
   return (
-    <ToastContext.Provider value={contextValue}>
+    <UIToastContext.Provider value={contextValue}>
       {children}
 
-      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
-    </ToastContext.Provider>
+      <View
+        pointerEvents="box-none"
+        style={[
+          styles.container,
+
+          containerPosition,
+
+          position === "bottom" ? styles.bottom : styles.top,
+        ]}
+      >
+        {toasts.map((toast) => (
+          <ToastItem
+            key={toast.id}
+            toast={toast}
+            animationDuration={animationDuration}
+            onDismiss={() => removeToast(toast.id)}
+          />
+        ))}
+      </View>
+    </UIToastContext.Provider>
   );
 }
 
-function ToastContainer({ toasts, onDismiss }) {
-  /*
-   * Keep toast rendering
-   * outside the main application
-   * layout.
-   */
+function ToastItem({ toast, animationDuration, onDismiss }) {
+  const animatedValue = useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.spring(animatedValue, {
+      toValue: 1,
+
+      friction: 8,
+
+      tension: 80,
+
+      useNativeDriver: true,
+    }).start();
+
+    return () => {
+      animatedValue.stopAnimation();
+    };
+  }, [animatedValue]);
+
   return (
-    <View pointerEvents="box-none" style={styles.container}>
-      {toasts.map((toast) => (
-        <UIToast
-          key={toast.id}
-          {...toast}
-          onDismiss={() => onDismiss(toast.id)}
-        />
-      ))}
-    </View>
+    <UIToast
+      toast={toast}
+      animatedValue={animatedValue}
+      animationDuration={animationDuration}
+      onDismiss={onDismiss}
+    />
   );
 }
 
 export function useUIToast() {
-  const context = useContext(ToastContext);
+  const context = useContext(UIToastContext);
 
   if (!context) {
     throw new Error("useUIToast must be used inside UIToastProvider.");
@@ -331,35 +316,25 @@ export function useUIToast() {
   return context;
 }
 
-/*
- * IMPORTANT:
- * Named export.
- *
- * This prevents:
- *
- * Cannot read property
- * 'displayName' of undefined
- */
-export { UIToastProvider };
-
-export default UIToastProvider;
-
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
 
-    top: 0,
-
-    right: 0,
-
-    bottom: 0,
-
-    left: 0,
+    left: 12,
+    right: 12,
 
     zIndex: 99999,
 
-    elevation: 99999,
+    elevation: 999,
 
     pointerEvents: "box-none",
+  },
+
+  top: {
+    flexDirection: "column",
+  },
+
+  bottom: {
+    flexDirection: "column-reverse",
   },
 });
