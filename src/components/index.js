@@ -87,3 +87,9 @@ export {
   UIAutocompletePlacements,
 } from "./Autocomplete";
 export { UICombobox, UIComboboxSizes, UIComboboxVariants } from "./Combobox";
+export {
+  UIRadioGroup,
+  UIRadioOption,
+  UIRadioGroupOrientations,
+  UIRadioGroupSizes,
+} from "./RadioGroup";

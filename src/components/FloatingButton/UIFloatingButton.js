@@ -5,7 +5,6 @@ import React, {
   useEffect,
   useMemo,
   useRef,
-  useState,
 } from "react";
 
 import {
@@ -71,10 +70,15 @@ const FALLBACK_COLORS = {
   primary: "#FF5A1F",
   primaryPressed: "#E94D17",
 
+  primarySoft: "#FFF0EA",
+
   secondary: "#7CFF32",
+  secondarySoft: "#F0FFE7",
 
   success: "#16A34A",
+  warning: "#D97706",
   danger: "#DC2626",
+  info: "#2563EB",
 
   background: "#FFFFFF",
   surface: "#F8F8F8",
@@ -82,8 +86,10 @@ const FALLBACK_COLORS = {
 
   text: "#111111",
   textSecondary: "#525252",
+  textMuted: "#737373",
 
   border: "#E5E5E5",
+  borderStrong: "#D4D4D4",
 
   onPrimary: "#FFFFFF",
   onSecondary: "#111111",
@@ -123,7 +129,7 @@ function getSafeActions(actions) {
 
 function getVariantColors(variant, colors) {
   switch (variant) {
-    case "secondary":
+    case UIFloatingButtonVariants.secondary:
       return {
         backgroundColor: colors.secondary || "#7CFF32",
 
@@ -134,7 +140,7 @@ function getVariantColors(variant, colors) {
         borderWidth: 0,
       };
 
-    case "success":
+    case UIFloatingButtonVariants.success:
       return {
         backgroundColor: colors.success || "#16A34A",
 
@@ -145,7 +151,7 @@ function getVariantColors(variant, colors) {
         borderWidth: 0,
       };
 
-    case "danger":
+    case UIFloatingButtonVariants.danger:
       return {
         backgroundColor: colors.danger || "#DC2626",
 
@@ -156,7 +162,7 @@ function getVariantColors(variant, colors) {
         borderWidth: 0,
       };
 
-    case "neutral":
+    case UIFloatingButtonVariants.neutral:
       return {
         backgroundColor: colors.card || "#FFFFFF",
 
@@ -167,7 +173,7 @@ function getVariantColors(variant, colors) {
         borderWidth: 1,
       };
 
-    case "primary":
+    case UIFloatingButtonVariants.primary:
     default:
       return {
         backgroundColor: colors.primary || "#FF5A1F",
@@ -182,12 +188,12 @@ function getVariantColors(variant, colors) {
 }
 
 /* ==========================================================================
-   SIZE
+   MAIN SIZE
 ========================================================================== */
 
 function getMainSize(size) {
   switch (size) {
-    case "sm":
+    case UIFloatingButtonSizes.sm:
       return {
         width: 44,
         height: 44,
@@ -195,7 +201,7 @@ function getMainSize(size) {
         fontSize: 13,
       };
 
-    case "lg":
+    case UIFloatingButtonSizes.lg:
       return {
         width: 64,
         height: 64,
@@ -203,7 +209,7 @@ function getMainSize(size) {
         fontSize: 16,
       };
 
-    case "md":
+    case UIFloatingButtonSizes.md:
     default:
       return {
         width: 54,
@@ -214,17 +220,31 @@ function getMainSize(size) {
   }
 }
 
+/* ==========================================================================
+   ACTION SIZE
+========================================================================== */
+
 function getActionSize(size, action) {
-  const defaultSize = size === "sm" ? 42 : size === "lg" ? 58 : 50;
+  const defaultSize =
+    size === UIFloatingButtonSizes.sm
+      ? 42
+      : size === UIFloatingButtonSizes.lg
+        ? 58
+        : 50;
 
-  const width = action.width ?? defaultSize;
+  const width = action.width !== undefined ? action.width : defaultSize;
 
-  const height = action.height ?? defaultSize;
+  const height = action.height !== undefined ? action.height : defaultSize;
+
+  const radius =
+    action.borderRadius !== undefined
+      ? action.borderRadius
+      : Math.min(width, height) / 2;
 
   return {
     width,
     height,
-    radius: action.borderRadius ?? Math.min(width, height) / 2,
+    radius,
   };
 }
 
@@ -234,25 +254,25 @@ function getActionSize(size, action) {
 
 function getPositionStyle(position, offset) {
   switch (position) {
-    case "bottomLeft":
+    case UIFloatingButtonPositions.bottomLeft:
       return {
         left: offset,
         bottom: offset,
       };
 
-    case "topLeft":
+    case UIFloatingButtonPositions.topLeft:
       return {
         left: offset,
         top: offset,
       };
 
-    case "topRight":
+    case UIFloatingButtonPositions.topRight:
       return {
         right: offset,
         top: offset,
       };
 
-    case "bottomRight":
+    case UIFloatingButtonPositions.bottomRight:
     default:
       return {
         right: offset,
@@ -262,32 +282,32 @@ function getPositionStyle(position, offset) {
 }
 
 /* ==========================================================================
-   STRAIGHT POSITION
+   STRAIGHT MENU POSITION
 ========================================================================== */
 
 function getStraightPosition(direction, index, itemSpacing) {
   const distance = (index + 1) * (50 + itemSpacing);
 
   switch (direction) {
-    case "down":
+    case UIFloatingButtonDirections.down:
       return {
         x: 0,
         y: distance,
       };
 
-    case "left":
+    case UIFloatingButtonDirections.left:
       return {
         x: -distance,
         y: 0,
       };
 
-    case "right":
+    case UIFloatingButtonDirections.right:
       return {
         x: distance,
         y: 0,
       };
 
-    case "up":
+    case UIFloatingButtonDirections.up:
     default:
       return {
         x: 0,
@@ -297,7 +317,7 @@ function getStraightPosition(direction, index, itemSpacing) {
 }
 
 /* ==========================================================================
-   CIRCULAR POSITION
+   CIRCULAR MENU POSITION
 ========================================================================== */
 
 function getCircularPosition(direction, index, count, radius, spread) {
@@ -309,31 +329,32 @@ function getCircularPosition(direction, index, count, radius, spread) {
   }
 
   if (count === 1) {
-    if (direction === "down") {
-      return {
-        x: 0,
-        y: radius,
-      };
-    }
+    switch (direction) {
+      case UIFloatingButtonDirections.down:
+        return {
+          x: 0,
+          y: radius,
+        };
 
-    if (direction === "left") {
-      return {
-        x: -radius,
-        y: 0,
-      };
-    }
+      case UIFloatingButtonDirections.left:
+        return {
+          x: -radius,
+          y: 0,
+        };
 
-    if (direction === "right") {
-      return {
-        x: radius,
-        y: 0,
-      };
-    }
+      case UIFloatingButtonDirections.right:
+        return {
+          x: radius,
+          y: 0,
+        };
 
-    return {
-      x: 0,
-      y: -radius,
-    };
+      case UIFloatingButtonDirections.up:
+      default:
+        return {
+          x: 0,
+          y: -radius,
+        };
+    }
   }
 
   const safeSpread = Math.max(10, Math.min(180, spread || 90));
@@ -345,19 +366,19 @@ function getCircularPosition(direction, index, count, radius, spread) {
   let angle = start + step * index;
 
   switch (direction) {
-    case "down":
+    case UIFloatingButtonDirections.down:
       angle += 90;
       break;
 
-    case "left":
+    case UIFloatingButtonDirections.left:
       angle += 180;
       break;
 
-    case "right":
+    case UIFloatingButtonDirections.right:
       angle += 0;
       break;
 
-    case "up":
+    case UIFloatingButtonDirections.up:
     default:
       angle += 270;
       break;
@@ -430,9 +451,28 @@ const FloatingActionItem = memo(function FloatingActionItem({
   actionTextStyle,
   actionIconStyle,
 }) {
+  /*
+   * IMPORTANT:
+   *
+   * Animated.Value itself is stored here.
+   * We NEVER use:
+   *
+   * animation.current
+   *
+   * because animation is already
+   * the Animated.Value.
+   */
+
   const animation = useRef(new Animated.Value(0)).current;
 
-  const pressed = useRef(new Animated.Value(1)).current;
+  /*
+   * Separate press animation.
+   */
+  const pressScale = useRef(new Animated.Value(1)).current;
+
+  /* ---------------------------------------------------------------------- */
+  /* ENTER ANIMATION                                                        */
+  /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -451,8 +491,14 @@ const FloatingActionItem = memo(function FloatingActionItem({
       clearTimeout(timer);
 
       animation.stopAnimation();
+
+      pressScale.stopAnimation();
     };
-  }, [animation, duration, index, staggerDelay]);
+  }, [animation, pressScale, duration, index, staggerDelay]);
+
+  /* ---------------------------------------------------------------------- */
+  /* POSITION                                                                */
+  /* ---------------------------------------------------------------------- */
 
   const position = useMemo(() => {
     if (menuType === UIFloatingButtonMenuTypes.circular) {
@@ -468,35 +514,57 @@ const FloatingActionItem = memo(function FloatingActionItem({
     return getStraightPosition(direction, index, itemSpacing);
   }, [menuType, direction, index, count, radius, circularSpread, itemSpacing]);
 
+  /* ---------------------------------------------------------------------- */
+  /* ACTION SIZE                                                             */
+  /* ---------------------------------------------------------------------- */
+
   const actionSize = getActionSize(size, action);
 
-  const backgroundColor = action.backgroundColor || colors.card || "#FFFFFF";
+  /* ---------------------------------------------------------------------- */
+  /* COLORS                                                                  */
+  /* ---------------------------------------------------------------------- */
 
-  const iconColor = action.iconColor || colors.text || "#111111";
+  const actionBackground = action.backgroundColor || colors.card || "#FFFFFF";
+
+  const actionIconColor = action.iconColor || colors.text || "#111111";
+
+  /* ---------------------------------------------------------------------- */
+  /* ANIMATION VALUES                                                        */
+  /* ---------------------------------------------------------------------- */
 
   const translateX = animation.interpolate({
     inputRange: [0, 1],
+
     outputRange: [0, position.x],
   });
 
   const translateY = animation.interpolate({
     inputRange: [0, 1],
+
     outputRange: [0, position.y],
   });
 
   const actionScale = animation.interpolate({
     inputRange: [0, 1],
+
     outputRange: [0.65, 1],
   });
 
   const opacity = animation.interpolate({
     inputRange: [0, 1],
+
     outputRange: [0, 1],
   });
 
-  const pressScale = pressed.current;
+  /* ---------------------------------------------------------------------- */
+  /* PRESS                                                                   */
+  /* ---------------------------------------------------------------------- */
 
-  const handlePressIn = () => {
+  const handlePressIn = useCallback(() => {
+    if (action.disabled || action.loading) {
+      return;
+    }
+
     Animated.spring(pressScale, {
       toValue: 0.9,
 
@@ -506,9 +574,9 @@ const FloatingActionItem = memo(function FloatingActionItem({
 
       useNativeDriver: true,
     }).start();
-  };
+  }, [action.disabled, action.loading, pressScale]);
 
-  const handlePressOut = () => {
+  const handlePressOut = useCallback(() => {
     Animated.spring(pressScale, {
       toValue: 1,
 
@@ -518,9 +586,13 @@ const FloatingActionItem = memo(function FloatingActionItem({
 
       useNativeDriver: true,
     }).start();
-  };
+  }, [pressScale]);
 
-  const handlePress = () => {
+  /* ---------------------------------------------------------------------- */
+  /* PRESS HANDLER                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  const handlePress = useCallback(() => {
     if (action.disabled || action.loading) {
       return;
     }
@@ -529,8 +601,14 @@ const FloatingActionItem = memo(function FloatingActionItem({
       action.onPress();
     }
 
-    onPress();
-  };
+    if (typeof onPress === "function") {
+      onPress(action);
+    }
+  }, [action, onPress]);
+
+  /* ---------------------------------------------------------------------- */
+  /* ACTION STYLE                                                            */
+  /* ---------------------------------------------------------------------- */
 
   const actionStyle = {
     width: actionSize.width,
@@ -539,7 +617,7 @@ const FloatingActionItem = memo(function FloatingActionItem({
 
     borderRadius: actionSize.radius,
 
-    backgroundColor,
+    backgroundColor: actionBackground,
 
     borderColor: action.borderColor || "transparent",
 
@@ -569,10 +647,22 @@ const FloatingActionItem = memo(function FloatingActionItem({
 
     marginLeft: action.marginLeft,
 
-    elevation: action.elevation ?? 4,
+    minWidth: action.minWidth,
+
+    minHeight: action.minHeight,
+
+    maxWidth: action.maxWidth,
+
+    maxHeight: action.maxHeight,
+
+    elevation: action.elevation !== undefined ? action.elevation : 4,
 
     opacity: action.disabled ? 0.5 : 1,
   };
+
+  /* ---------------------------------------------------------------------- */
+  /* RENDER                                                                  */
+  /* ---------------------------------------------------------------------- */
 
   return (
     <Animated.View
@@ -602,7 +692,9 @@ const FloatingActionItem = memo(function FloatingActionItem({
         style={[
           styles.actionRow,
 
-          direction === "left" ? styles.reverseRow : null,
+          direction === UIFloatingButtonDirections.left
+            ? styles.reverseRow
+            : null,
         ]}
       >
         {action.label ? (
@@ -636,13 +728,15 @@ const FloatingActionItem = memo(function FloatingActionItem({
         ) : null}
 
         <Animated.View
-          style={{
-            transform: [
-              {
-                scale: pressScale,
-              },
-            ],
-          }}
+          style={[
+            {
+              transform: [
+                {
+                  scale: pressScale,
+                },
+              ],
+            },
+          ]}
         >
           <Pressable
             disabled={Boolean(action.disabled) || Boolean(action.loading)}
@@ -656,7 +750,7 @@ const FloatingActionItem = memo(function FloatingActionItem({
             style={[styles.actionButton, actionStyle, action.style]}
           >
             {action.loading ? (
-              <LoadingIndicator color={iconColor} />
+              <LoadingIndicator color={actionIconColor} />
             ) : (
               <View
                 style={[styles.actionIcon, actionIconStyle, action.iconStyle]}
@@ -725,12 +819,15 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
 
     iconOnly = false,
 
+    /*
+     * Main button styles
+     */
     containerStyle,
     textStyle,
     iconStyle,
 
     /*
-     * WHOLE ACTION GROUP
+     * Whole floating action group
      */
     actionGroupStyle,
 
@@ -740,9 +837,15 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
     actionTextStyle,
     actionIconStyle,
 
+    /*
+     * Overlay
+     */
     overlay = false,
     overlayColor,
 
+    /*
+     * Main badge
+     */
     badge,
     badgeStyle,
     badgeTextStyle,
@@ -754,26 +857,54 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
   },
   ref,
 ) {
-  const context = useUITheme();
+  /* -------------------------------------------------------------------- */
+  /* THEME                                                                 */
+  /* -------------------------------------------------------------------- */
 
-  const colors = getColors(context);
+  const themeContext = useUITheme();
+
+  const colors = getColors(themeContext);
+
+  /* -------------------------------------------------------------------- */
+  /* SAFE ACTIONS                                                          */
+  /* -------------------------------------------------------------------- */
 
   const safeActions = useMemo(() => getSafeActions(actions), [actions]);
 
   const actionCount = safeActions.length;
 
-  const [open, setOpen] = useState(false);
+  /* -------------------------------------------------------------------- */
+  /* STATE                                                                 */
+  /* -------------------------------------------------------------------- */
+
+  const [open, setOpen] = React.useState(false);
+
+  /* -------------------------------------------------------------------- */
+  /* MAIN ANIMATION                                                        */
+  /* -------------------------------------------------------------------- */
 
   const mainScale = useRef(new Animated.Value(1)).current;
 
+  /* -------------------------------------------------------------------- */
+  /* GROUP ANIMATION                                                       */
+  /* -------------------------------------------------------------------- */
+
   const actionGroupAnimation = useRef(new Animated.Value(0)).current;
 
+  /* -------------------------------------------------------------------- */
+  /* SIZE                                                                  */
+  /* -------------------------------------------------------------------- */
+
   const mainSize = getMainSize(size);
+
+  /* -------------------------------------------------------------------- */
+  /* VARIANT                                                               */
+  /* -------------------------------------------------------------------- */
 
   const variantColors = getVariantColors(variant, colors);
 
   /* -------------------------------------------------------------------- */
-  /* MAIN PRESS ANIMATION                                                 */
+  /* MAIN ANIMATION HELPER                                                 */
   /* -------------------------------------------------------------------- */
 
   const animateMain = useCallback(
@@ -792,7 +923,7 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
   );
 
   /* -------------------------------------------------------------------- */
-  /* OPEN                                                                  */
+  /* OPEN MENU                                                             */
   /* -------------------------------------------------------------------- */
 
   const openMenu = useCallback(() => {
@@ -800,6 +931,11 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
       return;
     }
 
+    /*
+     * If expandable is used without
+     * actions, behave like a normal
+     * button.
+     */
     if (actionCount === 0) {
       if (typeof onPress === "function") {
         onPress();
@@ -809,6 +945,8 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
     }
 
     setOpen(true);
+
+    actionGroupAnimation.setValue(0);
 
     Animated.timing(actionGroupAnimation, {
       toValue: 1,
@@ -832,7 +970,7 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
   ]);
 
   /* -------------------------------------------------------------------- */
-  /* CLOSE                                                                 */
+  /* CLOSE MENU                                                            */
   /* -------------------------------------------------------------------- */
 
   const closeMenu = useCallback(() => {
@@ -852,7 +990,7 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
   }, [actionGroupAnimation, animationDuration, animateMain]);
 
   /* -------------------------------------------------------------------- */
-  /* PRESS                                                                 */
+  /* MAIN PRESS                                                            */
   /* -------------------------------------------------------------------- */
 
   const handlePress = useCallback(() => {
@@ -927,18 +1065,47 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
   const showTitle = !iconOnly && Boolean(resolvedTitle);
 
   /* -------------------------------------------------------------------- */
-  /* ACTION GROUP                                                          */
+  /* GROUP ANIMATION                                                       */
   /* -------------------------------------------------------------------- */
 
   const groupOpacity = actionGroupAnimation.interpolate({
     inputRange: [0, 1],
+
     outputRange: [0, 1],
   });
 
   const groupScale = actionGroupAnimation.interpolate({
     inputRange: [0, 1],
+
     outputRange: [0.9, 1],
   });
+
+  /* -------------------------------------------------------------------- */
+  /* MAIN BUTTON STYLE                                                     */
+  /* -------------------------------------------------------------------- */
+
+  const mainButtonStyle = {
+    width: showTitle ? undefined : mainSize.width,
+
+    minWidth: mainSize.width,
+
+    height: mainSize.height,
+
+    paddingHorizontal: showTitle ? 16 : 0,
+
+    borderRadius:
+      shape === UIFloatingButtonShapes.circle ? mainSize.radius : 14,
+
+    backgroundColor: variantColors.backgroundColor,
+
+    borderColor: variantColors.borderColor,
+
+    borderWidth: variantColors.borderWidth,
+
+    elevation,
+
+    opacity: disabled ? 0.5 : 1,
+  };
 
   /* -------------------------------------------------------------------- */
   /* RENDER                                                                */
@@ -946,6 +1113,10 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
 
   return (
     <>
+      {/* -------------------------------------------------------------- */}
+      {/* OVERLAY                                                          */}
+      {/* -------------------------------------------------------------- */}
+
       {overlay && open && actionCount > 0 ? (
         <Pressable
           style={[
@@ -960,10 +1131,18 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
         />
       ) : null}
 
+      {/* -------------------------------------------------------------- */}
+      {/* POSITION WRAPPER                                                 */}
+      {/* -------------------------------------------------------------- */}
+
       <View
         pointerEvents="box-none"
         style={[styles.positionWrapper, getPositionStyle(position, offset)]}
       >
+        {/* ------------------------------------------------------------ */}
+        {/* ACTION GROUP                                                  */}
+        {/* ------------------------------------------------------------ */}
+
         {expandable && open && actionCount > 0 ? (
           <Animated.View
             pointerEvents="box-none"
@@ -981,7 +1160,8 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
               },
 
               /*
-               * USER CUSTOM GROUP STYLE
+               * WHOLE ACTION GROUP
+               * CUSTOM STYLE
                */
               actionGroupStyle,
             ]}
@@ -1008,6 +1188,10 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
             ))}
           </Animated.View>
         ) : null}
+
+        {/* ------------------------------------------------------------ */}
+        {/* MAIN BUTTON                                                    */}
+        {/* ------------------------------------------------------------ */}
 
         <Animated.View
           style={[
@@ -1053,33 +1237,17 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
             style={[
               styles.mainButton,
 
-              {
-                width: showTitle ? undefined : mainSize.width,
-
-                minWidth: mainSize.width,
-
-                height: mainSize.height,
-
-                paddingHorizontal: showTitle ? 16 : 0,
-
-                borderRadius: shape === "circle" ? mainSize.radius : 14,
-
-                backgroundColor: variantColors.backgroundColor,
-
-                borderColor: variantColors.borderColor,
-
-                borderWidth: variantColors.borderWidth,
-
-                elevation,
-
-                opacity: disabled ? 0.5 : 1,
-              },
+              mainButtonStyle,
 
               shadow ? styles.shadow : null,
 
               containerStyle,
             ]}
           >
+            {/* -------------------------------------------------------- */}
+            {/* ICON                                                       */}
+            {/* -------------------------------------------------------- */}
+
             {mainIcon ? (
               <View
                 style={[
@@ -1095,6 +1263,10 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
                 {mainIcon}
               </View>
             ) : null}
+
+            {/* -------------------------------------------------------- */}
+            {/* TITLE                                                      */}
+            {/* -------------------------------------------------------- */}
 
             {showTitle ? (
               <Text
@@ -1115,6 +1287,10 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
               </Text>
             ) : null}
 
+            {/* -------------------------------------------------------- */}
+            {/* BADGE                                                      */}
+            {/* -------------------------------------------------------- */}
+
             {badge !== undefined && badge !== null ? (
               <View style={[styles.badge, badgeStyle]}>
                 <Text style={[styles.badgeText, badgeTextStyle]}>
@@ -1130,7 +1306,7 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
 });
 
 /* ==========================================================================
-   EXPORT
+   MEMO + EXPORT
 ========================================================================== */
 
 export const UIFloatingButton = memo(UIFloatingButtonComponent);
@@ -1245,12 +1421,10 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
-  /*
-   * WHOLE ACTION GROUP
-   *
-   * This is the wrapper around all floating
-   * action items.
-   */
+  /* -------------------------------------------------------------------- */
+  /* WHOLE ACTION GROUP                                                    */
+  /* -------------------------------------------------------------------- */
+
   actionGroup: {
     position: "absolute",
 
@@ -1262,6 +1436,10 @@ const styles = StyleSheet.create({
 
     zIndex: 1001,
   },
+
+  /* -------------------------------------------------------------------- */
+  /* ACTION ITEM                                                           */
+  /* -------------------------------------------------------------------- */
 
   actionItem: {
     position: "absolute",
@@ -1279,6 +1457,10 @@ const styles = StyleSheet.create({
   reverseRow: {
     flexDirection: "row-reverse",
   },
+
+  /* -------------------------------------------------------------------- */
+  /* ACTION LABEL                                                          */
+  /* -------------------------------------------------------------------- */
 
   actionLabel: {
     marginRight: 8,
@@ -1310,6 +1492,10 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
+  /* -------------------------------------------------------------------- */
+  /* ACTION BUTTON                                                         */
+  /* -------------------------------------------------------------------- */
+
   actionButton: {
     alignItems: "center",
 
@@ -1323,6 +1509,10 @@ const styles = StyleSheet.create({
 
     justifyContent: "center",
   },
+
+  /* -------------------------------------------------------------------- */
+  /* ACTION BADGE                                                          */
+  /* -------------------------------------------------------------------- */
 
   actionBadge: {
     position: "absolute",

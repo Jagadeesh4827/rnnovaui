@@ -98,4 +98,8 @@ export {
   UICombobox,
   UIComboboxSizes,
   UIComboboxVariants,
+  UIRadioGroup,
+  UIRadioOption,
+  UIRadioGroupOrientations,
+  UIRadioGroupSizes,
 } from "./components";
