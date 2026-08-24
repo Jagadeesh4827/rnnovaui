@@ -1,5 +1,5 @@
 export {
-  UIFloatingButton,
+  default as UIFloatingButton,
   UIFloatingButtonSizes,
   UIFloatingButtonVariants,
   UIFloatingButtonShapes,
