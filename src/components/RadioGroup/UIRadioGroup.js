@@ -34,21 +34,27 @@ const RADIO_GROUP_SIZES = {
 const RadioGroupContext = createContext(null);
 
 /* =========================================================
-   RADIO GROUP
+   UI RADIO GROUP
 ========================================================= */
 
 const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
   {
     children,
 
+    /* Value */
+
     value,
     defaultValue = null,
 
     onChange,
 
+    /* Label */
+
     label,
     helperText,
     errorText,
+
+    /* States */
 
     error = false,
     success = false,
@@ -56,11 +62,15 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
     required = false,
     disabled = false,
 
+    /* Layout */
+
     orientation = "vertical",
 
     size = "md",
 
     gap = 16,
+
+    /* Styles */
 
     style,
     labelStyle,
@@ -77,18 +87,38 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
 
   const colors = theme?.colors || {};
 
+  /* =====================================================
+       INTERNAL VALUE
+    ===================================================== */
+
   const [internalValue, setInternalValue] = useState(defaultValue);
 
   const isControlled = value !== undefined;
 
   const selectedValue = isControlled ? value : internalValue;
 
-  const resolvedOrientation =
-    orientation === "horizontal" ? "horizontal" : "vertical";
+  /* =====================================================
+       NORMALIZE OPTIONS
+    ===================================================== */
 
-  const resolvedSize = RADIO_GROUP_SIZES[size] ? size : "md";
+  const resolvedOrientation =
+    orientation === RADIO_GROUP_ORIENTATIONS.horizontal
+      ? RADIO_GROUP_ORIENTATIONS.horizontal
+      : RADIO_GROUP_ORIENTATIONS.vertical;
+
+  const resolvedSize = RADIO_GROUP_SIZES[size] ? size : RADIO_GROUP_SIZES.md;
+
+  /* =====================================================
+       STATES
+    ===================================================== */
 
   const hasError = Boolean(error || errorText);
+
+  const hasSuccess = Boolean(success && !hasError);
+
+  /* =====================================================
+       CHANGE HANDLER
+    ===================================================== */
 
   const handleChange = useCallback(
     (nextValue) => {
@@ -96,14 +126,28 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
         return;
       }
 
+      /*
+       * Uncontrolled
+       */
+
       if (!isControlled) {
         setInternalValue(nextValue);
       }
 
-      onChange?.(nextValue);
+      /*
+       * Controlled
+       */
+
+      if (onChange) {
+        onChange(nextValue);
+      }
     },
     [disabled, isControlled, onChange],
   );
+
+  /* =====================================================
+       CONTEXT
+    ===================================================== */
 
   const contextValue = useMemo(
     () => ({
@@ -116,9 +160,15 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
       size: resolvedSize,
 
       error: hasError,
+
+      success: hasSuccess,
     }),
-    [selectedValue, handleChange, disabled, resolvedSize, hasError],
+    [selectedValue, handleChange, disabled, resolvedSize, hasError, hasSuccess],
   );
+
+  /* =====================================================
+       RENDER
+    ===================================================== */
 
   return (
     <RadioGroupContext.Provider value={contextValue}>
@@ -132,7 +182,7 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
               GROUP LABEL
           ================================================= */}
 
-        {label ? (
+        {label !== null && label !== undefined && String(label).length > 0 ? (
           <Text
             style={[
               styles.groupLabel,
@@ -161,16 +211,22 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
         ) : null}
 
         {/* =================================================
-              OPTIONS
+              OPTIONS CONTAINER
           ================================================= */}
 
         <View
           style={[
             styles.options,
 
-            resolvedOrientation === "horizontal"
+            resolvedOrientation === RADIO_GROUP_ORIENTATIONS.horizontal
               ? styles.optionsHorizontal
               : styles.optionsVertical,
+
+            {
+              columnGap: gap,
+
+              rowGap: gap,
+            },
           ]}
         >
           {React.Children.map(children, (child) => {
@@ -183,7 +239,7 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
         </View>
 
         {/* =================================================
-              ERROR / HELPER
+              ERROR
           ================================================= */}
 
         {hasError ? (
@@ -200,7 +256,13 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
           >
             {String(errorText)}
           </Text>
-        ) : helperText ? (
+        ) : null}
+
+        {/* =================================================
+              HELPER
+          ================================================= */}
+
+        {!hasError && helperText ? (
           <Text
             style={[
               styles.message,
@@ -221,7 +283,7 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
 });
 
 /* =========================================================
-   RADIO OPTION
+   UI RADIO OPTION
 ========================================================= */
 
 const UIRadioOptionComponent = function UIRadioOptionComponent({
@@ -233,11 +295,11 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
 
   disabled = false,
 
+  onPress,
+
   style,
   labelStyle,
   descriptionStyle,
-
-  onPress,
 
   ...props
 }) {
@@ -247,23 +309,41 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
 
   const colors = theme?.colors || {};
 
+  /* =====================================================
+       CONTEXT VALIDATION
+    ===================================================== */
+
   if (!context) {
     throw new Error("UIRadioOption must be used inside UIRadioGroup.");
   }
 
   const {
     selectedValue,
+
     onChange,
+
     disabled: groupDisabled,
+
     size,
+
     error,
+
+    success,
   } = context;
+
+  /* =====================================================
+       STATES
+    ===================================================== */
 
   const isSelected = selectedValue === value;
 
-  const isDisabled = groupDisabled || disabled;
+  const isDisabled = Boolean(groupDisabled || disabled);
 
   const radioSize = getRadioSize(size);
+
+  /* =====================================================
+       PRESS
+    ===================================================== */
 
   const handlePress = useCallback(() => {
     if (isDisabled) {
@@ -272,8 +352,42 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
 
     onChange(value);
 
-    onPress?.(value);
+    if (onPress) {
+      onPress(value);
+    }
   }, [isDisabled, onChange, value, onPress]);
+
+  /* =====================================================
+       RADIO BORDER COLOR
+    ===================================================== */
+
+  let borderColor;
+
+  if (error) {
+    borderColor = colors.danger || "#DC2626";
+  } else if (isSelected) {
+    borderColor = colors.primary || "#FF5A1F";
+  } else {
+    borderColor = colors.borderStrong || "#3A3A3A";
+  }
+
+  /* =====================================================
+       RADIO DOT COLOR
+    ===================================================== */
+
+  let dotColor;
+
+  if (error) {
+    dotColor = colors.danger || "#DC2626";
+  } else if (success) {
+    dotColor = colors.success || "#16A34A";
+  } else {
+    dotColor = colors.primary || "#FF5A1F";
+  }
+
+  /* =====================================================
+       RENDER
+    ===================================================== */
 
   return (
     <Pressable
@@ -297,98 +411,97 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
       ]}
     >
       {/* =================================================
-            CIRCLE
+            RADIO + LABEL ROW
+
+            This is the important part.
         ================================================= */}
 
-      <View
-        style={[
-          styles.radio,
+      <View style={styles.radioLabelRow}>
+        {/* RADIO */}
 
-          {
-            width: radioSize.outer,
+        <View
+          style={[
+            styles.radio,
 
-            height: radioSize.outer,
+            {
+              width: radioSize.outer,
 
-            borderRadius: radioSize.outer / 2,
+              height: radioSize.outer,
 
-            borderWidth: isSelected ? 2 : 1.5,
+              borderRadius: radioSize.outer / 2,
 
-            borderColor: error
-              ? colors.danger || "#DC2626"
-              : isSelected
-                ? colors.primary || "#FF5A1F"
-                : colors.borderStrong || "#D4D4D4",
-          },
-        ]}
-      >
-        {isSelected ? (
-          <View
-            style={[
-              styles.radioDot,
+              borderWidth: isSelected ? 2 : 1.5,
 
-              {
-                width: radioSize.inner,
+              borderColor,
+            },
+          ]}
+        >
+          {isSelected ? (
+            <View
+              style={[
+                styles.radioDot,
 
-                height: radioSize.inner,
+                {
+                  width: radioSize.inner,
 
-                borderRadius: radioSize.inner / 2,
+                  height: radioSize.inner,
 
-                backgroundColor: error
-                  ? colors.danger || "#DC2626"
-                  : colors.primary || "#FF5A1F",
-              },
-            ]}
-          />
-        ) : null}
+                  borderRadius: radioSize.inner / 2,
+
+                  backgroundColor: dotColor,
+                },
+              ]}
+            />
+          ) : null}
+        </View>
+
+        {/* LABEL */}
+
+        <Text
+          numberOfLines={1}
+          style={[
+            styles.optionLabel,
+
+            {
+              color: isDisabled
+                ? colors.textDisabled || "#A3A3A3"
+                : colors.text || "#FFFFFF",
+
+              fontSize: radioSize.fontSize,
+
+              lineHeight: radioSize.lineHeight,
+            },
+
+            labelStyle,
+          ]}
+        >
+          {String(label)}
+        </Text>
       </View>
 
       {/* =================================================
-            LABEL CONTENT
+            DESCRIPTION
         ================================================= */}
 
-      <View style={styles.labelContainer}>
-        {label !== null && label !== undefined && String(label).length > 0 ? (
-          <Text
-            style={[
-              styles.optionLabel,
+      {description !== null &&
+      description !== undefined &&
+      String(description).length > 0 ? (
+        <Text
+          style={[
+            styles.description,
 
-              {
-                color: isDisabled
-                  ? colors.textDisabled || "#A3A3A3"
-                  : colors.text || "#111111",
+            {
+              color: isDisabled
+                ? colors.textDisabled || "#A3A3A3"
+                : colors.textSecondary || "#A3A3A3",
+            },
 
-                fontSize: radioSize.fontSize,
-
-                lineHeight: radioSize.lineHeight,
-              },
-
-              labelStyle,
-            ]}
-          >
-            {String(label)}
-          </Text>
-        ) : null}
-
-        {description !== null &&
-        description !== undefined &&
-        String(description).length > 0 ? (
-          <Text
-            style={[
-              styles.description,
-
-              {
-                color: isDisabled
-                  ? colors.textDisabled || "#A3A3A3"
-                  : colors.textSecondary || "#525252",
-              },
-
-              descriptionStyle,
-            ]}
-          >
-            {String(description)}
-          </Text>
-        ) : null}
-      </View>
+            descriptionStyle,
+          ]}
+        >
+          {String(description)}
+        </Text>
+      ) : null}
     </Pressable>
   );
 };
@@ -399,7 +512,7 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
 
 function getRadioSize(size) {
   switch (size) {
-    case "sm":
+    case RADIO_GROUP_SIZES.sm:
       return {
         outer: 18,
         inner: 8,
@@ -407,7 +520,7 @@ function getRadioSize(size) {
         lineHeight: 18,
       };
 
-    case "lg":
+    case RADIO_GROUP_SIZES.lg:
       return {
         outer: 24,
         inner: 12,
@@ -415,7 +528,7 @@ function getRadioSize(size) {
         lineHeight: 22,
       };
 
-    case "md":
+    case RADIO_GROUP_SIZES.md:
     default:
       return {
         outer: 20,
@@ -431,11 +544,13 @@ function getRadioSize(size) {
 ========================================================= */
 
 const styles = StyleSheet.create({
+  /* =====================================================
+       GROUP
+    ===================================================== */
+
   container: {
     width: "100%",
   },
-
-  /* GROUP LABEL */
 
   groupLabel: {
     marginBottom: 12,
@@ -449,7 +564,9 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
-  /* OPTIONS CONTAINER */
+  /* =====================================================
+       OPTIONS
+    ===================================================== */
 
   options: {
     width: "100%",
@@ -459,8 +576,6 @@ const styles = StyleSheet.create({
     flexDirection: "column",
 
     alignItems: "flex-start",
-
-    gap: 12,
   },
 
   optionsHorizontal: {
@@ -469,31 +584,26 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
 
     alignItems: "center",
-
-    columnGap: 20,
-
-    rowGap: 12,
   },
 
-  /* INDIVIDUAL OPTION */
+  /* =====================================================
+       OPTION
+
+       IMPORTANT:
+       No width: "100%"
+       No flex: 1
+
+       This allows:
+
+       ○ Male   ○ Female   ○ Other
+    ===================================================== */
 
   option: {
-    flexDirection: "row",
+    flexDirection: "column",
 
-    /*
-     * THIS IS IMPORTANT
-     *
-     * Radio + label are always
-     * in the same row.
-     */
-
-    alignItems: "center",
+    alignItems: "flex-start",
 
     justifyContent: "flex-start",
-
-    /*
-     * Do NOT use width: 100%.
-     */
 
     flexGrow: 0,
 
@@ -502,51 +612,79 @@ const styles = StyleSheet.create({
     minHeight: 32,
   },
 
-  /* RADIO CIRCLE */
+  /* =====================================================
+       RADIO + LABEL
+    ===================================================== */
+
+  radioLabelRow: {
+    flexDirection: "row",
+
+    alignItems: "center",
+
+    justifyContent: "flex-start",
+
+    flexGrow: 0,
+
+    flexShrink: 0,
+
+    minHeight: 32,
+  },
+
+  /* =====================================================
+       RADIO CIRCLE
+    ===================================================== */
 
   radio: {
     alignItems: "center",
 
     justifyContent: "center",
 
+    flexGrow: 0,
+
     flexShrink: 0,
   },
 
   radioDot: {
-    flexShrink: 0,
-  },
-
-  /* LABEL */
-
-  labelContainer: {
-    marginLeft: 8,
-
-    justifyContent: "center",
+    flexGrow: 0,
 
     flexShrink: 0,
   },
+
+  /* =====================================================
+       LABEL
+    ===================================================== */
 
   optionLabel: {
+    marginLeft: 8,
+
     fontWeight: "500",
 
     includeFontPadding: false,
 
-    textAlign: "left",
+    flexGrow: 0,
+
+    flexShrink: 0,
   },
 
+  /* =====================================================
+       DESCRIPTION
+    ===================================================== */
+
   description: {
-    marginTop: 3,
+    marginTop: 4,
+
+    marginLeft: 28,
 
     fontSize: 12,
 
     lineHeight: 17,
 
     includeFontPadding: false,
-
-    textAlign: "left",
   },
 
-  /* ERROR / HELPER */
+  /* =====================================================
+       ERROR / HELPER
+    ===================================================== */
 
   message: {
     marginTop: 7,
