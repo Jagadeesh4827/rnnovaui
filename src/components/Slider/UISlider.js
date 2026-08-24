@@ -12,6 +12,10 @@ import { Animated, PanResponder, StyleSheet, Text, View } from "react-native";
 
 import { useUITheme } from "../../theme";
 
+// ============================================================
+// CONSTANTS
+// ============================================================
+
 const UISLIDER_SIZES = {
   sm: "sm",
   md: "md",
@@ -23,11 +27,15 @@ const UISLIDER_ORIENTATIONS = {
   vertical: "vertical",
 };
 
+// ============================================================
+// COMPONENT
+// ============================================================
+
 const UISliderComponent = forwardRef(function UISlider(
   {
-    // -----------------------------------------
+    // ------------------------------------------------------
     // VALUE
-    // -----------------------------------------
+    // ------------------------------------------------------
 
     value,
     defaultValue = 0,
@@ -43,103 +51,137 @@ const UISliderComponent = forwardRef(function UISlider(
     onSlidingStart,
     onSlidingComplete,
 
-    // -----------------------------------------
+    // ------------------------------------------------------
     // LABEL
-    // -----------------------------------------
+    // ------------------------------------------------------
 
     label,
+
     showValue = false,
+
     valueFormatter,
 
     showMinMax = false,
+
     minLabel,
     maxLabel,
 
-    // -----------------------------------------
+    // ------------------------------------------------------
     // SIZE
-    // -----------------------------------------
+    // ------------------------------------------------------
 
     size = "md",
 
     orientation = "horizontal",
 
     width = "100%",
+
     height = 220,
 
     thumbSize,
+
     trackHeight,
 
-    // -----------------------------------------
+    // ------------------------------------------------------
     // COLORS
-    // -----------------------------------------
+    // ------------------------------------------------------
 
     minimumTrackColor,
+
     maximumTrackColor,
+
     thumbColor,
 
-    // -----------------------------------------
+    // ------------------------------------------------------
     // STATE
-    // -----------------------------------------
+    // ------------------------------------------------------
 
     disabled = false,
 
     error = false,
+
     errorText,
 
     helperText,
 
-    // -----------------------------------------
+    // ------------------------------------------------------
     // STYLES
-    // -----------------------------------------
+    // ------------------------------------------------------
 
     containerStyle,
+
     labelStyle,
+
     valueStyle,
+
     minMaxStyle,
+
     helperStyle,
+
     errorStyle,
 
     trackStyle,
+
     thumbStyle,
 
-    // -----------------------------------------
+    // ------------------------------------------------------
     // ANIMATION
-    // -----------------------------------------
+    // ------------------------------------------------------
 
     animated = false,
 
     animationDuration = 180,
 
     animateThumb = true,
+
     animateTrack = true,
+
     animatePress = true,
 
     pressScale = 1.12,
 
-    // -----------------------------------------
+    // ------------------------------------------------------
     // ACCESSIBILITY
-    // -----------------------------------------
+    // ------------------------------------------------------
 
     accessibilityLabel,
+
     testID,
+
+    // ------------------------------------------------------
+    // REST
+    // ------------------------------------------------------
 
     ...props
   },
+
   ref,
 ) {
+  // ========================================================
+  // THEME
+  // ========================================================
+
   const { theme } = useUITheme();
 
   const colors = theme?.colors || {};
 
-  // -----------------------------------------
-  // SAFE VALUES
-  // -----------------------------------------
+  // ========================================================
+  // SAFE MIN
+  // ========================================================
 
   const safeMin = useMemo(() => {
     const numeric = Number(min);
 
-    return Number.isFinite(numeric) ? numeric : 0;
+    if (Number.isFinite(numeric)) {
+      return numeric;
+    }
+
+    return 0;
   }, [min]);
+
+  // ========================================================
+  // SAFE MAX
+  // ========================================================
 
   const safeMax = useMemo(() => {
     const numeric = Number(max);
@@ -151,6 +193,10 @@ const UISliderComponent = forwardRef(function UISlider(
     return safeMin + 1;
   }, [max, safeMin]);
 
+  // ========================================================
+  // SAFE STEP
+  // ========================================================
+
   const safeStep = useMemo(() => {
     const numeric = Number(step);
 
@@ -161,17 +207,29 @@ const UISliderComponent = forwardRef(function UISlider(
     return 1;
   }, [step]);
 
+  // ========================================================
+  // RANGE
+  // ========================================================
+
   const range = safeMax - safeMin;
 
-  // -----------------------------------------
+  // ========================================================
   // SIZE
-  // -----------------------------------------
+  // ========================================================
 
   const safeSize = UISLIDER_SIZES[size] ? size : UISLIDER_SIZES.md;
+
+  // ========================================================
+  // ORIENTATION
+  // ========================================================
 
   const safeOrientation = UISLIDER_ORIENTATIONS[orientation]
     ? orientation
     : UISLIDER_ORIENTATIONS.horizontal;
+
+  // ========================================================
+  // DIMENSIONS
+  // ========================================================
 
   const dimensions = useMemo(() => getDimensions(safeSize), [safeSize]);
 
@@ -183,9 +241,9 @@ const UISliderComponent = forwardRef(function UISlider(
     ? Number(trackHeight)
     : dimensions.trackHeight;
 
-  // -----------------------------------------
-  // NORMALIZE
-  // -----------------------------------------
+  // ========================================================
+  // NORMALIZE VALUE
+  // ========================================================
 
   const normalizeValue = useCallback(
     (input) => {
@@ -203,21 +261,34 @@ const UISliderComponent = forwardRef(function UISlider(
 
       return roundValue(Math.min(Math.max(snapped, safeMin), safeMax));
     },
+
     [safeMin, safeMax, safeStep],
   );
 
-  // -----------------------------------------
-  // VALUE STATE
-  // -----------------------------------------
+  // ========================================================
+  // INITIAL VALUE
+  // ========================================================
 
   const initialValue = normalizeValue(
     value !== undefined ? value : defaultValue,
   );
 
+  // ========================================================
+  // INTERNAL VALUE
+  // ========================================================
+
   const [internalValue, setInternalValue] = useState(initialValue);
+
+  // ========================================================
+  // CURRENT VALUE
+  // ========================================================
 
   const currentValue =
     value !== undefined ? normalizeValue(value) : internalValue;
+
+  // ========================================================
+  // SYNC CONTROLLED VALUE
+  // ========================================================
 
   useEffect(() => {
     if (value !== undefined) {
@@ -225,9 +296,15 @@ const UISliderComponent = forwardRef(function UISlider(
     }
   }, [value, normalizeValue]);
 
-  // -----------------------------------------
-  // MEASUREMENT
-  // -----------------------------------------
+  // ========================================================
+  // PERCENTAGE
+  // ========================================================
+
+  const percentage = range > 0 ? ((currentValue - safeMin) / range) * 100 : 0;
+
+  // ========================================================
+  // TRACK MEASUREMENT
+  // ========================================================
 
   const trackLength = useRef(1);
 
@@ -235,8 +312,11 @@ const UISliderComponent = forwardRef(function UISlider(
 
   const handleLayout = useCallback(
     (event) => {
-      const { width: layoutWidth, height: layoutHeight } =
-        event.nativeEvent.layout;
+      const {
+        width: layoutWidth,
+
+        height: layoutHeight,
+      } = event.nativeEvent.layout;
 
       const length =
         safeOrientation === UISLIDER_ORIENTATIONS.horizontal
@@ -249,18 +329,13 @@ const UISliderComponent = forwardRef(function UISlider(
 
       setMeasuredLength(safeLength);
     },
+
     [safeOrientation],
   );
 
-  // -----------------------------------------
-  // PERCENTAGE
-  // -----------------------------------------
-
-  const percentage = range > 0 ? ((currentValue - safeMin) / range) * 100 : 0;
-
-  // -----------------------------------------
+  // ========================================================
   // ANIMATED VALUES
-  // -----------------------------------------
+  // ========================================================
 
   const thumbProgress = useRef(new Animated.Value(percentage)).current;
 
@@ -268,14 +343,25 @@ const UISliderComponent = forwardRef(function UISlider(
 
   const thumbScale = useRef(new Animated.Value(1)).current;
 
+  // ========================================================
+  // PREVIOUS PERCENTAGE
+  // ========================================================
+
   const previousPercentage = useRef(percentage);
 
-  // -----------------------------------------
-  // KEEP ANIMATION DRIVER CONSISTENT
-  // -----------------------------------------
+  // ========================================================
+  // ANIMATION FUNCTION
+  // ========================================================
 
   const runTiming = useCallback(
     (animatedValue, toValue) => {
+      /*
+       * Animation disabled.
+       *
+       * Immediately update the
+       * Animated.Value.
+       */
+
       if (!animated) {
         animatedValue.stopAnimation();
 
@@ -290,22 +376,23 @@ const UISliderComponent = forwardRef(function UISlider(
         duration: Math.max(0, Number(animationDuration) || 0),
 
         /*
-         * IMPORTANT:
+         * VERY IMPORTANT
          *
-         * Every Animated.Value in this
-         * component uses JS driver.
-         *
-         * Do NOT change this to true.
+         * Keep this false for
+         * ALL Animated.Values
+         * in this component.
          */
+
         useNativeDriver: false,
       }).start();
     },
+
     [animated, animationDuration],
   );
 
-  // -----------------------------------------
-  // PROGRAMMATIC VALUE CHANGE
-  // -----------------------------------------
+  // ========================================================
+  // PROGRAMMATIC ANIMATION
+  // ========================================================
 
   useEffect(() => {
     const nextPercentage =
@@ -317,10 +404,9 @@ const UISliderComponent = forwardRef(function UISlider(
 
     previousPercentage.current = nextPercentage;
 
-    /*
-     * During a programmatic value change,
-     * animate only when requested.
-     */
+    // ------------------------------------------------------
+    // THUMB
+    // ------------------------------------------------------
 
     if (animated && animateThumb) {
       runTiming(thumbProgress, nextPercentage);
@@ -329,6 +415,10 @@ const UISliderComponent = forwardRef(function UISlider(
 
       thumbProgress.setValue(nextPercentage);
     }
+
+    // ------------------------------------------------------
+    // TRACK
+    // ------------------------------------------------------
 
     if (animated && animateTrack) {
       runTiming(trackProgress, nextPercentage);
@@ -339,22 +429,27 @@ const UISliderComponent = forwardRef(function UISlider(
     }
   }, [
     currentValue,
+
     safeMin,
+
     range,
 
     animated,
+
     animateThumb,
+
     animateTrack,
 
     runTiming,
 
     thumbProgress,
+
     trackProgress,
   ]);
 
-  // -----------------------------------------
+  // ========================================================
   // COLORS
-  // -----------------------------------------
+  // ========================================================
 
   const resolvedMinimumTrackColor =
     minimumTrackColor || colors.primary || "#FF5A1F";
@@ -364,9 +459,9 @@ const UISliderComponent = forwardRef(function UISlider(
 
   const resolvedThumbColor = thumbColor || colors.primary || "#FF5A1F";
 
-  // -----------------------------------------
-  // CHANGE
-  // -----------------------------------------
+  // ========================================================
+  // EMIT CHANGE
+  // ========================================================
 
   const emitChange = useCallback(
     (nextValue) => {
@@ -380,12 +475,13 @@ const UISliderComponent = forwardRef(function UISlider(
 
       return normalized;
     },
+
     [normalizeValue, value, onChange],
   );
 
-  // -----------------------------------------
-  // POSITION -> VALUE
-  // -----------------------------------------
+  // ========================================================
+  // POSITION TO VALUE
+  // ========================================================
 
   const positionToValue = useCallback(
     (position) => {
@@ -395,22 +491,34 @@ const UISliderComponent = forwardRef(function UISlider(
 
       ratio = Math.max(0, Math.min(ratio, 1));
 
+      /*
+       * Vertical slider:
+       *
+       * top = max
+       * bottom = min
+       */
+
       if (safeOrientation === UISLIDER_ORIENTATIONS.vertical) {
         ratio = 1 - ratio;
       }
 
       return safeMin + ratio * range;
     },
+
     [safeOrientation, safeMin, range],
   );
 
-  // -----------------------------------------
-  // DRAG UPDATE
-  // -----------------------------------------
+  // ========================================================
+  // DRAGGING
+  // ========================================================
 
   const sliding = useRef(false);
 
   const lastGestureValue = useRef(currentValue);
+
+  // ========================================================
+  // UPDATE FROM POSITION
+  // ========================================================
 
   const updateFromPosition = useCallback(
     (position) => {
@@ -421,60 +529,37 @@ const UISliderComponent = forwardRef(function UISlider(
       lastGestureValue.current = normalized;
 
       /*
-       * IMPORTANT:
+       * Update animation values
+       * immediately during drag.
        *
-       * While dragging we update the
-       * Animated.Values directly.
-       *
-       * We do NOT start timing animations
-       * for every finger movement.
+       * We DO NOT run timing on
+       * every finger movement.
        */
+
       const nextPercentage =
         range > 0 ? ((normalized - safeMin) / range) * 100 : 0;
 
-      if (animateThumb || animated) {
-        thumbProgress.stopAnimation();
+      thumbProgress.stopAnimation();
 
-        thumbProgress.setValue(nextPercentage);
-      }
+      trackProgress.stopAnimation();
 
-      if (animateTrack || animated) {
-        trackProgress.stopAnimation();
+      thumbProgress.setValue(nextPercentage);
 
-        trackProgress.setValue(nextPercentage);
-      }
+      trackProgress.setValue(nextPercentage);
     },
-    [
-      positionToValue,
-      emitChange,
-      range,
-      safeMin,
 
-      animateThumb,
-      animateTrack,
-      animated,
-
-      thumbProgress,
-      trackProgress,
-    ],
+    [positionToValue, emitChange, range, safeMin, thumbProgress, trackProgress],
   );
 
-  // -----------------------------------------
-  // PRESS ANIMATION
-  // -----------------------------------------
+  // ========================================================
+  // PRESS IN ANIMATION
+  // ========================================================
 
   const animatePressIn = useCallback(() => {
     if (!animated || !animatePress) {
       return;
     }
 
-    /*
-     * IMPORTANT:
-     *
-     * useNativeDriver MUST remain false
-     * because thumbScale uses the same
-     * JS animation system as the slider.
-     */
     Animated.spring(thumbScale, {
       toValue: pressScale,
 
@@ -482,9 +567,17 @@ const UISliderComponent = forwardRef(function UISlider(
 
       tension: 120,
 
+      /*
+       * MUST REMAIN FALSE.
+       */
+
       useNativeDriver: false,
     }).start();
   }, [animated, animatePress, pressScale, thumbScale]);
+
+  // ========================================================
+  // PRESS OUT ANIMATION
+  // ========================================================
 
   const animatePressOut = useCallback(() => {
     if (!animated || !animatePress) {
@@ -498,13 +591,17 @@ const UISliderComponent = forwardRef(function UISlider(
 
       tension: 120,
 
+      /*
+       * MUST REMAIN FALSE.
+       */
+
       useNativeDriver: false,
     }).start();
   }, [animated, animatePress, thumbScale]);
 
-  // -----------------------------------------
+  // ========================================================
   // PAN RESPONDER
-  // -----------------------------------------
+  // ========================================================
 
   const panResponder = useMemo(
     () =>
@@ -581,27 +678,33 @@ const UISliderComponent = forwardRef(function UISlider(
           onSlidingComplete?.(finalValue);
         },
       }),
+
     [
       disabled,
+
       currentValue,
 
       safeOrientation,
 
       animatePressIn,
+
       animatePressOut,
 
       updateFromPosition,
 
       onChangeStart,
+
       onSlidingStart,
+
       onChangeEnd,
+
       onSlidingComplete,
     ],
   );
 
-  // -----------------------------------------
+  // ========================================================
   // DISPLAY VALUE
-  // -----------------------------------------
+  // ========================================================
 
   const displayValue = valueFormatter
     ? valueFormatter(currentValue)
@@ -611,35 +714,15 @@ const UISliderComponent = forwardRef(function UISlider(
 
   const displayMax = maxLabel ?? formatValue(safeMax);
 
-  // -----------------------------------------
-  // TRACK LENGTH
-  // -----------------------------------------
+  // ========================================================
+  // USABLE LENGTH
+  // ========================================================
 
   const usableLength = Math.max(measuredLength - resolvedThumbSize, 0);
 
-  // -----------------------------------------
-  // ACCESSIBILITY
-  // -----------------------------------------
-
-  const increase = useCallback(() => {
-    if (disabled) {
-      return;
-    }
-
-    emitChange(currentValue + safeStep);
-  }, [disabled, emitChange, currentValue, safeStep]);
-
-  const decrease = useCallback(() => {
-    if (disabled) {
-      return;
-    }
-
-    emitChange(currentValue - safeStep);
-  }, [disabled, emitChange, currentValue, safeStep]);
-
-  // -----------------------------------------
+  // ========================================================
   // RENDER
-  // -----------------------------------------
+  // ========================================================
 
   return (
     <View
@@ -672,9 +755,9 @@ const UISliderComponent = forwardRef(function UISlider(
         now: currentValue,
       }}
     >
-      {/* -------------------------------- */}
+      {/* ================================================= */}
       {/* HEADER */}
-      {/* -------------------------------- */}
+      {/* ================================================= */}
 
       {label || showValue ? (
         <View style={styles.header}>
@@ -718,9 +801,9 @@ const UISliderComponent = forwardRef(function UISlider(
         </View>
       ) : null}
 
-      {/* -------------------------------- */}
+      {/* ================================================= */}
       {/* SLIDER */}
-      {/* -------------------------------- */}
+      {/* ================================================= */}
 
       <View
         style={[
@@ -756,9 +839,9 @@ const UISliderComponent = forwardRef(function UISlider(
                 },
           ]}
         >
-          {/* -------------------------------- */}
-          {/* MAXIMUM TRACK */}
-          {/* -------------------------------- */}
+          {/* ============================================ */}
+          {/* MAX TRACK */}
+          {/* ============================================ */}
 
           <View
             pointerEvents="none"
@@ -795,9 +878,9 @@ const UISliderComponent = forwardRef(function UISlider(
             ]}
           />
 
-          {/* -------------------------------- */}
+          {/* ============================================ */}
           {/* ACTIVE TRACK */}
-          {/* -------------------------------- */}
+          {/* ============================================ */}
 
           <Animated.View
             pointerEvents="none"
@@ -844,9 +927,9 @@ const UISliderComponent = forwardRef(function UISlider(
             ]}
           />
 
-          {/* -------------------------------- */}
+          {/* ============================================ */}
           {/* THUMB */}
-          {/* -------------------------------- */}
+          {/* ============================================ */}
 
           <Animated.View
             pointerEvents="none"
@@ -897,9 +980,9 @@ const UISliderComponent = forwardRef(function UISlider(
         </View>
       </View>
 
-      {/* -------------------------------- */}
+      {/* ================================================= */}
       {/* MIN / MAX */}
-      {/* -------------------------------- */}
+      {/* ================================================= */}
 
       {showMinMax ? (
         <View
@@ -941,9 +1024,9 @@ const UISliderComponent = forwardRef(function UISlider(
         </View>
       ) : null}
 
-      {/* -------------------------------- */}
+      {/* ================================================= */}
       {/* ERROR / HELPER */}
-      {/* -------------------------------- */}
+      {/* ================================================= */}
 
       {error || errorText ? (
         <Text
@@ -974,33 +1057,13 @@ const UISliderComponent = forwardRef(function UISlider(
           {helperText}
         </Text>
       ) : null}
-
-      {/* -------------------------------- */}
-      {/* ACCESSIBILITY BUTTONS */}
-      {/* -------------------------------- */}
-
-      {!disabled ? (
-        <View style={styles.accessibilityActions}>
-          <Pressable
-            onPress={decrease}
-            accessibilityRole="button"
-            accessibilityLabel="Decrease slider value"
-          />
-
-          <Pressable
-            onPress={increase}
-            accessibilityRole="button"
-            accessibilityLabel="Increase slider value"
-          />
-        </View>
-      ) : null}
     </View>
   );
 });
 
-// ======================================================
+// ============================================================
 // HELPERS
-// ======================================================
+// ============================================================
 
 function getDimensions(size) {
   switch (size) {
@@ -1017,6 +1080,7 @@ function getDimensions(size) {
       };
 
     case UISLIDER_SIZES.md:
+
     default:
       return {
         thumbSize: 22,
@@ -1024,6 +1088,10 @@ function getDimensions(size) {
       };
   }
 }
+
+// ============================================================
+// FORMAT VALUE
+// ============================================================
 
 function formatValue(value) {
   if (Number.isInteger(value)) {
@@ -1033,13 +1101,17 @@ function formatValue(value) {
   return String(Number(Number(value).toFixed(2)));
 }
 
+// ============================================================
+// ROUND
+// ============================================================
+
 function roundValue(value) {
   return Number(Number(value).toFixed(10));
 }
 
-// ======================================================
+// ============================================================
 // STYLES
-// ======================================================
+// ============================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -1146,19 +1218,11 @@ const styles = StyleSheet.create({
 
     includeFontPadding: false,
   },
-
-  accessibilityActions: {
-    position: "absolute",
-
-    width: 1,
-
-    height: 1,
-
-    opacity: 0,
-
-    overflow: "hidden",
-  },
 });
+
+// ============================================================
+// EXPORT
+// ============================================================
 
 export const UISlider = memo(UISliderComponent);
 

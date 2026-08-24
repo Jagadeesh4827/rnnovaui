@@ -12,6 +12,10 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useUITheme } from "../../theme";
 
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
 const RADIO_GROUP_ORIENTATIONS = {
   vertical: "vertical",
   horizontal: "horizontal",
@@ -22,6 +26,10 @@ const RADIO_GROUP_SIZES = {
   md: "md",
   lg: "lg",
 };
+
+/* =========================================================
+   CONTEXT
+========================================================= */
 
 const RadioGroupContext = createContext(null);
 
@@ -38,8 +46,6 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
 
     onChange,
 
-    name,
-
     label,
     helperText,
     errorText,
@@ -55,7 +61,6 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
     size = "md",
 
     gap = 12,
-    optionGap,
 
     style,
     labelStyle,
@@ -78,9 +83,8 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
 
   const selectedValue = isControlled ? value : internalValue;
 
-  const resolvedOrientation = RADIO_GROUP_ORIENTATIONS[orientation]
-    ? orientation
-    : "vertical";
+  const resolvedOrientation =
+    orientation === "horizontal" ? "horizontal" : "vertical";
 
   const resolvedSize = RADIO_GROUP_SIZES[size] ? size : "md";
 
@@ -103,7 +107,7 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
 
   const contextValue = useMemo(
     () => ({
-      value: selectedValue,
+      selectedValue,
 
       onChange: handleChange,
 
@@ -122,8 +126,10 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
         {...props}
         ref={ref}
         testID={testID}
-        style={[styles.wrapper, style]}
+        style={[styles.container, style]}
       >
+        {/* GROUP LABEL */}
+
         {label ? (
           <Text
             style={[
@@ -138,7 +144,7 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
               labelStyle,
             ]}
           >
-            {label}
+            {String(label)}
 
             {required ? (
               <Text
@@ -152,21 +158,31 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
           </Text>
         ) : null}
 
+        {/* OPTIONS */}
+
         <View
           style={[
             styles.options,
 
             resolvedOrientation === "horizontal"
-              ? styles.horizontal
-              : styles.vertical,
+              ? styles.optionsHorizontal
+              : styles.optionsVertical,
 
             {
-              gap: optionGap ?? gap,
+              gap,
             },
           ]}
         >
-          {children}
+          {React.Children.map(children, (child) => {
+            if (!React.isValidElement(child)) {
+              return null;
+            }
+
+            return child;
+          })}
         </View>
+
+        {/* ERROR */}
 
         {hasError ? (
           <Text
@@ -180,7 +196,7 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
               errorStyle,
             ]}
           >
-            {errorText}
+            {String(errorText)}
           </Text>
         ) : helperText ? (
           <Text
@@ -194,7 +210,7 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
               helperStyle,
             ]}
           >
-            {helperText}
+            {String(helperText)}
           </Text>
         ) : null}
       </View>
@@ -208,8 +224,10 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
 
 const UIRadioOptionComponent = function UIRadioOptionComponent({
   value,
+
   label = "",
-  description,
+
+  description = "",
 
   disabled = false,
 
@@ -232,16 +250,16 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
   }
 
   const {
-    value: selectedValue,
+    selectedValue,
     onChange,
     disabled: groupDisabled,
     size,
     error,
   } = context;
 
-  const checked = selectedValue === value;
+  const selected = selectedValue === value;
 
-  const isDisabled = groupDisabled || disabled;
+  const isDisabled = Boolean(groupDisabled || disabled);
 
   const radioSize = getRadioSize(size);
 
@@ -256,112 +274,116 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
   }, [isDisabled, onChange, value, onPress]);
 
   return (
-    <View style={[styles.optionWrapper, style]}>
-      <Pressable
-        {...props}
-        onPress={handlePress}
-        disabled={isDisabled}
-        accessibilityRole="radio"
-        accessibilityState={{
-          checked,
-          disabled: isDisabled,
-        }}
-        style={({ pressed }) => [
-          styles.optionPressable,
+    <Pressable
+      {...props}
+      onPress={handlePress}
+      disabled={isDisabled}
+      accessibilityRole="radio"
+      accessibilityState={{
+        checked: selected,
+
+        disabled: isDisabled,
+      }}
+      style={({ pressed }) => [
+        styles.option,
+
+        {
+          opacity: isDisabled ? 0.5 : pressed ? 0.7 : 1,
+        },
+
+        style,
+      ]}
+    >
+      {/* RADIO */}
+
+      <View
+        style={[
+          styles.radio,
 
           {
-            opacity: isDisabled ? 0.5 : pressed ? 0.7 : 1,
+            width: radioSize.outer,
+
+            height: radioSize.outer,
+
+            borderRadius: radioSize.outer / 2,
+
+            borderWidth: selected ? 2 : 1.5,
+
+            borderColor: error
+              ? colors.danger || "#DC2626"
+              : selected
+                ? colors.primary || "#FF5A1F"
+                : colors.borderStrong || "#D4D4D4",
           },
         ]}
       >
-        {/* RADIO CIRCLE */}
-        <View
-          style={[
-            styles.radio,
+        {selected ? (
+          <View
+            style={[
+              styles.radioDot,
 
-            {
-              width: radioSize.outer,
+              {
+                width: radioSize.inner,
 
-              height: radioSize.outer,
+                height: radioSize.inner,
 
-              borderRadius: radioSize.outer / 2,
+                borderRadius: radioSize.inner / 2,
 
-              borderColor: error
-                ? colors.danger || "#DC2626"
-                : checked
-                  ? colors.primary || "#FF5A1F"
-                  : colors.borderStrong || "#D4D4D4",
+                backgroundColor: error
+                  ? colors.danger || "#DC2626"
+                  : colors.primary || "#FF5A1F",
+              },
+            ]}
+          />
+        ) : null}
+      </View>
 
-              borderWidth: checked ? 2 : 1.5,
-            },
-          ]}
-        >
-          {checked ? (
-            <View
-              style={[
-                styles.radioDot,
+      {/* LABEL + DESCRIPTION */}
 
-                {
-                  width: radioSize.inner,
+      <View style={styles.content}>
+        {label !== null && label !== undefined && String(label).length > 0 ? (
+          <Text
+            style={[
+              styles.optionLabel,
 
-                  height: radioSize.inner,
+              {
+                color: isDisabled
+                  ? colors.textDisabled || "#A3A3A3"
+                  : colors.text || "#111111",
 
-                  borderRadius: radioSize.inner / 2,
+                fontSize: radioSize.fontSize,
 
-                  backgroundColor: error
-                    ? colors.danger || "#DC2626"
-                    : colors.primary || "#FF5A1F",
-                },
-              ]}
-            />
-          ) : null}
-        </View>
+                lineHeight: radioSize.lineHeight,
+              },
 
-        {/* TEXT AREA */}
-        <View style={styles.textContainer}>
-          {label !== "" ? (
-            <Text
-              numberOfLines={0}
-              style={[
-                styles.optionLabel,
+              labelStyle,
+            ]}
+          >
+            {String(label)}
+          </Text>
+        ) : null}
 
-                {
-                  color: isDisabled
-                    ? colors.textDisabled || "#A3A3A3"
-                    : colors.text || "#111111",
+        {description !== null &&
+        description !== undefined &&
+        String(description).length > 0 ? (
+          <Text
+            style={[
+              styles.description,
 
-                  fontSize: radioSize.fontSize,
+              {
+                color: isDisabled
+                  ? colors.textDisabled || "#A3A3A3"
+                  : colors.textSecondary || "#525252",
+              },
 
-                  lineHeight: radioSize.lineHeight,
-                },
-
-                labelStyle,
-              ]}
-            >
-              {String(label)}
-            </Text>
-          ) : null}
-
-          {description ? (
-            <Text
-              style={[
-                styles.description,
-
-                {
-                  color: isDisabled
-                    ? colors.textDisabled || "#A3A3A3"
-                    : colors.textSecondary || "#525252",
-                },
-
-                descriptionStyle,
-              ]}
-            >
-              {String(description)}
-            </Text>
-          ) : null}
-        </View>
-      </Pressable>
-    </View>
+              descriptionStyle,
+            ]}
+          >
+            {String(description)}
+          </Text>
+        ) : null}
+      </View>
+    </Pressable>
   );
 };
 
@@ -403,7 +425,7 @@ function getRadioSize(size) {
 ========================================================= */
 
 const styles = StyleSheet.create({
-  wrapper: {
+  container: {
     width: "100%",
   },
 
@@ -423,30 +445,38 @@ const styles = StyleSheet.create({
     width: "100%",
   },
 
-  vertical: {
+  optionsVertical: {
     flexDirection: "column",
+
+    alignItems: "stretch",
   },
 
-  horizontal: {
+  optionsHorizontal: {
     flexDirection: "row",
 
     flexWrap: "wrap",
 
     alignItems: "flex-start",
+
+    justifyContent: "flex-start",
   },
 
-  optionWrapper: {
-    width: "100%",
-  },
-
-  optionPressable: {
-    width: "100%",
-
-    minHeight: 34,
-
+  option: {
     flexDirection: "row",
 
     alignItems: "flex-start",
+
+    /*
+     * IMPORTANT:
+     *
+     * No width: "100%" here.
+     *
+     * That was the reason horizontal
+     * layout was not working.
+     */
+    flexShrink: 0,
+
+    minHeight: 34,
   },
 
   radio: {
@@ -461,8 +491,8 @@ const styles = StyleSheet.create({
 
   radioDot: {},
 
-  textContainer: {
-    flex: 1,
+  content: {
+    flexShrink: 1,
 
     minWidth: 0,
 
