@@ -2,7 +2,6 @@ import React, {
   forwardRef,
   memo,
   useCallback,
-  useEffect,
   useMemo,
   useRef,
   useState,
@@ -19,17 +18,13 @@ import {
 
 import { useUITheme } from "../../theme";
 
-/* -------------------------------------------------------------------------- */
-/* CONSTANTS                                                                  */
-/* -------------------------------------------------------------------------- */
-
-const FLOATING_BUTTON_SIZES = {
+const SIZES = {
   sm: "sm",
   md: "md",
   lg: "lg",
 };
 
-const FLOATING_BUTTON_VARIANTS = {
+const VARIANTS = {
   primary: "primary",
   secondary: "secondary",
   success: "success",
@@ -37,39 +32,34 @@ const FLOATING_BUTTON_VARIANTS = {
   neutral: "neutral",
 };
 
-const FLOATING_BUTTON_SHAPES = {
+const SHAPES = {
   circle: "circle",
   rounded: "rounded",
 };
 
-const FLOATING_BUTTON_POSITIONS = {
+const POSITIONS = {
   bottomRight: "bottomRight",
   bottomLeft: "bottomLeft",
   topRight: "topRight",
   topLeft: "topLeft",
 };
 
-const FLOATING_BUTTON_MENU_TYPES = {
+const MENU_TYPES = {
   straight: "straight",
   circular: "circular",
 };
 
-const FLOATING_BUTTON_DIRECTIONS = {
+const DIRECTIONS = {
   up: "up",
   down: "down",
   left: "left",
   right: "right",
 };
 
-/* -------------------------------------------------------------------------- */
-/* COMPONENT                                                                  */
-/* -------------------------------------------------------------------------- */
-
 const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
   {
     title,
     label,
-
     icon,
 
     onPress,
@@ -85,34 +75,23 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
     disabled = false,
     loading = false,
 
-    /*
-     * Speed dial
-     */
-    actions = null,
-
     expandable = false,
 
+    actions = [],
+
     menuType = "straight",
-
     direction = "up",
-
     circularDirection = "up",
 
     radius = 100,
-
     itemSpacing = 12,
 
     animationDuration = 220,
-
-    staggerDelay = 45,
+    staggerDelay = 40,
 
     closeOnAction = true,
 
-    /*
-     * Appearance
-     */
     elevation = 6,
-
     shadow = true,
 
     iconOnly = false,
@@ -129,23 +108,27 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
     overlayColor,
 
     badge,
-
     renderBadge,
 
     accessibilityLabel,
-
     testID,
 
-    ...props
+    ...rest
   },
   ref,
 ) {
-  const { theme } = useUITheme();
+  /* ---------------------------------------------------------------------- */
+  /* THEME                                                                  */
+  /* ---------------------------------------------------------------------- */
 
-  const colors = theme?.colors || {};
+  const context = useUITheme();
+
+  const theme = context && context.theme ? context.theme : {};
+
+  const colors = theme.colors || {};
 
   /* ---------------------------------------------------------------------- */
-  /* NORMALIZE ACTIONS                                                      */
+  /* SAFE ACTIONS                                                           */
   /* ---------------------------------------------------------------------- */
 
   const safeActions = useMemo(() => {
@@ -153,53 +136,38 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
       return [];
     }
 
-    return actions.filter(
-      (action) =>
-        action !== null && action !== undefined && typeof action === "object",
-    );
+    return actions.filter((item) => item !== null && typeof item === "object");
   }, [actions]);
-
-  const actionCount = safeActions.length;
 
   /* ---------------------------------------------------------------------- */
   /* SAFE VALUES                                                            */
   /* ---------------------------------------------------------------------- */
 
-  const safeSize = FLOATING_BUTTON_SIZES[size]
-    ? size
-    : FLOATING_BUTTON_SIZES.md;
+  const safeSize = SIZES[size] ? size : SIZES.md;
 
-  const safeVariant = FLOATING_BUTTON_VARIANTS[variant]
-    ? variant
-    : FLOATING_BUTTON_VARIANTS.primary;
+  const safeVariant = VARIANTS[variant] ? variant : VARIANTS.primary;
 
-  const safeShape = FLOATING_BUTTON_SHAPES[shape]
-    ? shape
-    : FLOATING_BUTTON_SHAPES.circle;
+  const safeShape = SHAPES[shape] ? shape : SHAPES.circle;
 
-  const safeMenuType = FLOATING_BUTTON_MENU_TYPES[menuType]
-    ? menuType
-    : FLOATING_BUTTON_MENU_TYPES.straight;
+  const safeMenuType = MENU_TYPES[menuType] ? menuType : MENU_TYPES.straight;
 
-  const safeDirection = FLOATING_BUTTON_DIRECTIONS[direction]
-    ? direction
-    : FLOATING_BUTTON_DIRECTIONS.up;
+  const safeDirection = DIRECTIONS[direction] ? direction : DIRECTIONS.up;
 
-  const safeCircularDirection = FLOATING_BUTTON_DIRECTIONS[circularDirection]
+  const safeCircularDirection = DIRECTIONS[circularDirection]
     ? circularDirection
-    : FLOATING_BUTTON_DIRECTIONS.up;
+    : DIRECTIONS.up;
 
   /* ---------------------------------------------------------------------- */
-  /* ANIMATION REFS                                                         */
+  /* STATE                                                                  */
   /* ---------------------------------------------------------------------- */
-
-  const scale = useRef(new Animated.Value(1)).current;
-
-  const menuProgress = useRef(new Animated.Value(0)).current;
-
-  const actionProgress = useRef([]);
 
   const [open, setOpen] = useState(false);
+
+  /* ---------------------------------------------------------------------- */
+  /* MAIN ANIMATION                                                         */
+  /* ---------------------------------------------------------------------- */
+
+  const mainScale = useRef(new Animated.Value(1)).current;
 
   /* ---------------------------------------------------------------------- */
   /* DIMENSIONS                                                             */
@@ -216,59 +184,29 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
   );
 
   /* ---------------------------------------------------------------------- */
-  /* KEEP ANIMATION ARRAY SAFE                                              */
+  /* MAIN BUTTON ANIMATION                                                  */
   /* ---------------------------------------------------------------------- */
 
-  useEffect(() => {
-    const count = safeActions.length;
-
-    while (actionProgress.current.length < count) {
-      actionProgress.current.push(new Animated.Value(0));
-    }
-
-    if (actionProgress.current.length > count) {
-      actionProgress.current = actionProgress.current.slice(0, count);
-    }
-  }, [safeActions.length]);
-
-  /* ---------------------------------------------------------------------- */
-  /* CLOSE MENU IF ACTIONS DISAPPEAR                                        */
-  /* ---------------------------------------------------------------------- */
-
-  useEffect(() => {
-    if (actionCount === 0 && open) {
-      menuProgress.setValue(0);
-      scale.setValue(1);
-
-      setOpen(false);
-    }
-  }, [actionCount, open, menuProgress, scale]);
-
-  /* ---------------------------------------------------------------------- */
-  /* MAIN BUTTON PRESS ANIMATION                                            */
-  /* ---------------------------------------------------------------------- */
-
-  const animateMainButton = useCallback(
+  const animatePress = useCallback(
     (pressed) => {
       if (disabled || loading) {
         return;
       }
 
-      Animated.spring(scale, {
+      Animated.spring(mainScale, {
         toValue: pressed ? 0.92 : open ? 0.94 : 1,
 
-        friction: 6,
-
-        tension: 150,
+        friction: 7,
+        tension: 140,
 
         useNativeDriver: true,
       }).start();
     },
-    [disabled, loading, open, scale],
+    [disabled, loading, open, mainScale],
   );
 
   /* ---------------------------------------------------------------------- */
-  /* OPEN MENU                                                              */
+  /* OPEN                                                                   */
   /* ---------------------------------------------------------------------- */
 
   const openMenu = useCallback(() => {
@@ -276,131 +214,48 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
       return;
     }
 
-    /*
-     * No actions = behave as
-     * normal FAB.
-     */
     if (safeActions.length === 0) {
-      onPress?.();
+      if (typeof onPress === "function") {
+        onPress();
+      }
+
       return;
     }
 
     setOpen(true);
 
-    Animated.parallel([
-      Animated.spring(menuProgress, {
-        toValue: 1,
+    Animated.spring(mainScale, {
+      toValue: 0.94,
 
-        friction: 7,
+      friction: 7,
+      tension: 140,
 
-        tension: 90,
-
-        useNativeDriver: true,
-      }),
-
-      Animated.spring(scale, {
-        toValue: 0.94,
-
-        friction: 6,
-
-        tension: 150,
-
-        useNativeDriver: true,
-      }),
-    ]).start();
-
-    const animations = actionProgress.current.map((progress, index) =>
-      Animated.timing(progress, {
-        toValue: 1,
-
-        duration: animationDuration,
-
-        delay: index * staggerDelay,
-
-        easing: Easing.out(Easing.cubic),
-
-        useNativeDriver: true,
-      }),
-    );
-
-    if (animations.length > 0) {
-      Animated.parallel(animations).start();
-    }
-  }, [
-    disabled,
-    loading,
-    safeActions.length,
-    onPress,
-    menuProgress,
-    scale,
-    animationDuration,
-    staggerDelay,
-  ]);
+      useNativeDriver: true,
+    }).start();
+  }, [disabled, loading, safeActions.length, onPress, mainScale]);
 
   /* ---------------------------------------------------------------------- */
-  /* CLOSE MENU                                                             */
+  /* CLOSE                                                                  */
   /* ---------------------------------------------------------------------- */
 
   const closeMenu = useCallback(() => {
-    const progressList = actionProgress.current;
+    setOpen(false);
 
-    const animations = progressList.map((progress, index) =>
-      Animated.timing(progress, {
-        toValue: 0,
+    Animated.spring(mainScale, {
+      toValue: 1,
 
-        duration: animationDuration,
+      friction: 7,
+      tension: 140,
 
-        delay: Math.max(0, progressList.length - index - 1) * staggerDelay,
-
-        easing: Easing.in(Easing.cubic),
-
-        useNativeDriver: true,
-      }),
-    );
-
-    const finish = () => {
-      setOpen(false);
-    };
-
-    if (animations.length === 0) {
-      menuProgress.setValue(0);
-      scale.setValue(1);
-
-      finish();
-
-      return;
-    }
-
-    Animated.parallel([
-      Animated.parallel(animations),
-
-      Animated.spring(menuProgress, {
-        toValue: 0,
-
-        friction: 7,
-
-        tension: 90,
-
-        useNativeDriver: true,
-      }),
-
-      Animated.spring(scale, {
-        toValue: 1,
-
-        friction: 6,
-
-        tension: 150,
-
-        useNativeDriver: true,
-      }),
-    ]).start(finish);
-  }, [animationDuration, staggerDelay, menuProgress, scale]);
+      useNativeDriver: true,
+    }).start();
+  }, [mainScale]);
 
   /* ---------------------------------------------------------------------- */
   /* MAIN PRESS                                                             */
   /* ---------------------------------------------------------------------- */
 
-  const handleMainPress = useCallback(() => {
+  const handlePress = useCallback(() => {
     if (disabled || loading) {
       return;
     }
@@ -415,7 +270,9 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
       return;
     }
 
-    onPress?.();
+    if (typeof onPress === "function") {
+      onPress();
+    }
   }, [
     disabled,
     loading,
@@ -433,7 +290,7 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
 
   const handleActionPress = useCallback(
     (action) => {
-      if (!action || typeof action !== "object") {
+      if (!action) {
         return;
       }
 
@@ -453,22 +310,16 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
   );
 
   /* ---------------------------------------------------------------------- */
-  /* TITLE                                                                  */
-  /* ---------------------------------------------------------------------- */
-
-  const resolvedTitle = title ?? label;
-
-  const showTitle = !iconOnly && Boolean(resolvedTitle);
-
-  /* ---------------------------------------------------------------------- */
-  /* MAIN ICON                                                              */
+  /* MAIN ICON                                                               */
   /* ---------------------------------------------------------------------- */
 
   let mainIcon = icon;
 
   if (loading) {
     mainIcon = <LoadingSpinner color={variantColors.text} />;
-  } else if (expandable && safeActions.length > 0 && open) {
+  }
+
+  if (expandable && safeActions.length > 0 && open && !loading) {
     mainIcon = (
       <Text
         style={[
@@ -484,6 +335,14 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
   }
 
   /* ---------------------------------------------------------------------- */
+  /* TITLE                                                                  */
+  /* ---------------------------------------------------------------------- */
+
+  const resolvedTitle = title ?? label;
+
+  const showTitle = !iconOnly && Boolean(resolvedTitle);
+
+  /* ---------------------------------------------------------------------- */
   /* RENDER                                                                 */
   /* ---------------------------------------------------------------------- */
 
@@ -493,7 +352,6 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
         <Pressable
           style={[
             styles.overlay,
-
             {
               backgroundColor:
                 overlayColor || colors.backdrop || "rgba(0,0,0,0.35)",
@@ -507,18 +365,19 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
         pointerEvents="box-none"
         style={[styles.positionWrapper, getPositionStyle(position, offset)]}
       >
-        {expandable && safeActions.length > 0 ? (
-          <SpeedDialActions
+        {expandable && open && safeActions.length > 0 ? (
+          <FloatingActionList
             actions={safeActions}
-            progressRefs={actionProgress.current}
             menuType={safeMenuType}
             direction={safeDirection}
             circularDirection={safeCircularDirection}
             radius={radius}
             itemSpacing={itemSpacing}
             size={safeSize}
-            theme={theme}
-            onActionPress={handleActionPress}
+            colors={colors}
+            duration={animationDuration}
+            stagger={staggerDelay}
+            onPress={handleActionPress}
             actionContainerStyle={actionContainerStyle}
             actionTextStyle={actionTextStyle}
             actionIconStyle={actionIconStyle}
@@ -527,25 +386,23 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
         ) : null}
 
         <Animated.View
-          style={[
-            {
-              transform: [
-                {
-                  scale,
-                },
-              ],
-            },
-          ]}
+          style={{
+            transform: [
+              {
+                scale: mainScale,
+              },
+            ],
+          }}
         >
           <Pressable
-            {...props}
+            {...rest}
             ref={ref}
             testID={testID}
             disabled={disabled || loading}
-            onPress={handleMainPress}
+            onPress={handlePress}
             onLongPress={onLongPress}
-            onPressIn={() => animateMainButton(true)}
-            onPressOut={() => animateMainButton(false)}
+            onPressIn={() => animatePress(true)}
+            onPressOut={() => animatePress(false)}
             accessibilityRole="button"
             accessibilityLabel={
               accessibilityLabel || resolvedTitle || "Floating button"
@@ -582,9 +439,7 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
 
               shadow ? styles.shadow : null,
 
-              safeShape === FLOATING_BUTTON_SHAPES.circle
-                ? styles.circle
-                : null,
+              safeShape === SHAPES.circle ? styles.circle : null,
 
               containerStyle,
             ]}
@@ -640,13 +495,65 @@ const UIFloatingButtonComponent = forwardRef(function UIFloatingButton(
   );
 });
 
-/* -------------------------------------------------------------------------- */
-/* SPEED DIAL ACTIONS                                                         */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+/* FLOATING ACTION LIST                                                       */
+/* ========================================================================== */
 
-const SpeedDialActions = memo(function SpeedDialActions({
+const FloatingActionList = memo(function FloatingActionList({
   actions,
-  progressRefs,
+  menuType,
+  direction,
+  circularDirection,
+  radius,
+  itemSpacing,
+  size,
+  colors,
+  duration,
+  stagger,
+  onPress,
+  actionContainerStyle,
+  actionTextStyle,
+  actionIconStyle,
+  renderBadge,
+}) {
+  const safeActions = Array.isArray(actions) ? actions : [];
+
+  return (
+    <View pointerEvents="box-none" style={styles.actionList}>
+      {safeActions.map((action, index) => (
+        <FloatingActionItem
+          key={action.id || `action-${index}`}
+          action={action}
+          index={index}
+          count={safeActions.length}
+          menuType={menuType}
+          direction={direction}
+          circularDirection={circularDirection}
+          radius={radius}
+          itemSpacing={itemSpacing}
+          size={size}
+          colors={colors}
+          duration={duration}
+          stagger={stagger}
+          onPress={onPress}
+          actionContainerStyle={actionContainerStyle}
+          actionTextStyle={actionTextStyle}
+          actionIconStyle={actionIconStyle}
+          renderBadge={renderBadge}
+        />
+      ))}
+    </View>
+  );
+});
+
+/* ========================================================================== */
+/* INDIVIDUAL ACTION                                                          */
+/* ========================================================================== */
+
+const FloatingActionItem = memo(function FloatingActionItem({
+  action,
+  index,
+  count,
 
   menuType,
   direction,
@@ -656,10 +563,12 @@ const SpeedDialActions = memo(function SpeedDialActions({
   itemSpacing,
 
   size,
+  colors,
 
-  theme,
+  duration,
+  stagger,
 
-  onActionPress,
+  onPress,
 
   actionContainerStyle,
   actionTextStyle,
@@ -667,169 +576,180 @@ const SpeedDialActions = memo(function SpeedDialActions({
 
   renderBadge,
 }) {
-  const colors = theme?.colors || {};
-
   /*
-   * Extra defensive protection.
+   * IMPORTANT:
+   * Each action owns its own Animated.Value.
+   * No shared animation array.
    */
-  const safeActions = Array.isArray(actions) ? actions : [];
 
-  const safeProgressRefs = Array.isArray(progressRefs) ? progressRefs : [];
+  const progress = useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      Animated.timing(progress, {
+        toValue: 1,
+
+        duration,
+
+        easing: Easing.out(Easing.cubic),
+
+        useNativeDriver: true,
+      }).start();
+    }, index * stagger);
+
+    return () => {
+      clearTimeout(timer);
+
+      progress.stopAnimation();
+    };
+  }, [duration, index, stagger, progress]);
+
+  const transform = useMemo(
+    () =>
+      createTransform(
+        menuType,
+        direction,
+        circularDirection,
+        index,
+        count,
+        radius,
+        itemSpacing,
+        progress,
+      ),
+    [
+      menuType,
+      direction,
+      circularDirection,
+      index,
+      count,
+      radius,
+      itemSpacing,
+      progress,
+    ],
+  );
+
+  const actionSize = getActionSize(size);
+
+  const actionColors = getActionColors(action, colors);
+
+  const actionLabel = action.label ?? action.title;
 
   return (
-    <View pointerEvents="box-none" style={styles.actionsContainer}>
-      {safeActions.map((action, index) => {
-        if (!action || typeof action !== "object") {
-          return null;
-        }
+    <Animated.View
+      style={[
+        styles.actionItem,
 
-        const progress = safeProgressRefs[index];
+        {
+          opacity: progress,
 
-        if (!progress) {
-          return null;
-        }
+          transform,
+        },
+      ]}
+    >
+      <View
+        style={[
+          styles.actionRow,
 
-        const sizeData = getActionSize(size);
-
-        const transform = getActionTransform(
-          menuType,
-          direction,
-          circularDirection,
-          index,
-          safeActions.length,
-          radius,
-          itemSpacing,
-          progress,
-        );
-
-        const actionColors = getActionColors(action, colors);
-
-        const actionLabel = action.label ?? action.title;
-
-        return (
-          <Animated.View
-            key={action.id ?? `fab-action-${index}`}
-            pointerEvents="auto"
+          direction === "left" ? styles.reverseRow : null,
+        ]}
+      >
+        {actionLabel ? (
+          <View
             style={[
-              styles.actionWrapper,
+              styles.actionLabel,
 
               {
-                transform,
-                opacity: progress,
+                backgroundColor:
+                  action.labelBackgroundColor || colors.card || "#FFFFFF",
               },
+
+              action.labelStyle,
             ]}
           >
-            <View
+            <Text
+              numberOfLines={1}
               style={[
-                styles.actionRow,
+                styles.actionLabelText,
 
-                direction === "left" ? styles.actionRowReverse : null,
+                {
+                  color: action.labelColor || colors.text || "#111111",
+
+                  fontSize: actionSize.fontSize,
+                },
+
+                actionTextStyle,
               ]}
             >
-              {actionLabel ? (
-                <View
-                  style={[
-                    styles.actionLabel,
+              {actionLabel}
+            </Text>
+          </View>
+        ) : null}
 
-                    {
-                      backgroundColor:
-                        action.labelBackgroundColor || colors.card || "#FFFFFF",
-                    },
+        <Pressable
+          disabled={Boolean(action.disabled) || Boolean(action.loading)}
+          onPress={() => onPress(action)}
+          accessibilityRole="button"
+          accessibilityLabel={
+            action.accessibilityLabel || actionLabel || "Floating action"
+          }
+          style={[
+            styles.actionButton,
 
-                    action.labelStyle,
-                  ]}
-                >
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.actionLabelText,
+            {
+              width: actionSize.size,
 
-                      {
-                        color: action.labelColor || colors.text || "#111111",
+              height: actionSize.size,
 
-                        fontSize: sizeData.fontSize,
-                      },
+              borderRadius: actionSize.size / 2,
 
-                      actionTextStyle,
-                    ]}
-                  >
-                    {actionLabel}
-                  </Text>
-                </View>
-              ) : null}
+              backgroundColor: actionColors.background,
 
-              <Pressable
-                disabled={Boolean(action.disabled) || Boolean(action.loading)}
-                onPress={() => onActionPress(action)}
-                accessibilityRole="button"
-                accessibilityLabel={
-                  action.accessibilityLabel || actionLabel || "Action"
-                }
-                style={[
-                  styles.actionButton,
+              borderColor: actionColors.border,
 
-                  {
-                    width: sizeData.size,
+              borderWidth: actionColors.borderWidth,
 
-                    height: sizeData.size,
+              elevation: action.elevation ?? 4,
 
-                    borderRadius: sizeData.size / 2,
+              opacity: action.disabled ? 0.5 : 1,
+            },
 
-                    backgroundColor: actionColors.background,
+            actionContainerStyle,
 
-                    borderColor: actionColors.border,
-
-                    borderWidth: actionColors.borderWidth,
-
-                    elevation: action.elevation ?? 4,
-
-                    opacity: action.disabled ? 0.5 : 1,
-                  },
-
-                  action.style,
-                ]}
-              >
-                {action.loading ? (
-                  <LoadingSpinner color={actionColors.text} />
-                ) : action.icon ? (
-                  <View
-                    style={[
-                      styles.actionIcon,
-
-                      actionIconStyle,
-
-                      action.iconStyle,
-                    ]}
-                  >
-                    {action.icon}
-                  </View>
-                ) : null}
-
-                {action.badge !== undefined && action.badge !== null ? (
-                  renderBadge ? (
-                    renderBadge(action.badge, action)
-                  ) : (
-                    <View style={styles.actionBadge}>
-                      <Text style={styles.actionBadgeText}>
-                        {String(action.badge)}
-                      </Text>
-                    </View>
-                  )
-                ) : null}
-              </Pressable>
+            action.style,
+          ]}
+        >
+          {action.loading ? (
+            <LoadingSpinner color={actionColors.text} />
+          ) : (
+            <View
+              style={[styles.actionIcon, actionIconStyle, action.iconStyle]}
+            >
+              {action.icon || null}
             </View>
-          </Animated.View>
-        );
-      })}
-    </View>
+          )}
+
+          {action.badge !== undefined && action.badge !== null ? (
+            renderBadge ? (
+              renderBadge(action.badge, action)
+            ) : (
+              <View style={styles.actionBadge}>
+                <Text style={styles.actionBadgeText}>
+                  {String(action.badge)}
+                </Text>
+              </View>
+            )
+          ) : null}
+        </Pressable>
+      </View>
+    </Animated.View>
   );
 });
 
-/* -------------------------------------------------------------------------- */
-/* TRANSFORMS                                                                */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+/* TRANSFORM                                                                  */
+/* ========================================================================== */
 
-function getActionTransform(
+function createTransform(
   menuType,
   direction,
   circularDirection,
@@ -839,8 +759,8 @@ function getActionTransform(
   itemSpacing,
   progress,
 ) {
-  if (menuType === FLOATING_BUTTON_MENU_TYPES.circular) {
-    return getCircularTransform(
+  if (menuType === MENU_TYPES.circular) {
+    return createCircularTransform(
       circularDirection,
       index,
       count,
@@ -849,44 +769,48 @@ function getActionTransform(
     );
   }
 
-  return getStraightTransform(direction, index, itemSpacing, progress);
+  return createStraightTransform(direction, index, itemSpacing, progress);
 }
 
-function getStraightTransform(direction, index, spacing, progress) {
+function createStraightTransform(direction, index, spacing, progress) {
   const distance = (index + 1) * (54 + spacing);
 
-  switch (direction) {
-    case "down":
-      return {
-        translateY: Animated.multiply(progress, distance),
-      };
-
-    case "left":
-      return {
-        translateX: Animated.multiply(progress, -distance),
-      };
-
-    case "right":
-      return {
-        translateX: Animated.multiply(progress, distance),
-      };
-
-    case "up":
-    default:
-      return {
-        translateY: Animated.multiply(progress, -distance),
-      };
-  }
-}
-
-function getCircularTransform(direction, index, count, radius, progress) {
-  if (count <= 0) {
+  if (direction === "down") {
     return {
-      translateX: 0,
-      translateY: 0,
+      translateY: progress.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, distance],
+      }),
     };
   }
 
+  if (direction === "left") {
+    return {
+      translateX: progress.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, -distance],
+      }),
+    };
+  }
+
+  if (direction === "right") {
+    return {
+      translateX: progress.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, distance],
+      }),
+    };
+  }
+
+  return {
+    translateY: progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, -distance],
+    }),
+  };
+}
+
+function createCircularTransform(direction, index, count, radius, progress) {
   const angle = getCircularAngle(direction, index, count);
 
   const radians = (angle * Math.PI) / 180;
@@ -896,28 +820,33 @@ function getCircularTransform(direction, index, count, radius, progress) {
   const y = Math.sin(radians) * radius;
 
   return {
-    translateX: Animated.multiply(progress, x),
+    translateX: progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, x],
+    }),
 
-    translateY: Animated.multiply(progress, y),
+    translateY: progress.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, y],
+    }),
   };
 }
 
 function getCircularAngle(direction, index, count) {
   if (count <= 1) {
-    switch (direction) {
-      case "down":
-        return 90;
-
-      case "left":
-        return 180;
-
-      case "right":
-        return 0;
-
-      case "up":
-      default:
-        return 270;
+    if (direction === "down") {
+      return 90;
     }
+
+    if (direction === "left") {
+      return 180;
+    }
+
+    if (direction === "right") {
+      return 0;
+    }
+
+    return 270;
   }
 
   const spread = Math.min(90, 35 * (count - 1));
@@ -926,147 +855,143 @@ function getCircularAngle(direction, index, count) {
 
   const start = -spread / 2;
 
-  const offset = start + step * index;
-
-  switch (direction) {
-    case "down":
-      return 90 + offset;
-
-    case "left":
-      return 180 + offset;
-
-    case "right":
-      return 0 + offset;
-
-    case "up":
-    default:
-      return 270 + offset;
+  if (direction === "down") {
+    return 90 + start + step * index;
   }
+
+  if (direction === "left") {
+    return 180 + start + step * index;
+  }
+
+  if (direction === "right") {
+    return start + step * index;
+  }
+
+  return 270 + start + step * index;
 }
 
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 /* DIMENSIONS                                                                 */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 function getDimensions(size, shape) {
-  const isCircle = shape === FLOATING_BUTTON_SHAPES.circle;
+  const circle = shape === SHAPES.circle;
 
-  switch (size) {
-    case "sm":
-      return {
-        height: 44,
-        minWidth: isCircle ? 44 : 44,
-        paddingHorizontal: 14,
-        borderRadius: isCircle ? 22 : 12,
-        fontSize: 13,
-      };
-
-    case "lg":
-      return {
-        height: 64,
-        minWidth: isCircle ? 64 : 64,
-        paddingHorizontal: 20,
-        borderRadius: isCircle ? 32 : 16,
-        fontSize: 16,
-      };
-
-    case "md":
-    default:
-      return {
-        height: 54,
-        minWidth: isCircle ? 54 : 54,
-        paddingHorizontal: 17,
-        borderRadius: isCircle ? 27 : 14,
-        fontSize: 14,
-      };
+  if (size === "sm") {
+    return {
+      width: 44,
+      height: 44,
+      minWidth: 44,
+      paddingHorizontal: 14,
+      borderRadius: circle ? 22 : 12,
+      fontSize: 13,
+    };
   }
+
+  if (size === "lg") {
+    return {
+      width: 64,
+      height: 64,
+      minWidth: 64,
+      paddingHorizontal: 20,
+      borderRadius: circle ? 32 : 16,
+      fontSize: 16,
+    };
+  }
+
+  return {
+    width: 54,
+    height: 54,
+    minWidth: 54,
+    paddingHorizontal: 17,
+    borderRadius: circle ? 27 : 14,
+    fontSize: 14,
+  };
 }
 
 function getActionSize(size) {
-  switch (size) {
-    case "sm":
-      return {
-        size: 42,
-        fontSize: 12,
-      };
-
-    case "lg":
-      return {
-        size: 58,
-        fontSize: 15,
-      };
-
-    case "md":
-    default:
-      return {
-        size: 50,
-        fontSize: 13,
-      };
+  if (size === "sm") {
+    return {
+      size: 42,
+      fontSize: 12,
+    };
   }
+
+  if (size === "lg") {
+    return {
+      size: 58,
+      fontSize: 15,
+    };
+  }
+
+  return {
+    size: 50,
+    fontSize: 13,
+  };
 }
 
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 /* COLORS                                                                     */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 function getVariantColors(variant, colors) {
-  switch (variant) {
-    case "secondary":
-      return {
-        background: colors.secondary || "#7CFF32",
+  if (variant === "secondary") {
+    return {
+      background: colors.secondary || "#7CFF32",
 
-        text: colors.onSecondary || "#111111",
+      text: colors.onSecondary || "#111111",
 
-        border: colors.secondary || "#7CFF32",
+      border: colors.secondary || "#7CFF32",
 
-        borderWidth: 0,
-      };
-
-    case "success":
-      return {
-        background: colors.success || "#16A34A",
-
-        text: colors.onPrimary || "#FFFFFF",
-
-        border: colors.success || "#16A34A",
-
-        borderWidth: 0,
-      };
-
-    case "danger":
-      return {
-        background: colors.danger || "#DC2626",
-
-        text: colors.onPrimary || "#FFFFFF",
-
-        border: colors.danger || "#DC2626",
-
-        borderWidth: 0,
-      };
-
-    case "neutral":
-      return {
-        background: colors.card || colors.surface || "#FFFFFF",
-
-        text: colors.text || "#111111",
-
-        border: colors.border || "#E5E5E5",
-
-        borderWidth: 1,
-      };
-
-    case "primary":
-    default:
-      return {
-        background: colors.primary || "#FF5A1F",
-
-        text: colors.onPrimary || "#FFFFFF",
-
-        border: colors.primary || "#FF5A1F",
-
-        borderWidth: 0,
-      };
+      borderWidth: 0,
+    };
   }
+
+  if (variant === "success") {
+    return {
+      background: colors.success || "#16A34A",
+
+      text: colors.onPrimary || "#FFFFFF",
+
+      border: colors.success || "#16A34A",
+
+      borderWidth: 0,
+    };
+  }
+
+  if (variant === "danger") {
+    return {
+      background: colors.danger || "#DC2626",
+
+      text: colors.onPrimary || "#FFFFFF",
+
+      border: colors.danger || "#DC2626",
+
+      borderWidth: 0,
+    };
+  }
+
+  if (variant === "neutral") {
+    return {
+      background: colors.card || colors.surface || "#FFFFFF",
+
+      text: colors.text || "#111111",
+
+      border: colors.border || "#E5E5E5",
+
+      borderWidth: 1,
+    };
+  }
+
+  return {
+    background: colors.primary || "#FF5A1F",
+
+    text: colors.onPrimary || "#FFFFFF",
+
+    border: colors.primary || "#FF5A1F",
+
+    borderWidth: 0,
+  };
 }
 
 function getActionColors(action, colors) {
@@ -1085,42 +1010,41 @@ function getActionColors(action, colors) {
   };
 }
 
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 /* POSITION                                                                   */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 function getPositionStyle(position, offset) {
-  switch (position) {
-    case "bottomLeft":
-      return {
-        left: offset,
-        bottom: offset,
-      };
-
-    case "topRight":
-      return {
-        right: offset,
-        top: offset,
-      };
-
-    case "topLeft":
-      return {
-        left: offset,
-        top: offset,
-      };
-
-    case "bottomRight":
-    default:
-      return {
-        right: offset,
-        bottom: offset,
-      };
+  if (position === POSITIONS.bottomLeft) {
+    return {
+      left: offset,
+      bottom: offset,
+    };
   }
+
+  if (position === POSITIONS.topRight) {
+    return {
+      right: offset,
+      top: offset,
+    };
+  }
+
+  if (position === POSITIONS.topLeft) {
+    return {
+      left: offset,
+      top: offset,
+    };
+  }
+
+  return {
+    right: offset,
+    bottom: offset,
+  };
 }
 
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 /* LOADING                                                                    */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 function LoadingSpinner({ color }) {
   return (
@@ -1142,142 +1066,28 @@ function LoadingSpinner({ color }) {
   );
 }
 
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 /* STYLES                                                                     */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
-
     zIndex: 999,
   },
 
   positionWrapper: {
     position: "absolute",
-
     zIndex: 1000,
 
     alignItems: "center",
-
     justifyContent: "center",
-  },
-
-  actionsContainer: {
-    position: "absolute",
-
-    width: 1,
-
-    height: 1,
-
-    alignItems: "center",
-
-    justifyContent: "center",
-  },
-
-  actionWrapper: {
-    position: "absolute",
-
-    alignItems: "center",
-
-    justifyContent: "center",
-  },
-
-  actionRow: {
-    flexDirection: "row",
-
-    alignItems: "center",
-  },
-
-  actionRowReverse: {
-    flexDirection: "row-reverse",
-  },
-
-  actionButton: {
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    overflow: "visible",
-  },
-
-  actionIcon: {
-    alignItems: "center",
-
-    justifyContent: "center",
-  },
-
-  actionLabel: {
-    marginRight: 8,
-
-    paddingHorizontal: 10,
-
-    paddingVertical: 6,
-
-    borderRadius: 8,
-
-    elevation: 3,
-
-    shadowColor: "#000000",
-
-    shadowOffset: {
-      width: 0,
-
-      height: 2,
-    },
-
-    shadowOpacity: 0.15,
-
-    shadowRadius: 5,
-  },
-
-  actionLabelText: {
-    fontWeight: "600",
-
-    includeFontPadding: false,
-  },
-
-  actionBadge: {
-    position: "absolute",
-
-    top: -5,
-
-    right: -5,
-
-    minWidth: 19,
-
-    height: 19,
-
-    paddingHorizontal: 4,
-
-    borderRadius: 10,
-
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    backgroundColor: "#DC2626",
-
-    borderWidth: 2,
-
-    borderColor: "#FFFFFF",
-  },
-
-  actionBadgeText: {
-    color: "#FFFFFF",
-
-    fontSize: 9,
-
-    fontWeight: "700",
-
-    includeFontPadding: false,
   },
 
   button: {
     flexDirection: "row",
 
     alignItems: "center",
-
     justifyContent: "center",
 
     overflow: "visible",
@@ -1292,7 +1102,6 @@ const styles = StyleSheet.create({
 
     shadowOffset: {
       width: 0,
-
       height: 4,
     },
 
@@ -1303,19 +1112,16 @@ const styles = StyleSheet.create({
 
   icon: {
     alignItems: "center",
-
     justifyContent: "center",
   },
 
   text: {
     fontWeight: "700",
-
     includeFontPadding: false,
   },
 
   closeIcon: {
     fontSize: 34,
-
     lineHeight: 36,
 
     fontWeight: "300",
@@ -1325,11 +1131,9 @@ const styles = StyleSheet.create({
 
   spinner: {
     width: 20,
-
     height: 20,
 
     borderWidth: 2,
-
     borderRadius: 10,
   },
 
@@ -1337,11 +1141,9 @@ const styles = StyleSheet.create({
     position: "absolute",
 
     top: -4,
-
     right: -4,
 
     minWidth: 19,
-
     height: 19,
 
     paddingHorizontal: 4,
@@ -1349,13 +1151,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
 
     alignItems: "center",
-
     justifyContent: "center",
 
     backgroundColor: "#DC2626",
 
     borderWidth: 2,
-
     borderColor: "#FFFFFF",
   },
 
@@ -1363,28 +1163,123 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
 
     fontSize: 9,
+    fontWeight: "700",
 
+    includeFontPadding: false,
+  },
+
+  actionList: {
+    position: "absolute",
+
+    width: 1,
+    height: 1,
+
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  actionItem: {
+    position: "absolute",
+
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  actionRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  reverseRow: {
+    flexDirection: "row-reverse",
+  },
+
+  actionLabel: {
+    marginRight: 8,
+
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+
+    borderRadius: 8,
+
+    elevation: 3,
+
+    shadowColor: "#000000",
+
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+
+    shadowOpacity: 0.15,
+
+    shadowRadius: 5,
+  },
+
+  actionLabelText: {
+    fontWeight: "600",
+    includeFontPadding: false,
+  },
+
+  actionButton: {
+    alignItems: "center",
+    justifyContent: "center",
+
+    overflow: "visible",
+  },
+
+  actionIcon: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  actionBadge: {
+    position: "absolute",
+
+    top: -5,
+    right: -5,
+
+    minWidth: 19,
+    height: 19,
+
+    paddingHorizontal: 4,
+
+    borderRadius: 10,
+
+    alignItems: "center",
+    justifyContent: "center",
+
+    backgroundColor: "#DC2626",
+
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+
+  actionBadgeText: {
+    color: "#FFFFFF",
+
+    fontSize: 9,
     fontWeight: "700",
 
     includeFontPadding: false,
   },
 });
 
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 /* EXPORT                                                                     */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export const UIFloatingButton = memo(UIFloatingButtonComponent);
 
 UIFloatingButton.displayName = "UIFloatingButton";
 
 export {
-  FLOATING_BUTTON_SIZES as UIFloatingButtonSizes,
-  FLOATING_BUTTON_VARIANTS as UIFloatingButtonVariants,
-  FLOATING_BUTTON_SHAPES as UIFloatingButtonShapes,
-  FLOATING_BUTTON_POSITIONS as UIFloatingButtonPositions,
-  FLOATING_BUTTON_MENU_TYPES as UIFloatingButtonMenuTypes,
-  FLOATING_BUTTON_DIRECTIONS as UIFloatingButtonDirections,
+  SIZES as UIFloatingButtonSizes,
+  VARIANTS as UIFloatingButtonVariants,
+  SHAPES as UIFloatingButtonShapes,
+  POSITIONS as UIFloatingButtonPositions,
+  MENU_TYPES as UIFloatingButtonMenuTypes,
+  DIRECTIONS as UIFloatingButtonDirections,
 };
 
 export default UIFloatingButton;

@@ -84,5 +84,6 @@ export {
   UIAutocomplete,
   UIAutocompleteSizes,
   UIAutocompleteVariants,
+  UIAutocompletePlacements,
 } from "./Autocomplete";
 export { UICombobox, UIComboboxSizes, UIComboboxVariants } from "./Combobox";

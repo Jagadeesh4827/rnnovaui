@@ -94,6 +94,7 @@ export {
   UIAutocomplete,
   UIAutocompleteSizes,
   UIAutocompleteVariants,
+  UIAutocompletePlacements,
   UICombobox,
   UIComboboxSizes,
   UIComboboxVariants,

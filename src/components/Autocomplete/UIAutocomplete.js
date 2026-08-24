@@ -10,6 +10,7 @@ import React, {
 
 import {
   ActivityIndicator,
+  Dimensions,
   FlatList,
   Keyboard,
   Pressable,
@@ -32,6 +33,17 @@ const AUTOCOMPLETE_VARIANTS = {
   filled: "filled",
   underline: "underline",
 };
+
+const AUTOCOMPLETE_PLACEMENTS = {
+  auto: "auto",
+  top: "top",
+  bottom: "bottom",
+};
+
+const DEFAULT_DROPDOWN_MAX_HEIGHT = 280;
+const DEFAULT_MIN_DROPDOWN_HEIGHT = 60;
+const DEFAULT_SCREEN_MARGIN = 12;
+const DEFAULT_GAP = 5;
 
 const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
   {
@@ -57,7 +69,6 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
 
     disabled = false,
     readOnly = false,
-
     required = false,
 
     loading = false,
@@ -81,18 +92,27 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
     rightIcon,
 
     clearButton = true,
-
     showArrow = true,
 
     maxResults,
 
-    listMaxHeight = 280,
+    listMaxHeight = DEFAULT_DROPDOWN_MAX_HEIGHT,
+
+    minDropdownHeight = DEFAULT_MIN_DROPDOWN_HEIGHT,
+
+    dropdownGap = DEFAULT_GAP,
+
+    screenMargin = DEFAULT_SCREEN_MARGIN,
+
+    placement = "auto",
 
     keyboardShouldPersistTaps = "handled",
 
     closeOnSelect = true,
 
     openOnFocus = true,
+
+    closeOnOutsidePress = true,
 
     onFocus,
     onBlur,
@@ -116,6 +136,9 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
     testID,
     accessibilityLabel,
 
+    onOpen,
+    onClose,
+
     ...props
   },
   ref,
@@ -124,7 +147,13 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
 
   const colors = theme?.colors || {};
 
-  const [inputText, setInputText] = useState(
+  const wrapperRef = useRef(null);
+
+  const inputRef = useRef(null);
+
+  const debounceRef = useRef(null);
+
+  const [inputText, setInputText] = useState(() =>
     getInitialText(defaultValue, options, getOptionLabel),
   );
 
@@ -136,7 +165,13 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
 
   const [open, setOpen] = useState(false);
 
-  const debounceRef = useRef(null);
+  const [resolvedPlacement, setResolvedPlacement] = useState(
+    placement === "top" ? "top" : "bottom",
+  );
+
+  const [dropdownHeight, setDropdownHeight] = useState(listMaxHeight);
+
+  const [measuredInput, setMeasuredInput] = useState(null);
 
   const safeSize = AUTOCOMPLETE_SIZES[size] ? size : AUTOCOMPLETE_SIZES.md;
 
@@ -144,14 +179,17 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
     ? variant
     : AUTOCOMPLETE_VARIANTS.outlined;
 
+  const safePlacement = AUTOCOMPLETE_PLACEMENTS[placement]
+    ? placement
+    : AUTOCOMPLETE_PLACEMENTS.auto;
+
   const dimensions = useMemo(
     () => getDimensions(safeSize, theme),
     [safeSize, theme],
   );
 
   /*
-   * Keep internal selection
-   * synchronized with controlled value.
+   * Controlled value synchronization.
    */
   useEffect(() => {
     if (value === undefined) {
@@ -163,9 +201,29 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
     const selectedOption = findOption(options, value, getOptionValue);
 
     if (selectedOption) {
-      setInputText(getOptionLabel(selectedOption));
+      setInputText(resolveOptionLabel(getOptionLabel, selectedOption));
     }
   }, [value, options, getOptionValue, getOptionLabel]);
+
+  /*
+   * Safe option resolvers.
+   *
+   * Even if a developer passes:
+   *
+   * getOptionLabel={(item) => item.name}
+   *
+   * a null option will not crash
+   * the component.
+   */
+  const safeGetOptionLabel = useCallback(
+    (option) => resolveOptionLabel(getOptionLabel, option),
+    [getOptionLabel],
+  );
+
+  const safeGetOptionValue = useCallback(
+    (option) => resolveOptionValue(getOptionValue, option),
+    [getOptionValue],
+  );
 
   const currentValue = value !== undefined ? value : selectedValue;
 
@@ -187,26 +245,35 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
   );
 
   /*
-   * Debounced parent callback.
+   * Clean invalid backend values.
+   */
+  const safeOptions = useMemo(() => {
+    if (!Array.isArray(options)) {
+      return [];
+    }
+
+    return options.filter((option) => option !== null && option !== undefined);
+  }, [options]);
+
+  /*
+   * Debounced text callback.
    *
-   * This is useful when the developer
-   * connects onChangeText to an API.
+   * The component immediately updates
+   * its own UI, while the callback is
+   * debounced for API search use.
    */
   const emitTextChange = useCallback(
     (text) => {
-      onChangeText?.(text);
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
 
       if (!onChangeText) {
         return;
       }
 
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-
       debounceRef.current = setTimeout(() => {
-        // The text callback itself
-        // already receives the value.
+        onChangeText(text);
       }, debounceMs);
     },
     [onChangeText, debounceMs],
@@ -220,6 +287,86 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
     };
   }, []);
 
+  /*
+   * Find available screen space and
+   * automatically choose top/bottom.
+   */
+  const calculatePlacement = useCallback(() => {
+    if (!wrapperRef.current) {
+      return;
+    }
+
+    wrapperRef.current.measureInWindow((x, y, width, height) => {
+      const screenHeight = Dimensions.get("window").height;
+
+      const spaceAbove = Math.max(0, y - screenMargin);
+
+      const spaceBelow = Math.max(
+        0,
+        screenHeight - (y + height) - screenMargin,
+      );
+
+      const requiredHeight = Math.min(
+        listMaxHeight,
+        Math.max(minDropdownHeight, filteredOptionsRef.current.length * 48),
+      );
+
+      let nextPlacement = "bottom";
+
+      if (safePlacement === AUTOCOMPLETE_PLACEMENTS.top) {
+        nextPlacement = "top";
+      } else if (safePlacement === AUTOCOMPLETE_PLACEMENTS.bottom) {
+        nextPlacement = "bottom";
+      } else if (spaceBelow >= requiredHeight) {
+        nextPlacement = "bottom";
+      } else if (spaceAbove >= requiredHeight) {
+        nextPlacement = "top";
+      } else {
+        /*
+         * Neither side has enough
+         * room. Use whichever has
+         * more space.
+         */
+        nextPlacement = spaceAbove > spaceBelow ? "top" : "bottom";
+      }
+
+      const availableSpace =
+        nextPlacement === "top"
+          ? spaceAbove - dropdownGap
+          : spaceBelow - dropdownGap;
+
+      const finalHeight = Math.max(
+        minDropdownHeight,
+        Math.min(listMaxHeight, Math.max(0, availableSpace)),
+      );
+
+      setResolvedPlacement(nextPlacement);
+
+      setDropdownHeight(finalHeight);
+
+      setMeasuredInput({
+        x,
+        y,
+        width,
+        height,
+      });
+    });
+  }, [
+    safePlacement,
+    listMaxHeight,
+    minDropdownHeight,
+    screenMargin,
+    dropdownGap,
+  ]);
+
+  /*
+   * We keep the latest filtered list
+   * in a ref so placement calculation
+   * doesn't need to recreate itself
+   * on every keystroke.
+   */
+  const filteredOptionsRef = useRef([]);
+
   const handleFocus = useCallback(
     (event) => {
       if (disabled || readOnly) {
@@ -228,8 +375,12 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
 
       setFocused(true);
 
-      if (openOnFocus) {
-        setOpen(inputText.length >= minSearchLength);
+      if (openOnFocus && inputText.length >= minSearchLength) {
+        calculatePlacement();
+
+        setOpen(true);
+
+        onOpen?.();
       }
 
       onFocus?.(event);
@@ -240,6 +391,8 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
       openOnFocus,
       inputText.length,
       minSearchLength,
+      calculatePlacement,
+      onOpen,
       onFocus,
     ],
   );
@@ -249,37 +402,37 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
       setFocused(false);
 
       /*
-       * Delay closing so a list item
-       * can receive its press event.
+       * Delay slightly so an option
+       * Pressable can receive the
+       * touch before closing.
        */
-      setTimeout(() => {
-        setOpen(false);
-      }, 120);
+      if (closeOnOutsidePress) {
+        setTimeout(() => {
+          setOpen(false);
+          onClose?.();
+        }, 160);
+      }
 
       onBlur?.(event);
     },
-    [onBlur],
+    [closeOnOutsidePress, onClose, onBlur],
   );
 
   const handleTextChange = useCallback(
     (text) => {
       setInputText(text);
 
-      /*
-       * Once user starts typing,
-       * current selection is no longer
-       * necessarily valid.
-       */
-      if (
-        text !==
-        getOptionLabel(findOption(options, currentValue, getOptionValue))
-      ) {
-        if (value === undefined) {
-          setSelectedValue(null);
-        }
+      if (value === undefined) {
+        setSelectedValue(null);
       }
 
       if (text.length >= minSearchLength) {
+        calculatePlacement();
+
+        if (!open) {
+          onOpen?.();
+        }
+
         setOpen(true);
       } else {
         setOpen(false);
@@ -287,22 +440,18 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
 
       emitTextChange(text);
     },
-    [
-      options,
-      currentValue,
-      getOptionValue,
-      getOptionLabel,
-      value,
-      minSearchLength,
-      emitTextChange,
-    ],
+    [value, minSearchLength, calculatePlacement, emitTextChange, open, onOpen],
   );
 
   const handleSelect = useCallback(
     (option) => {
-      const optionValue = getOptionValue(option);
+      if (option === null || option === undefined) {
+        return;
+      }
 
-      const optionLabel = getOptionLabel(option);
+      const optionValue = safeGetOptionValue(option);
+
+      const optionLabel = safeGetOptionLabel(option);
 
       setSelectedValue(optionValue);
 
@@ -310,13 +459,15 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
 
       onChange?.(optionValue, option);
 
-      setOpen(false);
-
       if (closeOnSelect) {
+        setOpen(false);
+
+        onClose?.();
+
         Keyboard.dismiss();
       }
     },
-    [getOptionValue, getOptionLabel, onChange, closeOnSelect],
+    [safeGetOptionValue, safeGetOptionLabel, onChange, closeOnSelect, onClose],
   );
 
   const handleClear = useCallback(() => {
@@ -328,11 +479,38 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
 
     onChange?.(null, null);
 
-    onChangeText?.("");
+    if (onChangeText) {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
 
-    setOpen(minSearchLength === 0);
-  }, [value, onChange, onChangeText, minSearchLength]);
+      onChangeText("");
+    }
 
+    if (minSearchLength === 0) {
+      calculatePlacement();
+
+      setOpen(true);
+
+      onOpen?.();
+    } else {
+      setOpen(false);
+    }
+  }, [
+    value,
+    onChange,
+    onChangeText,
+    minSearchLength,
+    calculatePlacement,
+    onOpen,
+  ]);
+
+  /*
+   * Filter only valid options.
+   *
+   * FlatList then receives a clean
+   * array with no null values.
+   */
   const filteredOptions = useMemo(() => {
     const query = inputText.trim().toLowerCase();
 
@@ -343,15 +521,17 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
     let result;
 
     if (filterOption) {
-      result = options.filter((option) => filterOption(option, query));
-    } else {
-      result = options.filter((option) => {
-        const label = getOptionLabel(option);
-
-        return String(label ?? "")
-          .toLowerCase()
-          .includes(query);
+      result = safeOptions.filter((option) => {
+        try {
+          return Boolean(filterOption(option, query));
+        } catch {
+          return false;
+        }
       });
+    } else {
+      result = safeOptions.filter((option) =>
+        safeGetOptionLabel(option).toLowerCase().includes(query),
+      );
     }
 
     if (maxResults && maxResults > 0) {
@@ -360,19 +540,74 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
 
     return result;
   }, [
-    options,
+    safeOptions,
     inputText,
     minSearchLength,
     filterOption,
-    getOptionLabel,
+    safeGetOptionLabel,
     maxResults,
   ]);
+
+  filteredOptionsRef.current = filteredOptions;
+
+  /*
+   * Recalculate placement when
+   * results change.
+   */
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      calculatePlacement();
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, [filteredOptions.length, open, calculatePlacement]);
+
+  /*
+   * Recalculate after keyboard
+   * changes screen dimensions.
+   */
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    const showSubscription = Dimensions.addEventListener(
+      "change",
+      calculatePlacement,
+    );
+
+    return () => {
+      showSubscription?.remove?.();
+    };
+  }, [open, calculatePlacement]);
 
   const showDropdown =
     open && !disabled && !readOnly && inputText.length >= minSearchLength;
 
+  /*
+   * Keep the dropdown aligned to
+   * the measured input width.
+   */
+  const dropdownWidth = measuredInput?.width || undefined;
+
   return (
-    <View testID={testID} style={[styles.wrapper, containerStyle]}>
+    <View
+      ref={wrapperRef}
+      testID={testID}
+      style={[
+        styles.wrapper,
+        {
+          zIndex: showDropdown ? 99999 : 10,
+
+          elevation: showDropdown ? 999 : 1,
+        },
+        containerStyle,
+      ]}
+    >
       {label ? (
         <Text
           style={[
@@ -399,7 +634,16 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
         </Text>
       ) : null}
 
-      <View style={styles.inputWrapper}>
+      <View
+        style={[
+          styles.inputWrapper,
+          {
+            zIndex: showDropdown ? 99999 : 10,
+
+            elevation: showDropdown ? 999 : 1,
+          },
+        ]}
+      >
         <View
           style={[
             styles.inputContainer,
@@ -427,7 +671,15 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
           <TextInput
             {...textInputProps}
             {...props}
-            ref={ref}
+            ref={(node) => {
+              inputRef.current = node;
+
+              if (typeof ref === "function") {
+                ref(node);
+              } else if (ref) {
+                ref.current = node;
+              }
+            }}
             value={inputText}
             onChangeText={handleTextChange}
             onFocus={handleFocus}
@@ -483,6 +735,8 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
                 color={colors.primary || "#FF5A1F"}
               />
             </View>
+          ) : rightIcon ? (
+            <View style={styles.rightIcon}>{rightIcon}</View>
           ) : showArrow ? (
             <View style={styles.rightIcon}>
               <Text
@@ -496,8 +750,6 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
                 {open ? "⌃" : "⌄"}
               </Text>
             </View>
-          ) : rightIcon ? (
-            <View style={styles.rightIcon}>{rightIcon}</View>
           ) : null}
         </View>
 
@@ -505,13 +757,27 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
           <View
             style={[
               styles.dropdown,
+
+              resolvedPlacement === "top"
+                ? styles.dropdownTop
+                : styles.dropdownBottom,
+
               {
-                maxHeight: listMaxHeight,
+                width: dropdownWidth,
+
+                maxHeight: dropdownHeight,
+
+                minHeight: Math.min(minDropdownHeight, dropdownHeight),
 
                 backgroundColor: colors.card || colors.background || "#FFFFFF",
 
                 borderColor: colors.border || "#E5E5E5",
+
+                zIndex: 999999,
+
+                elevation: 999,
               },
+
               listContainerStyle,
             ]}
           >
@@ -546,18 +812,30 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
               <FlatList
                 data={filteredOptions}
                 keyExtractor={(item, index) =>
-                  String(getOptionValue(item) ?? index)
+                  String(safeGetOptionValue(item) ?? `option-${index}`)
                 }
                 keyboardShouldPersistTaps={keyboardShouldPersistTaps}
                 keyboardDismissMode="on-drag"
                 nestedScrollEnabled
                 initialNumToRender={10}
                 maxToRenderPerBatch={10}
+                updateCellsBatchingPeriod={30}
                 windowSize={7}
                 removeClippedSubviews
                 showsVerticalScrollIndicator={false}
+                getItemLayout={(data, index) => ({
+                  length: 48,
+                  offset: 48 * index,
+                  index,
+                })}
                 renderItem={({ item, index }) => {
-                  const selected = getOptionValue(item) === currentValue;
+                  if (item === null || item === undefined) {
+                    return null;
+                  }
+
+                  const optionValue = safeGetOptionValue(item);
+
+                  const selected = optionValue === currentValue;
 
                   return (
                     <Pressable
@@ -593,7 +871,7 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
                               optionTextStyle,
                             ]}
                           >
-                            {getOptionLabel(item)}
+                            {safeGetOptionLabel(item)}
                           </Text>
 
                           {selected ? (
@@ -648,6 +926,48 @@ const UIAutocompleteComponent = forwardRef(function UIAutocomplete(
   );
 });
 
+/*
+ * ------------------------------------------
+ * SAFE RESOLVERS
+ * ------------------------------------------
+ */
+
+function resolveOptionLabel(resolver, option) {
+  if (option === null || option === undefined) {
+    return "";
+  }
+
+  try {
+    const result = resolver?.(option);
+
+    if (result === null || result === undefined) {
+      return "";
+    }
+
+    return String(result);
+  } catch {
+    return "";
+  }
+}
+
+function resolveOptionValue(resolver, option) {
+  if (option === null || option === undefined) {
+    return null;
+  }
+
+  try {
+    return resolver?.(option) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/*
+ * ------------------------------------------
+ * DEFAULT RESOLVERS
+ * ------------------------------------------
+ */
+
 function defaultGetOptionLabel(option) {
   if (option === null || option === undefined) {
     return "";
@@ -675,8 +995,14 @@ function defaultGetOptionValue(option) {
     return option;
   }
 
-  return option.value ?? option.id ?? option.key;
+  return option.value ?? option.id ?? option.key ?? null;
 }
+
+/*
+ * ------------------------------------------
+ * INITIAL VALUE
+ * ------------------------------------------
+ */
 
 function getInitialText(value, options, getOptionLabel) {
   if (value === null || value === undefined) {
@@ -685,16 +1011,40 @@ function getInitialText(value, options, getOptionLabel) {
 
   const option = findOption(options, value, defaultGetOptionValue);
 
-  return option ? getOptionLabel(option) : "";
+  return option ? resolveOptionLabel(getOptionLabel, option) : "";
 }
+
+/*
+ * ------------------------------------------
+ * FIND OPTION
+ * ------------------------------------------
+ */
 
 function findOption(options, value, getOptionValue) {
   if (value === null || value === undefined) {
     return null;
   }
 
-  return options.find((option) => getOptionValue(option) === value) || null;
+  if (!Array.isArray(options)) {
+    return null;
+  }
+
+  return (
+    options.find((option) => {
+      if (option === null || option === undefined) {
+        return false;
+      }
+
+      return resolveOptionValue(getOptionValue, option) === value;
+    }) || null
+  );
 }
+
+/*
+ * ------------------------------------------
+ * DIMENSIONS
+ * ------------------------------------------
+ */
 
 function getDimensions(size, theme) {
   const radius = theme?.radius || {};
@@ -729,6 +1079,12 @@ function getDimensions(size, theme) {
       };
   }
 }
+
+/*
+ * ------------------------------------------
+ * COLORS
+ * ------------------------------------------
+ */
 
 function getInputColors(
   colors,
@@ -799,15 +1155,25 @@ function getInputColors(
   };
 }
 
+/*
+ * ------------------------------------------
+ * STYLES
+ * ------------------------------------------
+ */
+
 const styles = StyleSheet.create({
   wrapper: {
     width: "100%",
-    zIndex: 100,
+
+    position: "relative",
+
+    overflow: "visible",
   },
 
   inputWrapper: {
     position: "relative",
-    zIndex: 100,
+
+    overflow: "visible",
   },
 
   label: {
@@ -832,7 +1198,9 @@ const styles = StyleSheet.create({
 
   underline: {
     borderLeftWidth: 0,
+
     borderRightWidth: 0,
+
     borderTopWidth: 0,
 
     borderRadius: 0,
@@ -891,34 +1259,41 @@ const styles = StyleSheet.create({
   dropdown: {
     position: "absolute",
 
-    top: "100%",
-
     left: 0,
 
-    right: 0,
-
-    marginTop: 5,
+    overflow: "hidden",
 
     borderWidth: 1,
 
     borderRadius: 10,
 
-    overflow: "hidden",
-
-    elevation: 8,
-
     shadowColor: "#000000",
 
     shadowOffset: {
       width: 0,
-      height: 3,
+
+      height: 4,
     },
 
-    shadowOpacity: 0.16,
+    shadowOpacity: 0.18,
 
     shadowRadius: 8,
 
-    zIndex: 1000,
+    zIndex: 999999,
+
+    elevation: 999,
+  },
+
+  dropdownTop: {
+    bottom: "100%",
+
+    marginBottom: 5,
+  },
+
+  dropdownBottom: {
+    top: "100%",
+
+    marginTop: 5,
   },
 
   option: {
@@ -999,6 +1374,7 @@ UIAutocomplete.displayName = "UIAutocomplete";
 export {
   AUTOCOMPLETE_SIZES as UIAutocompleteSizes,
   AUTOCOMPLETE_VARIANTS as UIAutocompleteVariants,
+  AUTOCOMPLETE_PLACEMENTS as UIAutocompletePlacements,
 };
 
 export default UIAutocomplete;
