@@ -80,13 +80,11 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
 
   const resolvedOrientation = RADIO_GROUP_ORIENTATIONS[orientation]
     ? orientation
-    : RADIO_GROUP_ORIENTATIONS.vertical;
+    : "vertical";
 
-  const resolvedSize = RADIO_GROUP_SIZES[size] ? size : RADIO_GROUP_SIZES.md;
+  const resolvedSize = RADIO_GROUP_SIZES[size] ? size : "md";
 
   const hasError = Boolean(error || errorText);
-
-  const hasSuccess = Boolean(success && !hasError);
 
   const handleChange = useCallback(
     (nextValue) => {
@@ -98,9 +96,7 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
         setInternalValue(nextValue);
       }
 
-      if (onChange) {
-        onChange(nextValue);
-      }
+      onChange?.(nextValue);
     },
     [disabled, isControlled, onChange],
   );
@@ -111,25 +107,13 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
 
       onChange: handleChange,
 
-      name,
-
       disabled,
 
       size: resolvedSize,
 
       error: hasError,
-
-      success: hasSuccess,
     }),
-    [
-      selectedValue,
-      handleChange,
-      name,
-      disabled,
-      resolvedSize,
-      hasError,
-      hasSuccess,
-    ],
+    [selectedValue, handleChange, disabled, resolvedSize, hasError],
   );
 
   return (
@@ -139,12 +123,11 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
         ref={ref}
         testID={testID}
         style={[styles.wrapper, style]}
-        accessibilityRole="radiogroup"
       >
         {label ? (
           <Text
             style={[
-              styles.label,
+              styles.groupLabel,
 
               {
                 color: disabled
@@ -173,7 +156,7 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
           style={[
             styles.options,
 
-            resolvedOrientation === RADIO_GROUP_ORIENTATIONS.horizontal
+            resolvedOrientation === "horizontal"
               ? styles.horizontal
               : styles.vertical,
 
@@ -223,14 +206,12 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
    RADIO OPTION
 ========================================================= */
 
-function UIRadioOptionComponent({
+const UIRadioOptionComponent = function UIRadioOptionComponent({
   value,
-  label,
-  children,
+  label = "",
+  description,
 
   disabled = false,
-
-  description,
 
   style,
   labelStyle,
@@ -262,6 +243,8 @@ function UIRadioOptionComponent({
 
   const isDisabled = groupDisabled || disabled;
 
+  const radioSize = getRadioSize(size);
+
   const handlePress = useCallback(() => {
     if (isDisabled) {
       return;
@@ -269,12 +252,8 @@ function UIRadioOptionComponent({
 
     onChange(value);
 
-    if (onPress) {
-      onPress(value);
-    }
+    onPress?.(value);
   }, [isDisabled, onChange, value, onPress]);
-
-  const radioSize = getRadioSize(size);
 
   return (
     <View style={[styles.optionWrapper, style]}>
@@ -295,6 +274,7 @@ function UIRadioOptionComponent({
           },
         ]}
       >
+        {/* RADIO CIRCLE */}
         <View
           style={[
             styles.radio,
@@ -337,9 +317,11 @@ function UIRadioOptionComponent({
           ) : null}
         </View>
 
+        {/* TEXT AREA */}
         <View style={styles.textContainer}>
-          {label || children ? (
+          {label !== "" ? (
             <Text
+              numberOfLines={0}
               style={[
                 styles.optionLabel,
 
@@ -356,7 +338,7 @@ function UIRadioOptionComponent({
                 labelStyle,
               ]}
             >
-              {label ?? children}
+              {String(label)}
             </Text>
           ) : null}
 
@@ -374,22 +356,22 @@ function UIRadioOptionComponent({
                 descriptionStyle,
               ]}
             >
-              {description}
+              {String(description)}
             </Text>
           ) : null}
         </View>
       </Pressable>
     </View>
   );
-}
+};
 
 /* =========================================================
-   SIZE
+   RADIO SIZE
 ========================================================= */
 
 function getRadioSize(size) {
   switch (size) {
-    case RADIO_GROUP_SIZES.sm:
+    case "sm":
       return {
         outer: 18,
         inner: 8,
@@ -397,7 +379,7 @@ function getRadioSize(size) {
         lineHeight: 18,
       };
 
-    case RADIO_GROUP_SIZES.lg:
+    case "lg":
       return {
         outer: 24,
         inner: 12,
@@ -405,7 +387,7 @@ function getRadioSize(size) {
         lineHeight: 22,
       };
 
-    case RADIO_GROUP_SIZES.md:
+    case "md":
     default:
       return {
         outer: 21,
@@ -425,12 +407,12 @@ const styles = StyleSheet.create({
     width: "100%",
   },
 
-  label: {
+  groupLabel: {
     marginBottom: 10,
 
     fontSize: 14,
 
-    lineHeight: 19,
+    lineHeight: 20,
 
     fontWeight: "600",
 
@@ -450,31 +432,31 @@ const styles = StyleSheet.create({
 
     flexWrap: "wrap",
 
-    alignItems: "center",
+    alignItems: "flex-start",
   },
 
   optionWrapper: {
-    minWidth: 0,
+    width: "100%",
   },
 
   optionPressable: {
+    width: "100%",
+
+    minHeight: 34,
+
     flexDirection: "row",
 
     alignItems: "flex-start",
-
-    minHeight: 32,
-
-    flexShrink: 1,
   },
 
   radio: {
+    flexShrink: 0,
+
     alignItems: "center",
 
     justifyContent: "center",
 
     marginTop: 1,
-
-    flexShrink: 0,
   },
 
   radioDot: {},
@@ -484,7 +466,9 @@ const styles = StyleSheet.create({
 
     minWidth: 0,
 
-    marginLeft: 9,
+    marginLeft: 10,
+
+    paddingRight: 4,
   },
 
   optionLabel: {
@@ -515,7 +499,7 @@ const styles = StyleSheet.create({
 });
 
 /* =========================================================
-   MEMOIZED EXPORTS
+   EXPORTS
 ========================================================= */
 
 export const UIRadioGroup = memo(UIRadioGroupComponent);
@@ -525,10 +509,6 @@ UIRadioGroup.displayName = "UIRadioGroup";
 export const UIRadioOption = memo(UIRadioOptionComponent);
 
 UIRadioOption.displayName = "UIRadioOption";
-
-/* =========================================================
-   CONSTANT EXPORTS
-========================================================= */
 
 export {
   RADIO_GROUP_ORIENTATIONS as UIRadioGroupOrientations,
