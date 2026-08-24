@@ -1,8 +1,15 @@
-import React, { memo, useCallback, useEffect, useRef } from "react";
+import React, {
+  forwardRef,
+  memo,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 
 import {
+  ActivityIndicator,
   Animated,
-  Easing,
   Pressable,
   StyleSheet,
   Text,
@@ -11,302 +18,456 @@ import {
 
 import { useUITheme } from "../../theme";
 
-const SWITCH_SIZES = {
+const UI_SWITCH_SIZES = {
   sm: "sm",
   md: "md",
   lg: "lg",
 };
 
-const SWITCH_VARIANTS = {
-  primary: "primary",
-  secondary: "secondary",
-  success: "success",
-  danger: "danger",
+const SIZE_CONFIG = {
+  sm: {
+    width: 38,
+    height: 22,
+    thumb: 16,
+    padding: 3,
+    labelSize: 13,
+    descriptionSize: 11,
+  },
+
+  md: {
+    width: 48,
+    height: 28,
+    thumb: 22,
+    padding: 3,
+    labelSize: 14,
+    descriptionSize: 12,
+  },
+
+  lg: {
+    width: 58,
+    height: 34,
+    thumb: 28,
+    padding: 3,
+    labelSize: 16,
+    descriptionSize: 13,
+  },
 };
 
-function UISwitchComponent({
-  value = false,
+const UISwitchComponent = forwardRef(function UISwitch(
+  {
+    value,
+    defaultValue = false,
 
-  onValueChange,
+    onChange,
 
-  label,
+    label,
+    description,
 
-  description,
+    size = "md",
 
-  size = "md",
+    disabled = false,
+    loading = false,
 
-  variant = "primary",
+    error = false,
+    errorText,
 
-  disabled = false,
+    helperText,
 
-  labelStyle,
+    activeColor,
+    inactiveColor,
+    thumbColor,
 
-  descriptionStyle,
+    animated = true,
+    animationDuration = 180,
 
-  trackStyle,
+    animatePress = true,
+    pressScale = 0.92,
 
-  thumbStyle,
+    labelPosition = "right",
 
-  style,
+    containerStyle,
+    switchStyle,
+    labelStyle,
+    descriptionStyle,
+    helperStyle,
+    errorStyle,
 
-  testID,
+    testID,
+    accessibilityLabel,
 
-  accessibilityLabel,
-
-  accessibilityHint,
-
-  ...props
-}) {
+    ...props
+  },
+  ref,
+) {
   const { theme } = useUITheme();
 
   const colors = theme?.colors || {};
 
-  const safeSize = SWITCH_SIZES[size] ? size : SWITCH_SIZES.md;
+  const config = SIZE_CONFIG[UI_SWITCH_SIZES[size] ? size : UI_SWITCH_SIZES.md];
 
-  const safeVariant = SWITCH_VARIANTS[variant]
-    ? variant
-    : SWITCH_VARIANTS.primary;
+  /*
+   * --------------------------------------------------
+   * CONTROLLED / UNCONTROLLED
+   * --------------------------------------------------
+   */
 
-  const dimensions = getDimensions(safeSize);
+  const isControlled = value !== undefined;
 
-  const activeColor = getActiveColor(safeVariant, colors);
+  const [internalValue, setInternalValue] = useState(Boolean(defaultValue));
 
-  const animation = useRef(new Animated.Value(value ? 1 : 0)).current;
+  const checked = isControlled ? Boolean(value) : internalValue;
+
+  /*
+   * --------------------------------------------------
+   * ANIMATION
+   * --------------------------------------------------
+   */
+
+  const progress = useRef(new Animated.Value(checked ? 1 : 0)).current;
+
+  const pressScaleValue = useRef(new Animated.Value(1)).current;
+
+  /*
+   * --------------------------------------------------
+   * VALUE ANIMATION
+   * --------------------------------------------------
+   */
 
   useEffect(() => {
-    Animated.timing(animation, {
-      toValue: value ? 1 : 0,
+    const target = checked ? 1 : 0;
 
-      duration: 160,
+    if (!animated) {
+      progress.setValue(target);
 
-      easing: Easing.out(Easing.cubic),
-
-      useNativeDriver: true,
-    }).start();
-  }, [value, animation]);
-
-  const handlePress = useCallback(() => {
-    if (disabled) {
       return;
     }
 
-    onValueChange?.(!value);
-  }, [disabled, onValueChange, value]);
+    Animated.timing(progress, {
+      toValue: target,
 
-  const translateX = animation.interpolate({
+      duration: Math.max(0, animationDuration),
+
+      useNativeDriver: true,
+    }).start();
+  }, [checked, animated, animationDuration, progress]);
+
+  /*
+   * --------------------------------------------------
+   * PRESS ANIMATION
+   * --------------------------------------------------
+   */
+
+  const animatePressIn = useCallback(() => {
+    if (!animated || !animatePress || disabled || loading) {
+      return;
+    }
+
+    Animated.spring(pressScaleValue, {
+      toValue: pressScale,
+
+      friction: 7,
+
+      tension: 120,
+
+      useNativeDriver: true,
+    }).start();
+  }, [animated, animatePress, disabled, loading, pressScale, pressScaleValue]);
+
+  const animatePressOut = useCallback(() => {
+    if (!animated || !animatePress) {
+      return;
+    }
+
+    Animated.spring(pressScaleValue, {
+      toValue: 1,
+
+      friction: 7,
+
+      tension: 120,
+
+      useNativeDriver: true,
+    }).start();
+  }, [animated, animatePress, pressScaleValue]);
+
+  /*
+   * --------------------------------------------------
+   * CHANGE
+   * --------------------------------------------------
+   */
+
+  const handleChange = useCallback(() => {
+    if (disabled || loading) {
+      return;
+    }
+
+    const nextValue = !checked;
+
+    if (!isControlled) {
+      setInternalValue(nextValue);
+    }
+
+    onChange?.(nextValue);
+  }, [disabled, loading, checked, isControlled, onChange]);
+
+  /*
+   * --------------------------------------------------
+   * COLORS
+   * --------------------------------------------------
+   */
+
+  const resolvedActiveColor = activeColor || colors.primary || "#FF5A1F";
+
+  const resolvedInactiveColor =
+    inactiveColor || colors.borderStrong || "#D4D4D4";
+
+  const resolvedThumbColor = thumbColor || colors.background || "#FFFFFF";
+
+  const disabledOpacity = disabled ? 0.5 : 1;
+
+  /*
+   * --------------------------------------------------
+   * THUMB MOVEMENT
+   * --------------------------------------------------
+   */
+
+  const travel = config.width - config.thumb - config.padding * 2;
+
+  const translateX = progress.interpolate({
     inputRange: [0, 1],
 
-    outputRange: [0, dimensions.thumbTravel],
+    outputRange: [0, travel],
+
+    extrapolate: "clamp",
   });
 
-  const trackBackground = animation.interpolate({
-    inputRange: [0, 1],
+  /*
+   * --------------------------------------------------
+   * SWITCH
+   * --------------------------------------------------
+   */
 
-    outputRange: [colors.border || "#D4D4D4", activeColor],
-  });
+  const switchElement = (
+    <Animated.View
+      style={[
+        {
+          width: config.width,
 
-  return (
-    <View {...props} testID={testID} style={[styles.wrapper, style]}>
-      <Pressable
-        disabled={disabled}
-        onPress={handlePress}
-        accessibilityRole="switch"
-        accessibilityLabel={accessibilityLabel || label}
-        accessibilityHint={accessibilityHint}
-        accessibilityState={{
-          checked: value,
+          height: config.height,
 
-          disabled,
-        }}
-        style={styles.pressable}
-      >
-        <View
-          style={[
-            styles.row,
+          borderRadius: config.height / 2,
 
+          backgroundColor: checked
+            ? resolvedActiveColor
+            : resolvedInactiveColor,
+
+          opacity: disabledOpacity,
+
+          transform: [
             {
-              opacity: disabled ? 0.5 : 1,
+              scale: pressScaleValue,
             },
-          ]}
-        >
-          <Animated.View
+          ],
+        },
+
+        switchStyle,
+      ]}
+    >
+      <Animated.View
+        style={[
+          styles.thumb,
+
+          {
+            width: config.thumb,
+
+            height: config.thumb,
+
+            borderRadius: config.thumb / 2,
+
+            backgroundColor: resolvedThumbColor,
+
+            top: config.padding,
+
+            left: config.padding,
+
+            transform: [
+              {
+                translateX,
+              },
+            ],
+          },
+        ]}
+      >
+        {loading ? (
+          <ActivityIndicator size="small" color={resolvedActiveColor} />
+        ) : null}
+      </Animated.View>
+    </Animated.View>
+  );
+
+  /*
+   * --------------------------------------------------
+   * LABEL CONTENT
+   * --------------------------------------------------
+   */
+
+  const textContent =
+    label || description ? (
+      <View
+        style={[
+          styles.textContainer,
+
+          labelPosition === "left" ? styles.textLeft : styles.textRight,
+        ]}
+      >
+        {label ? (
+          <Text
             style={[
-              styles.track,
+              styles.label,
 
               {
-                width: dimensions.trackWidth,
+                fontSize: config.labelSize,
 
-                height: dimensions.trackHeight,
-
-                borderRadius: dimensions.trackHeight / 2,
-
-                backgroundColor: trackBackground,
+                color: disabled
+                  ? colors.textDisabled || "#A3A3A3"
+                  : colors.text || "#111111",
               },
 
-              trackStyle,
+              labelStyle,
             ]}
           >
-            <Animated.View
-              style={[
-                styles.thumb,
+            {label}
+          </Text>
+        ) : null}
 
-                {
-                  width: dimensions.thumbSize,
+        {description ? (
+          <Text
+            style={[
+              styles.description,
 
-                  height: dimensions.thumbSize,
+              {
+                fontSize: config.descriptionSize,
 
-                  borderRadius: dimensions.thumbSize / 2,
+                color: disabled
+                  ? colors.textDisabled || "#A3A3A3"
+                  : colors.textSecondary || "#525252",
+              },
 
-                  transform: [
-                    {
-                      translateX,
-                    },
-                  ],
-                },
+              descriptionStyle,
+            ]}
+          >
+            {description}
+          </Text>
+        ) : null}
+      </View>
+    ) : null;
 
-                thumbStyle,
-              ]}
-            />
-          </Animated.View>
+  /*
+   * --------------------------------------------------
+   * MAIN
+   * --------------------------------------------------
+   */
 
-          {label ? (
-            <View style={styles.textContainer}>
-              <Text
-                style={[
-                  styles.label,
+  return (
+    <View
+      ref={ref}
+      testID={testID}
+      style={[styles.container, containerStyle]}
+      {...props}
+    >
+      <Pressable
+        disabled={disabled || loading}
+        onPress={handleChange}
+        onPressIn={animatePressIn}
+        onPressOut={animatePressOut}
+        accessibilityRole="switch"
+        accessibilityLabel={accessibilityLabel || label}
+        accessibilityState={{
+          checked,
+          disabled: disabled || loading,
+        }}
+        style={[
+          styles.pressable,
 
-                  {
-                    color: colors.text || "#111111",
-
-                    fontSize: dimensions.fontSize,
-                  },
-
-                  labelStyle,
-                ]}
-              >
-                {label}
-              </Text>
-
-              {description ? (
-                <Text
-                  style={[
-                    styles.description,
-
-                    {
-                      color: colors.textSecondary || "#525252",
-                    },
-
-                    descriptionStyle,
-                  ]}
-                >
-                  {description}
-                </Text>
-              ) : null}
-            </View>
-          ) : null}
-        </View>
+          labelPosition === "left" ? styles.rowReverse : styles.row,
+        ]}
+      >
+        {labelPosition === "left" ? (
+          <>
+            {textContent}
+            {switchElement}
+          </>
+        ) : (
+          <>
+            {switchElement}
+            {textContent}
+          </>
+        )}
       </Pressable>
+
+      {error || errorText ? (
+        <Text
+          style={[
+            styles.message,
+
+            {
+              color: colors.danger || "#DC2626",
+            },
+
+            errorStyle,
+          ]}
+        >
+          {errorText}
+        </Text>
+      ) : helperText ? (
+        <Text
+          style={[
+            styles.message,
+
+            {
+              color: colors.textSecondary || "#525252",
+            },
+
+            helperStyle,
+          ]}
+        >
+          {helperText}
+        </Text>
+      ) : null}
     </View>
   );
-}
-
-function getActiveColor(variant, colors) {
-  switch (variant) {
-    case SWITCH_VARIANTS.secondary:
-      return colors.secondary || "#7CFF32";
-
-    case SWITCH_VARIANTS.success:
-      return colors.success || "#16A34A";
-
-    case SWITCH_VARIANTS.danger:
-      return colors.danger || "#DC2626";
-
-    case SWITCH_VARIANTS.primary:
-    default:
-      return colors.primary || "#FF5A1F";
-  }
-}
-
-function getDimensions(size) {
-  switch (size) {
-    case SWITCH_SIZES.sm:
-      return {
-        trackWidth: 40,
-        trackHeight: 22,
-        thumbSize: 18,
-        thumbTravel: 18,
-        fontSize: 13,
-      };
-
-    case SWITCH_SIZES.lg:
-      return {
-        trackWidth: 58,
-        trackHeight: 32,
-        thumbSize: 28,
-        thumbTravel: 26,
-        fontSize: 16,
-      };
-
-    case SWITCH_SIZES.md:
-    default:
-      return {
-        trackWidth: 48,
-        trackHeight: 28,
-        thumbSize: 24,
-        thumbTravel: 20,
-        fontSize: 14,
-      };
-  }
-}
+});
 
 const styles = StyleSheet.create({
-  wrapper: {
-    alignSelf: "stretch",
+  container: {
+    width: "100%",
   },
 
   pressable: {
-    minHeight: 44,
+    alignItems: "center",
 
-    justifyContent: "center",
+    minHeight: 36,
   },
 
   row: {
     flexDirection: "row",
-
-    alignItems: "center",
   },
 
-  track: {
-    justifyContent: "center",
-
-    paddingHorizontal: 2,
-
-    overflow: "hidden",
-
-    flexShrink: 0,
-  },
-
-  thumb: {
-    backgroundColor: "#FFFFFF",
-
-    elevation: 2,
-
-    shadowColor: "#000000",
-
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-
-    shadowOpacity: 0.18,
-
-    shadowRadius: 2,
+  rowReverse: {
+    flexDirection: "row-reverse",
   },
 
   textContainer: {
     flex: 1,
 
-    marginLeft: 12,
+    minWidth: 0,
+  },
+
+  textRight: {
+    marginLeft: 10,
+  },
+
+  textLeft: {
+    marginRight: 10,
   },
 
   label: {
@@ -318,11 +479,41 @@ const styles = StyleSheet.create({
   },
 
   description: {
-    marginTop: 2,
+    marginTop: 3,
+
+    lineHeight: 17,
+
+    includeFontPadding: false,
+  },
+
+  thumb: {
+    position: "absolute",
+
+    alignItems: "center",
+
+    justifyContent: "center",
+
+    elevation: 2,
+
+    shadowColor: "#000000",
+
+    shadowOffset: {
+      width: 0,
+
+      height: 1,
+    },
+
+    shadowOpacity: 0.2,
+
+    shadowRadius: 2,
+  },
+
+  message: {
+    marginTop: 6,
 
     fontSize: 12,
 
-    lineHeight: 17,
+    lineHeight: 16,
 
     includeFontPadding: false,
   },
@@ -332,6 +523,6 @@ export const UISwitch = memo(UISwitchComponent);
 
 UISwitch.displayName = "UISwitch";
 
-export { SWITCH_SIZES as UISwitchSizes, SWITCH_VARIANTS as UISwitchVariants };
+export { UI_SWITCH_SIZES as UISwitchSizes };
 
 export default UISwitch;

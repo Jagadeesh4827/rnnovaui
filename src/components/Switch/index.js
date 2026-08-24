@@ -1,1 +1,1 @@
-export { UISwitch, UISwitchSizes, UISwitchVariants } from "./UISwitch";
+export { UISwitch, UISwitchSizes } from "./UISwitch";

@@ -45,7 +45,6 @@ export {
   UIRadioVariants,
   UISwitch,
   UISwitchSizes,
-  UISwitchVariants,
   UIAvatar,
   UIAvatarSizes,
   UIAvatarShapes,

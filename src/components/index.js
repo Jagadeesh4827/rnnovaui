@@ -22,7 +22,7 @@ export {
 export { UIInput, UIInputVariants, UIInputSizes, UIInputStates } from "./Input";
 export { UICheckbox, UICheckboxSizes, UICheckboxVariants } from "./Checkbox";
 export { UIRadio, UIRadioSizes, UIRadioVariants } from "./Radio";
-export { UISwitch, UISwitchSizes, UISwitchVariants } from "./Switch";
+export { UISwitch, UISwitchSizes } from "./Switch";
 export {
   UIAvatar,
   UIAvatarSizes,

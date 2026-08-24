@@ -12,10 +12,6 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useUITheme } from "../../theme";
 
-/* =========================================================
-   CONSTANTS
-========================================================= */
-
 const RADIO_GROUP_ORIENTATIONS = {
   vertical: "vertical",
   horizontal: "horizontal",
@@ -26,10 +22,6 @@ const RADIO_GROUP_SIZES = {
   md: "md",
   lg: "lg",
 };
-
-/* =========================================================
-   CONTEXT
-========================================================= */
 
 const RadioGroupContext = createContext(null);
 
@@ -158,18 +150,20 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
           </Text>
         ) : null}
 
-        {/* OPTIONS */}
+        {/* RADIO OPTIONS */}
 
         <View
           style={[
             styles.options,
 
             resolvedOrientation === "horizontal"
-              ? styles.optionsHorizontal
-              : styles.optionsVertical,
+              ? styles.horizontal
+              : styles.vertical,
 
             {
-              gap,
+              columnGap: gap,
+
+              rowGap: gap,
             },
           ]}
         >
@@ -182,7 +176,7 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
           })}
         </View>
 
-        {/* ERROR */}
+        {/* ERROR / HELPER */}
 
         {hasError ? (
           <Text
@@ -294,7 +288,7 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
         style,
       ]}
     >
-      {/* RADIO */}
+      {/* RADIO CIRCLE */}
 
       <View
         style={[
@@ -338,10 +332,10 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
         ) : null}
       </View>
 
-      {/* LABEL + DESCRIPTION */}
+      {/* LABEL */}
 
       <View style={styles.content}>
-        {label !== null && label !== undefined && String(label).length > 0 ? (
+        {label !== "" ? (
           <Text
             style={[
               styles.optionLabel,
@@ -363,9 +357,9 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
           </Text>
         ) : null}
 
-        {description !== null &&
-        description !== undefined &&
-        String(description).length > 0 ? (
+        {description !== "" &&
+        description !== null &&
+        description !== undefined ? (
           <Text
             style={[
               styles.description,
@@ -412,7 +406,7 @@ function getRadioSize(size) {
     case "md":
     default:
       return {
-        outer: 21,
+        outer: 20,
         inner: 9,
         fontSize: 14,
         lineHeight: 20,
@@ -430,7 +424,7 @@ const styles = StyleSheet.create({
   },
 
   groupLabel: {
-    marginBottom: 10,
+    marginBottom: 12,
 
     fontSize: 14,
 
@@ -443,40 +437,48 @@ const styles = StyleSheet.create({
 
   options: {
     width: "100%",
-  },
 
-  optionsVertical: {
-    flexDirection: "column",
-
-    alignItems: "stretch",
-  },
-
-  optionsHorizontal: {
     flexDirection: "row",
 
     flexWrap: "wrap",
 
     alignItems: "flex-start",
-
-    justifyContent: "flex-start",
   },
+
+  vertical: {
+    flexDirection: "column",
+
+    alignItems: "stretch",
+  },
+
+  horizontal: {
+    flexDirection: "row",
+
+    flexWrap: "wrap",
+
+    alignItems: "center",
+  },
+
+  /*
+   * IMPORTANT:
+   *
+   * The option does NOT have
+   * width: "100%".
+   *
+   * Therefore horizontal options
+   * use only the width they need.
+   */
 
   option: {
     flexDirection: "row",
 
-    alignItems: "flex-start",
+    alignItems: "center",
 
-    /*
-     * IMPORTANT:
-     *
-     * No width: "100%" here.
-     *
-     * That was the reason horizontal
-     * layout was not working.
-     */
     flexShrink: 0,
 
-    minHeight: 34,
+    flexGrow: 0,
+
+    minHeight: 32,
   },
 
   radio: {
@@ -485,26 +487,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
 
     justifyContent: "center",
-
-    marginTop: 1,
   },
 
   radioDot: {},
 
   content: {
-    flexShrink: 1,
+    flexShrink: 0,
 
-    minWidth: 0,
+    flexGrow: 0,
 
-    marginLeft: 10,
-
-    paddingRight: 4,
+    marginLeft: 8,
   },
 
   optionLabel: {
     fontWeight: "500",
 
     includeFontPadding: false,
+
+    flexShrink: 0,
   },
 
   description: {
