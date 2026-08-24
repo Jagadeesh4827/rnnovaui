@@ -12,6 +12,10 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useUITheme } from "../../theme";
 
+/* =========================================================
+   CONSTANTS
+========================================================= */
+
 const RADIO_GROUP_ORIENTATIONS = {
   vertical: "vertical",
   horizontal: "horizontal",
@@ -22,6 +26,10 @@ const RADIO_GROUP_SIZES = {
   md: "md",
   lg: "lg",
 };
+
+/* =========================================================
+   CONTEXT
+========================================================= */
 
 const RadioGroupContext = createContext(null);
 
@@ -52,7 +60,7 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
 
     size = "md",
 
-    gap = 12,
+    gap = 16,
 
     style,
     labelStyle,
@@ -120,7 +128,9 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
         testID={testID}
         style={[styles.container, style]}
       >
-        {/* GROUP LABEL */}
+        {/* =================================================
+              GROUP LABEL
+          ================================================= */}
 
         {label ? (
           <Text
@@ -150,21 +160,17 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
           </Text>
         ) : null}
 
-        {/* RADIO OPTIONS */}
+        {/* =================================================
+              OPTIONS
+          ================================================= */}
 
         <View
           style={[
             styles.options,
 
             resolvedOrientation === "horizontal"
-              ? styles.horizontal
-              : styles.vertical,
-
-            {
-              columnGap: gap,
-
-              rowGap: gap,
-            },
+              ? styles.optionsHorizontal
+              : styles.optionsVertical,
           ]}
         >
           {React.Children.map(children, (child) => {
@@ -176,7 +182,9 @@ const UIRadioGroupComponent = forwardRef(function UIRadioGroup(
           })}
         </View>
 
-        {/* ERROR / HELPER */}
+        {/* =================================================
+              ERROR / HELPER
+          ================================================= */}
 
         {hasError ? (
           <Text
@@ -251,9 +259,9 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
     error,
   } = context;
 
-  const selected = selectedValue === value;
+  const isSelected = selectedValue === value;
 
-  const isDisabled = Boolean(groupDisabled || disabled);
+  const isDisabled = groupDisabled || disabled;
 
   const radioSize = getRadioSize(size);
 
@@ -274,7 +282,7 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
       disabled={isDisabled}
       accessibilityRole="radio"
       accessibilityState={{
-        checked: selected,
+        checked: isSelected,
 
         disabled: isDisabled,
       }}
@@ -288,7 +296,9 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
         style,
       ]}
     >
-      {/* RADIO CIRCLE */}
+      {/* =================================================
+            CIRCLE
+        ================================================= */}
 
       <View
         style={[
@@ -301,17 +311,17 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
 
             borderRadius: radioSize.outer / 2,
 
-            borderWidth: selected ? 2 : 1.5,
+            borderWidth: isSelected ? 2 : 1.5,
 
             borderColor: error
               ? colors.danger || "#DC2626"
-              : selected
+              : isSelected
                 ? colors.primary || "#FF5A1F"
                 : colors.borderStrong || "#D4D4D4",
           },
         ]}
       >
-        {selected ? (
+        {isSelected ? (
           <View
             style={[
               styles.radioDot,
@@ -332,10 +342,12 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
         ) : null}
       </View>
 
-      {/* LABEL */}
+      {/* =================================================
+            LABEL CONTENT
+        ================================================= */}
 
-      <View style={styles.content}>
-        {label !== "" ? (
+      <View style={styles.labelContainer}>
+        {label !== null && label !== undefined && String(label).length > 0 ? (
           <Text
             style={[
               styles.optionLabel,
@@ -357,9 +369,9 @@ const UIRadioOptionComponent = function UIRadioOptionComponent({
           </Text>
         ) : null}
 
-        {description !== "" &&
-        description !== null &&
-        description !== undefined ? (
+        {description !== null &&
+        description !== undefined &&
+        String(description).length > 0 ? (
           <Text
             style={[
               styles.description,
@@ -423,6 +435,8 @@ const styles = StyleSheet.create({
     width: "100%",
   },
 
+  /* GROUP LABEL */
+
   groupLabel: {
     marginBottom: 12,
 
@@ -435,68 +449,81 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
+  /* OPTIONS CONTAINER */
+
   options: {
     width: "100%",
-
-    flexDirection: "row",
-
-    flexWrap: "wrap",
-
-    alignItems: "flex-start",
   },
 
-  vertical: {
+  optionsVertical: {
     flexDirection: "column",
 
-    alignItems: "stretch",
+    alignItems: "flex-start",
+
+    gap: 12,
   },
 
-  horizontal: {
+  optionsHorizontal: {
     flexDirection: "row",
 
     flexWrap: "wrap",
 
     alignItems: "center",
+
+    columnGap: 20,
+
+    rowGap: 12,
   },
 
-  /*
-   * IMPORTANT:
-   *
-   * The option does NOT have
-   * width: "100%".
-   *
-   * Therefore horizontal options
-   * use only the width they need.
-   */
+  /* INDIVIDUAL OPTION */
 
   option: {
     flexDirection: "row",
 
+    /*
+     * THIS IS IMPORTANT
+     *
+     * Radio + label are always
+     * in the same row.
+     */
+
     alignItems: "center",
 
-    flexShrink: 0,
+    justifyContent: "flex-start",
+
+    /*
+     * Do NOT use width: 100%.
+     */
 
     flexGrow: 0,
+
+    flexShrink: 0,
 
     minHeight: 32,
   },
 
-  radio: {
-    flexShrink: 0,
+  /* RADIO CIRCLE */
 
+  radio: {
     alignItems: "center",
 
     justifyContent: "center",
+
+    flexShrink: 0,
   },
 
-  radioDot: {},
-
-  content: {
+  radioDot: {
     flexShrink: 0,
+  },
 
-    flexGrow: 0,
+  /* LABEL */
 
+  labelContainer: {
     marginLeft: 8,
+
+    justifyContent: "center",
+
+    flexShrink: 0,
   },
 
   optionLabel: {
@@ -504,7 +531,7 @@ const styles = StyleSheet.create({
 
     includeFontPadding: false,
 
-    flexShrink: 0,
+    textAlign: "left",
   },
 
   description: {
@@ -515,7 +542,11 @@ const styles = StyleSheet.create({
     lineHeight: 17,
 
     includeFontPadding: false,
+
+    textAlign: "left",
   },
+
+  /* ERROR / HELPER */
 
   message: {
     marginTop: 7,

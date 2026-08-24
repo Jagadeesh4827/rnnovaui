@@ -1,15 +1,8 @@
-import React, {
-  forwardRef,
-  memo,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { memo, useCallback, useEffect, useRef } from "react";
 
 import {
-  ActivityIndicator,
   Animated,
+  Easing,
   Pressable,
   StyleSheet,
   Text,
@@ -18,476 +11,283 @@ import {
 
 import { useUITheme } from "../../theme";
 
-const UI_SWITCH_SIZES = {
+const SWITCH_SIZES = {
   sm: "sm",
   md: "md",
   lg: "lg",
 };
 
-const SIZE_CONFIG = {
-  sm: {
-    width: 38,
-    height: 22,
-    thumb: 16,
-    padding: 3,
-    labelSize: 13,
-    descriptionSize: 11,
-  },
-
-  md: {
-    width: 48,
-    height: 28,
-    thumb: 22,
-    padding: 3,
-    labelSize: 14,
-    descriptionSize: 12,
-  },
-
-  lg: {
-    width: 58,
-    height: 34,
-    thumb: 28,
-    padding: 3,
-    labelSize: 16,
-    descriptionSize: 13,
-  },
+const SWITCH_VARIANTS = {
+  primary: "primary",
+  secondary: "secondary",
+  success: "success",
+  danger: "danger",
 };
 
-const UISwitchComponent = forwardRef(function UISwitch(
-  {
-    value,
-    defaultValue = false,
+function UISwitchComponent({
+  value = false,
 
-    onChange,
+  onValueChange,
 
-    label,
-    description,
+  label,
 
-    size = "md",
+  description,
 
-    disabled = false,
-    loading = false,
+  size = "md",
 
-    error = false,
-    errorText,
+  variant = "primary",
 
-    helperText,
+  disabled = false,
 
-    activeColor,
-    inactiveColor,
-    thumbColor,
+  labelStyle,
 
-    animated = true,
-    animationDuration = 180,
+  descriptionStyle,
 
-    animatePress = true,
-    pressScale = 0.92,
+  trackStyle,
 
-    labelPosition = "right",
+  thumbStyle,
 
-    containerStyle,
-    switchStyle,
-    labelStyle,
-    descriptionStyle,
-    helperStyle,
-    errorStyle,
+  style,
 
-    testID,
-    accessibilityLabel,
+  testID,
 
-    ...props
-  },
-  ref,
-) {
+  accessibilityLabel,
+
+  accessibilityHint,
+
+  ...props
+}) {
   const { theme } = useUITheme();
 
   const colors = theme?.colors || {};
 
-  /*
-   * ----------------------------------------
-   * SIZE
-   * ----------------------------------------
-   */
+  const safeSize = SWITCH_SIZES[size] ? size : SWITCH_SIZES.md;
 
-  const config = SIZE_CONFIG[UI_SWITCH_SIZES[size] ? size : UI_SWITCH_SIZES.md];
+  const safeVariant = SWITCH_VARIANTS[variant]
+    ? variant
+    : SWITCH_VARIANTS.primary;
 
-  /*
-   * ----------------------------------------
-   * CONTROLLED / UNCONTROLLED
-   * ----------------------------------------
-   */
+  const dimensions = getDimensions(safeSize);
 
-  const controlled = value !== undefined;
+  const activeColor = getActiveColor(safeVariant, colors);
 
-  const [internalValue, setInternalValue] = useState(Boolean(defaultValue));
-
-  const checked = controlled ? Boolean(value) : internalValue;
-
-  /*
-   * ----------------------------------------
-   * ANIMATION VALUES
-   * ----------------------------------------
-   */
-
-  const progress = useRef(new Animated.Value(checked ? 1 : 0)).current;
-
-  const scale = useRef(new Animated.Value(1)).current;
-
-  /*
-   * ----------------------------------------
-   * COLORS
-   * ----------------------------------------
-   */
-
-  const resolvedActiveColor = activeColor || colors.primary || "#FF5A1F";
-
-  const resolvedInactiveColor =
-    inactiveColor || colors.borderStrong || "#D4D4D4";
-
-  const resolvedThumbColor = thumbColor || colors.background || "#FFFFFF";
-
-  /*
-   * ----------------------------------------
-   * THUMB TRAVEL
-   * ----------------------------------------
-   */
-
-  const travel = config.width - config.thumb - config.padding * 2;
-
-  /*
-   * ----------------------------------------
-   * VALUE ANIMATION
-   * ----------------------------------------
-   */
+  const animation = useRef(new Animated.Value(value ? 1 : 0)).current;
 
   useEffect(() => {
-    const nextValue = checked ? 1 : 0;
+    Animated.timing(animation, {
+      toValue: value ? 1 : 0,
 
-    if (!animated) {
-      progress.setValue(nextValue);
+      duration: 160,
 
-      return;
-    }
-
-    Animated.timing(progress, {
-      toValue: nextValue,
-
-      duration: Math.max(0, animationDuration),
+      easing: Easing.out(Easing.cubic),
 
       useNativeDriver: true,
     }).start();
-  }, [checked, animated, animationDuration, progress]);
+  }, [value, animation]);
 
-  /*
-   * ----------------------------------------
-   * PRESS ANIMATION
-   * ----------------------------------------
-   */
-
-  const handlePressIn = useCallback(() => {
-    if (disabled || loading || !animated || !animatePress) {
+  const handlePress = useCallback(() => {
+    if (disabled) {
       return;
     }
 
-    Animated.spring(scale, {
-      toValue: pressScale,
+    onValueChange?.(!value);
+  }, [disabled, onValueChange, value]);
 
-      friction: 7,
-
-      tension: 120,
-
-      useNativeDriver: true,
-    }).start();
-  }, [disabled, loading, animated, animatePress, pressScale, scale]);
-
-  const handlePressOut = useCallback(() => {
-    if (!animated || !animatePress) {
-      return;
-    }
-
-    Animated.spring(scale, {
-      toValue: 1,
-
-      friction: 7,
-
-      tension: 120,
-
-      useNativeDriver: true,
-    }).start();
-  }, [animated, animatePress, scale]);
-
-  /*
-   * ----------------------------------------
-   * TOGGLE
-   * ----------------------------------------
-   */
-
-  const handleToggle = useCallback(() => {
-    if (disabled || loading) {
-      return;
-    }
-
-    const nextValue = !checked;
-
-    /*
-     * Uncontrolled mode
-     */
-    if (!controlled) {
-      setInternalValue(nextValue);
-    }
-
-    /*
-     * Controlled mode
-     */
-    if (onChange) {
-      onChange(nextValue);
-    }
-  }, [disabled, loading, checked, controlled, onChange]);
-
-  /*
-   * ----------------------------------------
-   * THUMB POSITION
-   * ----------------------------------------
-   */
-
-  const translateX = progress.interpolate({
+  const translateX = animation.interpolate({
     inputRange: [0, 1],
 
-    outputRange: [0, travel],
-
-    extrapolate: "clamp",
+    outputRange: [0, dimensions.thumbTravel],
   });
 
-  /*
-   * ----------------------------------------
-   * TEXT
-   * ----------------------------------------
-   */
+  const trackBackground = animation.interpolate({
+    inputRange: [0, 1],
 
-  const textContent =
-    label || description ? (
-      <View
-        style={[
-          styles.textContainer,
-
-          labelPosition === "left" ? styles.textLeft : styles.textRight,
-        ]}
-      >
-        {label ? (
-          <Text
-            style={[
-              styles.label,
-
-              {
-                fontSize: config.labelSize,
-
-                color: disabled
-                  ? colors.textDisabled || "#A3A3A3"
-                  : colors.text || "#111111",
-              },
-
-              labelStyle,
-            ]}
-          >
-            {label}
-          </Text>
-        ) : null}
-
-        {description ? (
-          <Text
-            style={[
-              styles.description,
-
-              {
-                fontSize: config.descriptionSize,
-
-                color: disabled
-                  ? colors.textDisabled || "#A3A3A3"
-                  : colors.textSecondary || "#525252",
-              },
-
-              descriptionStyle,
-            ]}
-          >
-            {description}
-          </Text>
-        ) : null}
-      </View>
-    ) : null;
-
-  /*
-   * ----------------------------------------
-   * SWITCH VISUAL
-   * ----------------------------------------
-   */
-
-  const switchElement = (
-    <Pressable
-      testID={testID ? `${testID}-switch` : undefined}
-      disabled={disabled || loading}
-      onPress={handleToggle}
-      onPressIn={handlePressIn}
-      onPressOut={handlePressOut}
-      accessibilityRole="switch"
-      accessibilityLabel={accessibilityLabel || label}
-      accessibilityState={{
-        checked,
-        disabled: disabled || loading,
-      }}
-      style={[
-        styles.pressable,
-        {
-          width: config.width,
-
-          height: config.height,
-
-          borderRadius: config.height / 2,
-
-          backgroundColor: checked
-            ? resolvedActiveColor
-            : resolvedInactiveColor,
-
-          opacity: disabled ? 0.5 : 1,
-        },
-
-        switchStyle,
-      ]}
-    >
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          styles.thumb,
-
-          {
-            width: config.thumb,
-
-            height: config.thumb,
-
-            borderRadius: config.thumb / 2,
-
-            backgroundColor: resolvedThumbColor,
-
-            left: config.padding,
-
-            top: config.padding,
-
-            transform: [
-              {
-                translateX,
-              },
-              {
-                scale,
-              },
-            ],
-          },
-        ]}
-      >
-        {loading ? (
-          <ActivityIndicator
-            size="small"
-            color={
-              checked ? resolvedActiveColor : colors.textMuted || "#737373"
-            }
-          />
-        ) : null}
-      </Animated.View>
-    </Pressable>
-  );
-
-  /*
-   * ----------------------------------------
-   * RENDER
-   * ----------------------------------------
-   */
+    outputRange: [colors.border || "#D4D4D4", activeColor],
+  });
 
   return (
-    <View ref={ref} style={[styles.container, containerStyle]} {...props}>
-      <View
-        style={[
-          styles.row,
+    <View {...props} testID={testID} style={[styles.wrapper, style]}>
+      <Pressable
+        disabled={disabled}
+        onPress={handlePress}
+        accessibilityRole="switch"
+        accessibilityLabel={accessibilityLabel || label}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={{
+          checked: value,
 
-          labelPosition === "left" ? styles.rowReverse : null,
-        ]}
+          disabled,
+        }}
+        style={styles.pressable}
       >
-        {labelPosition === "left" ? (
-          <>
-            {textContent}
-
-            {switchElement}
-          </>
-        ) : (
-          <>
-            {switchElement}
-
-            {textContent}
-          </>
-        )}
-      </View>
-
-      {error || errorText ? (
-        <Text
+        <View
           style={[
-            styles.message,
+            styles.row,
 
             {
-              color: colors.danger || "#DC2626",
+              opacity: disabled ? 0.5 : 1,
             },
-
-            errorStyle,
           ]}
         >
-          {errorText}
-        </Text>
-      ) : helperText ? (
-        <Text
-          style={[
-            styles.message,
+          <Animated.View
+            style={[
+              styles.track,
 
-            {
-              color: colors.textSecondary || "#525252",
-            },
+              {
+                width: dimensions.trackWidth,
 
-            helperStyle,
-          ]}
-        >
-          {helperText}
-        </Text>
-      ) : null}
+                height: dimensions.trackHeight,
+
+                borderRadius: dimensions.trackHeight / 2,
+
+                backgroundColor: trackBackground,
+              },
+
+              trackStyle,
+            ]}
+          >
+            <Animated.View
+              style={[
+                styles.thumb,
+
+                {
+                  width: dimensions.thumbSize,
+
+                  height: dimensions.thumbSize,
+
+                  borderRadius: dimensions.thumbSize / 2,
+
+                  transform: [
+                    {
+                      translateX,
+                    },
+                  ],
+                },
+
+                thumbStyle,
+              ]}
+            />
+          </Animated.View>
+
+          {label ? (
+            <View style={styles.textContainer}>
+              <Text
+                style={[
+                  styles.label,
+
+                  {
+                    color: colors.text || "#111111",
+
+                    fontSize: dimensions.fontSize,
+                  },
+
+                  labelStyle,
+                ]}
+              >
+                {label}
+              </Text>
+
+              {description ? (
+                <Text
+                  style={[
+                    styles.description,
+
+                    {
+                      color: colors.textSecondary || "#525252",
+                    },
+
+                    descriptionStyle,
+                  ]}
+                >
+                  {description}
+                </Text>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      </Pressable>
     </View>
   );
-});
+}
+
+function getActiveColor(variant, colors) {
+  switch (variant) {
+    case SWITCH_VARIANTS.secondary:
+      return colors.secondary || "#7CFF32";
+
+    case SWITCH_VARIANTS.success:
+      return colors.success || "#16A34A";
+
+    case SWITCH_VARIANTS.danger:
+      return colors.danger || "#DC2626";
+
+    case SWITCH_VARIANTS.primary:
+    default:
+      return colors.primary || "#FF5A1F";
+  }
+}
+
+function getDimensions(size) {
+  switch (size) {
+    case SWITCH_SIZES.sm:
+      return {
+        trackWidth: 40,
+        trackHeight: 22,
+        thumbSize: 18,
+        thumbTravel: 18,
+        fontSize: 13,
+      };
+
+    case SWITCH_SIZES.lg:
+      return {
+        trackWidth: 58,
+        trackHeight: 32,
+        thumbSize: 28,
+        thumbTravel: 26,
+        fontSize: 16,
+      };
+
+    case SWITCH_SIZES.md:
+    default:
+      return {
+        trackWidth: 48,
+        trackHeight: 28,
+        thumbSize: 24,
+        thumbTravel: 20,
+        fontSize: 14,
+      };
+  }
+}
 
 const styles = StyleSheet.create({
-  container: {
-    width: "100%",
+  wrapper: {
+    alignSelf: "stretch",
+  },
+
+  pressable: {
+    minHeight: 44,
+
+    justifyContent: "center",
   },
 
   row: {
     flexDirection: "row",
 
     alignItems: "center",
-
-    minHeight: 40,
   },
 
-  rowReverse: {
-    flexDirection: "row-reverse",
-  },
+  track: {
+    justifyContent: "center",
 
-  pressable: {
-    alignItems: "flex-start",
-
-    justifyContent: "flex-start",
+    paddingHorizontal: 2,
 
     overflow: "hidden",
+
+    flexShrink: 0,
   },
 
   thumb: {
-    position: "absolute",
-
-    alignItems: "center",
-
-    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
 
     elevation: 2,
 
@@ -495,11 +295,10 @@ const styles = StyleSheet.create({
 
     shadowOffset: {
       width: 0,
-
       height: 1,
     },
 
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.18,
 
     shadowRadius: 2,
   },
@@ -507,15 +306,7 @@ const styles = StyleSheet.create({
   textContainer: {
     flex: 1,
 
-    minWidth: 0,
-  },
-
-  textRight: {
-    marginLeft: 10,
-  },
-
-  textLeft: {
-    marginRight: 10,
+    marginLeft: 12,
   },
 
   label: {
@@ -527,19 +318,11 @@ const styles = StyleSheet.create({
   },
 
   description: {
-    marginTop: 3,
-
-    lineHeight: 17,
-
-    includeFontPadding: false,
-  },
-
-  message: {
-    marginTop: 6,
+    marginTop: 2,
 
     fontSize: 12,
 
-    lineHeight: 16,
+    lineHeight: 17,
 
     includeFontPadding: false,
   },
@@ -549,6 +332,6 @@ export const UISwitch = memo(UISwitchComponent);
 
 UISwitch.displayName = "UISwitch";
 
-export const UISwitchSizes = UI_SWITCH_SIZES;
+export { SWITCH_SIZES as UISwitchSizes, SWITCH_VARIANTS as UISwitchVariants };
 
 export default UISwitch;
