@@ -103,116 +103,40 @@ const UISwitchComponent = forwardRef(function UISwitch(
 
   const colors = theme?.colors || {};
 
+  /*
+   * ----------------------------------------
+   * SIZE
+   * ----------------------------------------
+   */
+
   const config = SIZE_CONFIG[UI_SWITCH_SIZES[size] ? size : UI_SWITCH_SIZES.md];
 
   /*
-   * --------------------------------------------------
+   * ----------------------------------------
    * CONTROLLED / UNCONTROLLED
-   * --------------------------------------------------
+   * ----------------------------------------
    */
 
-  const isControlled = value !== undefined;
+  const controlled = value !== undefined;
 
   const [internalValue, setInternalValue] = useState(Boolean(defaultValue));
 
-  const checked = isControlled ? Boolean(value) : internalValue;
+  const checked = controlled ? Boolean(value) : internalValue;
 
   /*
-   * --------------------------------------------------
-   * ANIMATION
-   * --------------------------------------------------
+   * ----------------------------------------
+   * ANIMATION VALUES
+   * ----------------------------------------
    */
 
   const progress = useRef(new Animated.Value(checked ? 1 : 0)).current;
 
-  const pressScaleValue = useRef(new Animated.Value(1)).current;
+  const scale = useRef(new Animated.Value(1)).current;
 
   /*
-   * --------------------------------------------------
-   * VALUE ANIMATION
-   * --------------------------------------------------
-   */
-
-  useEffect(() => {
-    const target = checked ? 1 : 0;
-
-    if (!animated) {
-      progress.setValue(target);
-
-      return;
-    }
-
-    Animated.timing(progress, {
-      toValue: target,
-
-      duration: Math.max(0, animationDuration),
-
-      useNativeDriver: true,
-    }).start();
-  }, [checked, animated, animationDuration, progress]);
-
-  /*
-   * --------------------------------------------------
-   * PRESS ANIMATION
-   * --------------------------------------------------
-   */
-
-  const animatePressIn = useCallback(() => {
-    if (!animated || !animatePress || disabled || loading) {
-      return;
-    }
-
-    Animated.spring(pressScaleValue, {
-      toValue: pressScale,
-
-      friction: 7,
-
-      tension: 120,
-
-      useNativeDriver: true,
-    }).start();
-  }, [animated, animatePress, disabled, loading, pressScale, pressScaleValue]);
-
-  const animatePressOut = useCallback(() => {
-    if (!animated || !animatePress) {
-      return;
-    }
-
-    Animated.spring(pressScaleValue, {
-      toValue: 1,
-
-      friction: 7,
-
-      tension: 120,
-
-      useNativeDriver: true,
-    }).start();
-  }, [animated, animatePress, pressScaleValue]);
-
-  /*
-   * --------------------------------------------------
-   * CHANGE
-   * --------------------------------------------------
-   */
-
-  const handleChange = useCallback(() => {
-    if (disabled || loading) {
-      return;
-    }
-
-    const nextValue = !checked;
-
-    if (!isControlled) {
-      setInternalValue(nextValue);
-    }
-
-    onChange?.(nextValue);
-  }, [disabled, loading, checked, isControlled, onChange]);
-
-  /*
-   * --------------------------------------------------
+   * ----------------------------------------
    * COLORS
-   * --------------------------------------------------
+   * ----------------------------------------
    */
 
   const resolvedActiveColor = activeColor || colors.primary || "#FF5A1F";
@@ -222,15 +146,109 @@ const UISwitchComponent = forwardRef(function UISwitch(
 
   const resolvedThumbColor = thumbColor || colors.background || "#FFFFFF";
 
-  const disabledOpacity = disabled ? 0.5 : 1;
-
   /*
-   * --------------------------------------------------
-   * THUMB MOVEMENT
-   * --------------------------------------------------
+   * ----------------------------------------
+   * THUMB TRAVEL
+   * ----------------------------------------
    */
 
   const travel = config.width - config.thumb - config.padding * 2;
+
+  /*
+   * ----------------------------------------
+   * VALUE ANIMATION
+   * ----------------------------------------
+   */
+
+  useEffect(() => {
+    const nextValue = checked ? 1 : 0;
+
+    if (!animated) {
+      progress.setValue(nextValue);
+
+      return;
+    }
+
+    Animated.timing(progress, {
+      toValue: nextValue,
+
+      duration: Math.max(0, animationDuration),
+
+      useNativeDriver: true,
+    }).start();
+  }, [checked, animated, animationDuration, progress]);
+
+  /*
+   * ----------------------------------------
+   * PRESS ANIMATION
+   * ----------------------------------------
+   */
+
+  const handlePressIn = useCallback(() => {
+    if (disabled || loading || !animated || !animatePress) {
+      return;
+    }
+
+    Animated.spring(scale, {
+      toValue: pressScale,
+
+      friction: 7,
+
+      tension: 120,
+
+      useNativeDriver: true,
+    }).start();
+  }, [disabled, loading, animated, animatePress, pressScale, scale]);
+
+  const handlePressOut = useCallback(() => {
+    if (!animated || !animatePress) {
+      return;
+    }
+
+    Animated.spring(scale, {
+      toValue: 1,
+
+      friction: 7,
+
+      tension: 120,
+
+      useNativeDriver: true,
+    }).start();
+  }, [animated, animatePress, scale]);
+
+  /*
+   * ----------------------------------------
+   * TOGGLE
+   * ----------------------------------------
+   */
+
+  const handleToggle = useCallback(() => {
+    if (disabled || loading) {
+      return;
+    }
+
+    const nextValue = !checked;
+
+    /*
+     * Uncontrolled mode
+     */
+    if (!controlled) {
+      setInternalValue(nextValue);
+    }
+
+    /*
+     * Controlled mode
+     */
+    if (onChange) {
+      onChange(nextValue);
+    }
+  }, [disabled, loading, checked, controlled, onChange]);
+
+  /*
+   * ----------------------------------------
+   * THUMB POSITION
+   * ----------------------------------------
+   */
 
   const translateX = progress.interpolate({
     inputRange: [0, 1],
@@ -241,73 +259,9 @@ const UISwitchComponent = forwardRef(function UISwitch(
   });
 
   /*
-   * --------------------------------------------------
-   * SWITCH
-   * --------------------------------------------------
-   */
-
-  const switchElement = (
-    <Animated.View
-      style={[
-        {
-          width: config.width,
-
-          height: config.height,
-
-          borderRadius: config.height / 2,
-
-          backgroundColor: checked
-            ? resolvedActiveColor
-            : resolvedInactiveColor,
-
-          opacity: disabledOpacity,
-
-          transform: [
-            {
-              scale: pressScaleValue,
-            },
-          ],
-        },
-
-        switchStyle,
-      ]}
-    >
-      <Animated.View
-        style={[
-          styles.thumb,
-
-          {
-            width: config.thumb,
-
-            height: config.thumb,
-
-            borderRadius: config.thumb / 2,
-
-            backgroundColor: resolvedThumbColor,
-
-            top: config.padding,
-
-            left: config.padding,
-
-            transform: [
-              {
-                translateX,
-              },
-            ],
-          },
-        ]}
-      >
-        {loading ? (
-          <ActivityIndicator size="small" color={resolvedActiveColor} />
-        ) : null}
-      </Animated.View>
-    </Animated.View>
-  );
-
-  /*
-   * --------------------------------------------------
-   * LABEL CONTENT
-   * --------------------------------------------------
+   * ----------------------------------------
+   * TEXT
+   * ----------------------------------------
    */
 
   const textContent =
@@ -362,47 +316,113 @@ const UISwitchComponent = forwardRef(function UISwitch(
     ) : null;
 
   /*
-   * --------------------------------------------------
-   * MAIN
-   * --------------------------------------------------
+   * ----------------------------------------
+   * SWITCH VISUAL
+   * ----------------------------------------
+   */
+
+  const switchElement = (
+    <Pressable
+      testID={testID ? `${testID}-switch` : undefined}
+      disabled={disabled || loading}
+      onPress={handleToggle}
+      onPressIn={handlePressIn}
+      onPressOut={handlePressOut}
+      accessibilityRole="switch"
+      accessibilityLabel={accessibilityLabel || label}
+      accessibilityState={{
+        checked,
+        disabled: disabled || loading,
+      }}
+      style={[
+        styles.pressable,
+        {
+          width: config.width,
+
+          height: config.height,
+
+          borderRadius: config.height / 2,
+
+          backgroundColor: checked
+            ? resolvedActiveColor
+            : resolvedInactiveColor,
+
+          opacity: disabled ? 0.5 : 1,
+        },
+
+        switchStyle,
+      ]}
+    >
+      <Animated.View
+        pointerEvents="none"
+        style={[
+          styles.thumb,
+
+          {
+            width: config.thumb,
+
+            height: config.thumb,
+
+            borderRadius: config.thumb / 2,
+
+            backgroundColor: resolvedThumbColor,
+
+            left: config.padding,
+
+            top: config.padding,
+
+            transform: [
+              {
+                translateX,
+              },
+              {
+                scale,
+              },
+            ],
+          },
+        ]}
+      >
+        {loading ? (
+          <ActivityIndicator
+            size="small"
+            color={
+              checked ? resolvedActiveColor : colors.textMuted || "#737373"
+            }
+          />
+        ) : null}
+      </Animated.View>
+    </Pressable>
+  );
+
+  /*
+   * ----------------------------------------
+   * RENDER
+   * ----------------------------------------
    */
 
   return (
-    <View
-      ref={ref}
-      testID={testID}
-      style={[styles.container, containerStyle]}
-      {...props}
-    >
-      <Pressable
-        disabled={disabled || loading}
-        onPress={handleChange}
-        onPressIn={animatePressIn}
-        onPressOut={animatePressOut}
-        accessibilityRole="switch"
-        accessibilityLabel={accessibilityLabel || label}
-        accessibilityState={{
-          checked,
-          disabled: disabled || loading,
-        }}
+    <View ref={ref} style={[styles.container, containerStyle]} {...props}>
+      <View
         style={[
-          styles.pressable,
+          styles.row,
 
-          labelPosition === "left" ? styles.rowReverse : styles.row,
+          labelPosition === "left" ? styles.rowReverse : null,
         ]}
       >
         {labelPosition === "left" ? (
           <>
             {textContent}
+
             {switchElement}
           </>
         ) : (
           <>
             {switchElement}
+
             {textContent}
           </>
         )}
-      </Pressable>
+      </View>
 
       {error || errorText ? (
         <Text
@@ -442,18 +462,46 @@ const styles = StyleSheet.create({
     width: "100%",
   },
 
-  pressable: {
-    alignItems: "center",
-
-    minHeight: 36,
-  },
-
   row: {
     flexDirection: "row",
+
+    alignItems: "center",
+
+    minHeight: 40,
   },
 
   rowReverse: {
     flexDirection: "row-reverse",
+  },
+
+  pressable: {
+    alignItems: "flex-start",
+
+    justifyContent: "flex-start",
+
+    overflow: "hidden",
+  },
+
+  thumb: {
+    position: "absolute",
+
+    alignItems: "center",
+
+    justifyContent: "center",
+
+    elevation: 2,
+
+    shadowColor: "#000000",
+
+    shadowOffset: {
+      width: 0,
+
+      height: 1,
+    },
+
+    shadowOpacity: 0.2,
+
+    shadowRadius: 2,
   },
 
   textContainer: {
@@ -486,28 +534,6 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
-  thumb: {
-    position: "absolute",
-
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    elevation: 2,
-
-    shadowColor: "#000000",
-
-    shadowOffset: {
-      width: 0,
-
-      height: 1,
-    },
-
-    shadowOpacity: 0.2,
-
-    shadowRadius: 2,
-  },
-
   message: {
     marginTop: 6,
 
@@ -523,6 +549,6 @@ export const UISwitch = memo(UISwitchComponent);
 
 UISwitch.displayName = "UISwitch";
 
-export { UI_SWITCH_SIZES as UISwitchSizes };
+export const UISwitchSizes = UI_SWITCH_SIZES;
 
 export default UISwitch;

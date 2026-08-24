@@ -94,3 +94,11 @@ export {
   UIRadioGroupSizes,
 } from "./RadioGroup";
 export { UISlider, UISliderSizes, UISliderOrientations } from "./Slider";
+export {
+  UIProgress,
+  UIProgressSizes,
+  UIProgressOrientations,
+  UIProgressVariants,
+  UIProgressStatuses,
+} from "./Progress";
+export { UISpinner, UISpinnerSizes, UISpinnerLabelPositions } from "./Spinner";

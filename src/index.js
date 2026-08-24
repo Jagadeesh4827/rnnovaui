@@ -104,4 +104,12 @@ export {
   UISlider,
   UISliderSizes,
   UISliderOrientations,
+  UIProgress,
+  UIProgressSizes,
+  UIProgressOrientations,
+  UIProgressVariants,
+  UIProgressStatuses,
+  UISpinner,
+  UISpinnerSizes,
+  UISpinnerLabelPositions,
 } from "./components";
