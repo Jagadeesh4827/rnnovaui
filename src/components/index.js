@@ -102,3 +102,17 @@ export {
   UIAlertStyles,
   UIAlertPositions,
 } from "./Alert";
+export {
+  UITooltip,
+  UITooltipPlacements,
+  UITooltipSizes,
+  UITooltipAnimations,
+} from "./Tooltip";
+export {
+  UIAccordion,
+  UIAccordionItem,
+  UIAccordionHeader,
+  UIAccordionTrigger,
+  UIAccordionContent,
+  UIAccordionIcon,
+} from "./Accordion";
