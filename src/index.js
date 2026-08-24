@@ -125,4 +125,11 @@ export {
   UIAccordionTrigger,
   UIAccordionContent,
   UIAccordionIcon,
+  UITabs,
+  UITabsSizes,
+  useUITabs,
+  UITabsList,
+  UITabsTrigger,
+  UITabsContent,
+  UITabsIndicator,
 } from "./components";

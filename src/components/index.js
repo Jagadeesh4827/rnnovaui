@@ -116,3 +116,12 @@ export {
   UIAccordionContent,
   UIAccordionIcon,
 } from "./Accordion";
+export {
+  UITabs,
+  UITabsSizes,
+  useUITabs,
+  UITabsList,
+  UITabsTrigger,
+  UITabsContent,
+  UITabsIndicator,
+} from "./Tabs";
