@@ -1,6 +1,6 @@
 import React, { memo, useEffect, useRef, useState } from "react";
 
-import { Animated, View } from "react-native";
+import { Animated, StyleSheet } from "react-native";
 
 import { useUITabs } from "./UITabs";
 
@@ -11,6 +11,7 @@ export const UITabsContent = memo(function UITabsContent({
 
   style,
 
+  animation,
   animationDuration,
 
   testID,
@@ -19,96 +20,81 @@ export const UITabsContent = memo(function UITabsContent({
 
   const active = tabs.value === value;
 
+  const animationType = animation ?? tabs.contentAnimation;
+
   const [mounted, setMounted] = useState(active);
 
-  const opacity = useRef(new Animated.Value(active ? 1 : 0)).current;
+  const progress = useRef(new Animated.Value(active ? 1 : 0)).current;
 
-  const translateY = useRef(new Animated.Value(active ? 0 : 5)).current;
+  const direction = getDirection(tabs, value);
 
   useEffect(() => {
+    const duration = animationDuration ?? tabs.animationDuration;
+
     if (active) {
       setMounted(true);
 
-      if (!tabs.animated) {
-        opacity.setValue(1);
-        translateY.setValue(0);
+      progress.setValue(0);
+
+      if (animationType === "none") {
+        progress.setValue(1);
 
         return;
       }
 
-      Animated.parallel([
-        Animated.timing(opacity, {
-          toValue: 1,
+      Animated.timing(progress, {
+        toValue: 1,
 
-          duration: animationDuration ?? tabs.animationDuration,
+        duration,
 
-          useNativeDriver: true,
-        }),
-
-        Animated.timing(translateY, {
-          toValue: 0,
-
-          duration: animationDuration ?? tabs.animationDuration,
-
-          useNativeDriver: true,
-        }),
-      ]).start();
+        useNativeDriver: true,
+      }).start();
 
       return;
     }
 
-    if (!tabs.animated) {
-      opacity.setValue(0);
+    if (animationType === "none") {
+      progress.setValue(0);
+
       setMounted(false);
 
       return;
     }
 
-    Animated.parallel([
-      Animated.timing(opacity, {
-        toValue: 0,
+    Animated.timing(progress, {
+      toValue: 0,
 
-        duration: animationDuration ?? tabs.animationDuration,
+      duration,
 
-        useNativeDriver: true,
-      }),
-
-      Animated.timing(translateY, {
-        toValue: 5,
-
-        duration: animationDuration ?? tabs.animationDuration,
-
-        useNativeDriver: true,
-      }),
-    ]).start(() => {
+      useNativeDriver: true,
+    }).start(() => {
       setMounted(false);
     });
   }, [
     active,
-    tabs.animated,
-    tabs.animationDuration,
+    animationType,
     animationDuration,
-    opacity,
-    translateY,
+    tabs.animationDuration,
+    progress,
   ]);
 
   if (!mounted) {
     return null;
   }
 
+  const transforms = getContentTransforms(animationType, progress, direction);
+
   return (
     <Animated.View
       testID={testID}
       accessibilityRole="tabpanel"
       style={[
-        {
-          opacity,
+        styles.container,
 
-          transform: [
-            {
-              translateY,
-            },
-          ],
+        {
+          opacity: getOpacity(animationType, progress),
+
+          transform: transforms,
         },
 
         style,
@@ -117,6 +103,88 @@ export const UITabsContent = memo(function UITabsContent({
       {children}
     </Animated.View>
   );
+});
+
+function getDirection(tabs, value) {
+  if (!tabs.directionAware) {
+    return 1;
+  }
+
+  if (tabs.previousValue === null || tabs.previousValue === undefined) {
+    return 1;
+  }
+
+  return String(value) > String(tabs.previousValue) ? 1 : -1;
+}
+
+function getOpacity(type, progress) {
+  if (type === "slide" || type === "scale") {
+    return 1;
+  }
+
+  return progress;
+}
+
+function getContentTransforms(type, progress, direction) {
+  switch (type) {
+    case "slide":
+      return [
+        {
+          translateX: progress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [24 * direction, 0],
+          }),
+        },
+      ];
+
+    case "fadeSlide":
+    case "slideFade":
+      return [
+        {
+          translateX: progress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [20 * direction, 0],
+          }),
+        },
+      ];
+
+    case "scale":
+      return [
+        {
+          scale: progress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.96, 1],
+          }),
+        },
+      ];
+
+    case "slideScale":
+    case "springScale":
+      return [
+        {
+          translateX: progress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [18 * direction, 0],
+          }),
+        },
+        {
+          scale: progress.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.97, 1],
+          }),
+        },
+      ];
+
+    case "fade":
+    default:
+      return [];
+  }
+}
+
+const styles = StyleSheet.create({
+  container: {
+    width: "100%",
+  },
 });
 
 UITabsContent.displayName = "UITabs.Content";

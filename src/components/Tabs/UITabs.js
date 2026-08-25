@@ -1,7 +1,5 @@
 import React, {
-  Children,
   createContext,
-  isValidElement,
   memo,
   useCallback,
   useContext,
@@ -12,31 +10,80 @@ import React, {
 import { StyleSheet, View } from "react-native";
 
 import { useUITheme } from "../../theme";
-import { UITabsList } from "./UITabsList";
-import { UITabsTrigger } from "./UITabsTrigger";
-import { UITabsContent } from "./UITabsContent";
-import { UITabsIndicator } from "./UITabsIndicator";
 
-const TabsContext = createContext(null);
+const UITabsContext = createContext(null);
 
-const UI_TABS_SIZES = {
+const TAB_SIZES = {
   sm: "sm",
   md: "md",
   lg: "lg",
+};
+
+const ANIMATION_PRESETS = {
+  none: {
+    indicator: "none",
+    content: "none",
+    press: "none",
+  },
+
+  subtle: {
+    indicator: "slide",
+    content: "fade",
+    press: "scale",
+  },
+
+  smooth: {
+    indicator: "slide",
+    content: "fadeSlide",
+    press: "scale",
+  },
+
+  snappy: {
+    indicator: "spring",
+    content: "slideFade",
+    press: "scale",
+  },
+
+  spring: {
+    indicator: "spring",
+    content: "slideScale",
+    press: "scale",
+  },
+
+  bouncy: {
+    indicator: "spring",
+    content: "springScale",
+    press: "scale",
+  },
 };
 
 export const UITabs = memo(function UITabs({
   children,
 
   value,
-  defaultValue,
+  defaultValue = null,
 
   onValueChange,
 
   size = "md",
 
   animated = true,
-  animationDuration = 220,
+
+  animationPreset = "smooth",
+
+  indicatorAnimation,
+  contentAnimation,
+  pressAnimation,
+
+  animationDuration = 260,
+
+  spring = {
+    damping: 18,
+    stiffness: 180,
+    mass: 0.8,
+  },
+
+  directionAware = true,
 
   variant = "default",
 
@@ -44,12 +91,14 @@ export const UITabs = memo(function UITabs({
   inactiveColor,
 
   indicatorColor,
+
   indicatorHeight = 2,
 
   indicatorWidth = "content",
 
   disabled = false,
 
+  style,
   containerStyle,
 
   testID,
@@ -60,17 +109,30 @@ export const UITabs = memo(function UITabs({
 
   const controlled = value !== undefined;
 
-  const [internalValue, setInternalValue] = useState(defaultValue ?? null);
+  const [internalValue, setInternalValue] = useState(defaultValue);
 
   const currentValue = controlled ? value : internalValue;
 
-  const safeSize = UI_TABS_SIZES[size] ? size : "md";
+  const [previousValue, setPreviousValue] = useState(currentValue);
+
+  const safeSize = TAB_SIZES[size] ? size : "md";
+
+  const safePreset =
+    ANIMATION_PRESETS[animationPreset] || ANIMATION_PRESETS.smooth;
+
+  const resolvedIndicatorAnimation = indicatorAnimation ?? safePreset.indicator;
+
+  const resolvedContentAnimation = contentAnimation ?? safePreset.content;
+
+  const resolvedPressAnimation = pressAnimation ?? safePreset.press;
 
   const changeValue = useCallback(
     (nextValue) => {
-      if (disabled) {
+      if (disabled || nextValue === currentValue) {
         return;
       }
+
+      setPreviousValue(currentValue);
 
       if (!controlled) {
         setInternalValue(nextValue);
@@ -78,7 +140,7 @@ export const UITabs = memo(function UITabs({
 
       onValueChange?.(nextValue);
     },
-    [disabled, controlled, onValueChange],
+    [disabled, currentValue, controlled, onValueChange],
   );
 
   const contextValue = useMemo(
@@ -86,6 +148,8 @@ export const UITabs = memo(function UITabs({
       colors,
 
       value: currentValue,
+
+      previousValue,
 
       setValue: changeValue,
 
@@ -95,11 +159,21 @@ export const UITabs = memo(function UITabs({
 
       animationDuration,
 
+      spring,
+
+      directionAware,
+
+      indicatorAnimation: animated ? resolvedIndicatorAnimation : "none",
+
+      contentAnimation: animated ? resolvedContentAnimation : "none",
+
+      pressAnimation: animated ? resolvedPressAnimation : "none",
+
       variant,
 
       activeColor: activeColor || colors.primary || "#FF5A1F",
 
-      inactiveColor: inactiveColor || colors.textSecondary || "#525252",
+      inactiveColor: inactiveColor || colors.textSecondary || "#737373",
 
       indicatorColor:
         indicatorColor || activeColor || colors.primary || "#FF5A1F",
@@ -113,10 +187,16 @@ export const UITabs = memo(function UITabs({
     [
       colors,
       currentValue,
+      previousValue,
       changeValue,
       safeSize,
       animated,
       animationDuration,
+      spring,
+      directionAware,
+      resolvedIndicatorAnimation,
+      resolvedContentAnimation,
+      resolvedPressAnimation,
       variant,
       activeColor,
       inactiveColor,
@@ -128,31 +208,28 @@ export const UITabs = memo(function UITabs({
   );
 
   return (
-    <TabsContext.Provider value={contextValue}>
-      <View testID={testID} style={[styles.container, containerStyle]}>
-        {Children.map(children, (child) => {
-          if (!isValidElement(child)) {
-            return child;
-          }
-
-          return child;
-        })}
+    <UITabsContext.Provider value={contextValue}>
+      <View testID={testID} style={[styles.container, containerStyle, style]}>
+        {children}
       </View>
-    </TabsContext.Provider>
+    </UITabsContext.Provider>
   );
 });
 
 export function useUITabs() {
-  const context = useContext(TabsContext);
+  const context = useContext(UITabsContext);
 
   if (!context) {
-    throw new Error("UITabs components must be used inside UITabs.");
+    throw new Error("UITabs components must be used inside <UITabs>.");
   }
 
   return context;
 }
 
-export const UITabsSizes = UI_TABS_SIZES;
+export {
+  TAB_SIZES as UITabsSizes,
+  ANIMATION_PRESETS as UITabsAnimationPresets,
+};
 
 const styles = StyleSheet.create({
   container: {
@@ -161,10 +238,3 @@ const styles = StyleSheet.create({
 });
 
 UITabs.displayName = "UITabs";
-UITabs.List = UITabsList;
-
-UITabs.Trigger = UITabsTrigger;
-
-UITabs.Content = UITabsContent;
-
-UITabs.Indicator = UITabsIndicator;

@@ -15,19 +15,25 @@ export const UITabsList = memo(function UITabsList({
 
   style,
 
+  backgroundColor,
+
+  borderBottomWidth = 0,
+
+  borderBottomColor,
+
   testID,
 }) {
   const tabs = useUITabs();
 
-  const sizePadding = tabs.size === "sm" ? 8 : tabs.size === "lg" ? 16 : 12;
+  const horizontalPadding =
+    tabs.size === "sm" ? 6 : tabs.size === "lg" ? 14 : 10;
 
-  const content = (
+  const row = (
     <View
       style={[
         styles.row,
-
         {
-          paddingHorizontal: sizePadding,
+          paddingHorizontal: horizontalPadding,
         },
       ]}
     >
@@ -35,25 +41,39 @@ export const UITabsList = memo(function UITabsList({
     </View>
   );
 
+  const containerStyle = [
+    styles.container,
+
+    {
+      backgroundColor: backgroundColor || "transparent",
+
+      borderBottomWidth,
+
+      borderBottomColor: borderBottomColor || tabs.colors.border || "#E5E5E5",
+    },
+
+    style,
+  ];
+
   if (scrollable) {
     return (
       <ScrollView
         testID={testID}
         horizontal
         showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
-        bounces
         keyboardShouldPersistTaps="handled"
+        bounces
         contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
-        style={style}
+        style={containerStyle}
       >
-        {content}
+        {row}
       </ScrollView>
     );
   }
 
   return (
-    <View testID={testID} style={[styles.container, style]}>
-      {content}
+    <View testID={testID} style={containerStyle}>
+      {row}
     </View>
   );
 });
@@ -61,7 +81,6 @@ export const UITabsList = memo(function UITabsList({
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-    overflow: "hidden",
   },
 
   scrollContent: {

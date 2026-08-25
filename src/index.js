@@ -126,8 +126,6 @@ export {
   UIAccordionContent,
   UIAccordionIcon,
   UITabs,
-  UITabsSizes,
-  useUITabs,
   UITabsList,
   UITabsTrigger,
   UITabsContent,

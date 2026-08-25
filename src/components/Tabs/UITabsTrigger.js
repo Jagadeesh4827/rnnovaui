@@ -22,13 +22,26 @@ export const UITabsTrigger = memo(function UITabsTrigger({
   inactiveColor,
 
   style,
+  activeStyle,
+  inactiveStyle,
+
   contentStyle,
+
   textStyle,
+  activeTextStyle,
+  inactiveTextStyle,
+
   iconStyle,
+
   badgeStyle,
+  badgeTextStyle,
+
+  pressAnimation,
+  pressScale = 0.96,
+
+  indicator = true,
 
   testID,
-
   accessibilityLabel,
 }) {
   const tabs = useUITabs();
@@ -37,23 +50,45 @@ export const UITabsTrigger = memo(function UITabsTrigger({
 
   const isDisabled = disabled || tabs.disabled;
 
-  const progress = useRef(new Animated.Value(active ? 1 : 0)).current;
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const resolvedPressAnimation = pressAnimation ?? tabs.pressAnimation;
 
   useEffect(() => {
-    if (!tabs.animated) {
-      progress.setValue(active ? 1 : 0);
+    if (resolvedPressAnimation === "none") {
+      scale.setValue(1);
+    }
+  }, [resolvedPressAnimation, scale]);
 
+  const animatePressIn = () => {
+    if (resolvedPressAnimation === "none") {
       return;
     }
 
-    Animated.timing(progress, {
-      toValue: active ? 1 : 0,
+    if (resolvedPressAnimation === "scale") {
+      Animated.spring(scale, {
+        toValue: pressScale,
 
-      duration: tabs.animationDuration,
+        ...tabs.spring,
+
+        useNativeDriver: true,
+      }).start();
+    }
+  };
+
+  const animatePressOut = () => {
+    if (resolvedPressAnimation === "none") {
+      return;
+    }
+
+    Animated.spring(scale, {
+      toValue: 1,
+
+      ...tabs.spring,
 
       useNativeDriver: true,
     }).start();
-  }, [active, tabs.animated, tabs.animationDuration, progress]);
+  };
 
   const handlePress = (event) => {
     if (isDisabled) {
@@ -65,9 +100,9 @@ export const UITabsTrigger = memo(function UITabsTrigger({
     onPress?.(event);
   };
 
-  const resolvedActiveColor = activeColor || tabs.activeColor;
+  const activeTextColor = activeColor || tabs.activeColor;
 
-  const resolvedInactiveColor = inactiveColor || tabs.inactiveColor;
+  const inactiveTextColor = inactiveColor || tabs.inactiveColor;
 
   const iconElement = icon ? (
     <View
@@ -83,124 +118,189 @@ export const UITabsTrigger = memo(function UITabsTrigger({
     </View>
   ) : null;
 
-  const textElement = (
-    <Text
-      numberOfLines={1}
-      style={[
-        styles.text,
-
-        {
-          fontSize: tabs.size === "sm" ? 12 : tabs.size === "lg" ? 16 : 14,
-
-          color: active ? resolvedActiveColor : resolvedInactiveColor,
-
-          opacity: isDisabled ? 0.45 : 1,
-        },
-
-        textStyle,
-      ]}
-    >
-      {children}
-    </Text>
-  );
-
   return (
-    <Pressable
-      testID={testID}
-      disabled={isDisabled}
-      onPress={handlePress}
-      accessibilityRole="tab"
-      accessibilityState={{
-        selected: active,
-        disabled: isDisabled,
-      }}
-      accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [
-        styles.trigger,
+    <Animated.View
+      style={[
+        styles.animatedWrapper,
 
         {
-          minHeight: tabs.size === "sm" ? 42 : tabs.size === "lg" ? 56 : 48,
-
-          opacity: pressed ? 0.7 : 1,
+          transform: [
+            {
+              scale,
+            },
+          ],
         },
-
-        style,
       ]}
     >
-      <View
+      <Pressable
+        testID={testID}
+        disabled={isDisabled}
+        onPress={handlePress}
+        onPressIn={animatePressIn}
+        onPressOut={animatePressOut}
+        accessibilityRole="tab"
+        accessibilityState={{
+          selected: active,
+          disabled: isDisabled,
+        }}
+        accessibilityLabel={accessibilityLabel}
         style={[
-          styles.content,
-
-          iconPosition === "right" ? styles.contentRight : null,
-
-          contentStyle,
-        ]}
-      >
-        {iconPosition === "left" ? iconElement : null}
-
-        {textElement}
-
-        {iconPosition === "right" ? iconElement : null}
-
-        {badge !== undefined ? (
-          <View
-            style={[
-              styles.badge,
-
-              {
-                backgroundColor: active
-                  ? resolvedActiveColor
-                  : tabs.colors.surfaceSecondary || "#F1F1F1",
-              },
-
-              badgeStyle,
-            ]}
-          >
-            <Text
-              style={[
-                styles.badgeText,
-
-                {
-                  color: active
-                    ? tabs.colors.onPrimary || "#FFFFFF"
-                    : tabs.colors.textSecondary || "#525252",
-                },
-              ]}
-            >
-              {badge}
-            </Text>
-          </View>
-        ) : null}
-      </View>
-
-      <Animated.View
-        style={[
-          styles.indicator,
+          styles.trigger,
 
           {
-            backgroundColor: tabs.indicatorColor,
+            minHeight: tabs.size === "sm" ? 42 : tabs.size === "lg" ? 58 : 50,
 
-            height: tabs.indicatorHeight,
-
-            opacity: progress,
-
-            transform: [
-              {
-                scaleX: progress,
-              },
-            ],
+            opacity: isDisabled ? 0.45 : 1,
           },
 
-          tabs.indicatorWidth === "full"
-            ? styles.indicatorFull
-            : styles.indicatorContent,
+          inactiveStyle,
+
+          active ? activeStyle : null,
+
+          style,
         ]}
-      />
-    </Pressable>
+      >
+        <View style={[styles.content, contentStyle]}>
+          {iconPosition === "left" ? iconElement : null}
+
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.text,
+
+              {
+                fontSize:
+                  tabs.size === "sm" ? 12 : tabs.size === "lg" ? 16 : 14,
+
+                color: active ? activeTextColor : inactiveTextColor,
+              },
+
+              textStyle,
+
+              inactiveTextStyle,
+
+              active ? activeTextStyle : null,
+            ]}
+          >
+            {children}
+          </Text>
+
+          {iconPosition === "right" ? iconElement : null}
+
+          {badge !== undefined ? (
+            <View
+              style={[
+                styles.badge,
+
+                {
+                  backgroundColor: active
+                    ? activeTextColor
+                    : tabs.colors.surfaceSecondary || "#EEEEEE",
+                },
+
+                badgeStyle,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.badgeText,
+
+                  {
+                    color: active
+                      ? tabs.colors.onPrimary || "#FFFFFF"
+                      : tabs.colors.textSecondary || "#525252",
+                  },
+
+                  badgeTextStyle,
+                ]}
+              >
+                {badge}
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
+        {indicator ? (
+          <View style={styles.indicatorContainer}>
+            <AnimatedIndicator active={active} />
+          </View>
+        ) : null}
+      </Pressable>
+    </Animated.View>
   );
 });
 
+function AnimatedIndicator({ active }) {
+  const tabs = useUITabs();
+
+  const progress = useRef(new Animated.Value(active ? 1 : 0)).current;
+
+  useEffect(() => {
+    if (tabs.indicatorAnimation === "none") {
+      progress.setValue(active ? 1 : 0);
+
+      return;
+    }
+
+    if (tabs.indicatorAnimation === "spring") {
+      Animated.spring(progress, {
+        toValue: active ? 1 : 0,
+
+        ...tabs.spring,
+
+        useNativeDriver: true,
+      }).start();
+
+      return;
+    }
+
+    Animated.timing(progress, {
+      toValue: active ? 1 : 0,
+
+      duration: tabs.animationDuration,
+
+      useNativeDriver: true,
+    }).start();
+  }, [
+    active,
+    tabs.indicatorAnimation,
+    tabs.animationDuration,
+    tabs.spring,
+    progress,
+  ]);
+
+  return (
+    <Animated.View
+      style={[
+        styles.indicator,
+
+        {
+          height: tabs.indicatorHeight,
+
+          backgroundColor: tabs.indicatorColor,
+
+          opacity: progress,
+
+          transform: [
+            {
+              scaleX: progress,
+            },
+          ],
+        },
+
+        tabs.indicatorWidth === "full"
+          ? styles.indicatorFull
+          : styles.indicatorContent,
+      ]}
+    />
+  );
+}
+
 const styles = StyleSheet.create({
+  animatedWrapper: {
+    flexShrink: 0,
+  },
+
   trigger: {
     position: "relative",
 
@@ -219,8 +319,10 @@ const styles = StyleSheet.create({
     gap: 6,
   },
 
-  contentRight: {
-    flexDirection: "row",
+  text: {
+    fontWeight: "600",
+
+    includeFontPadding: false,
   },
 
   icon: {
@@ -235,12 +337,6 @@ const styles = StyleSheet.create({
 
   iconRight: {
     marginLeft: 2,
-  },
-
-  text: {
-    fontWeight: "600",
-
-    includeFontPadding: false,
   },
 
   badge: {
@@ -264,14 +360,18 @@ const styles = StyleSheet.create({
     includeFontPadding: false,
   },
 
+  indicatorContainer: {
+    position: "absolute",
+
+    left: 0,
+    right: 0,
+    bottom: 0,
+  },
+
   indicator: {
     position: "absolute",
 
     bottom: 0,
-
-    left: 0,
-
-    right: 0,
   },
 
   indicatorFull: {

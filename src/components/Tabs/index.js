@@ -1,9 +1,16 @@
-export { UITabs, UITabsSizes, useUITabs } from "./UITabs";
+import { UITabs } from "./UITabs";
 
-export { UITabsList } from "./UITabsList";
+import { UITabsList } from "./UITabsList";
+import { UITabsTrigger } from "./UITabsTrigger";
+import { UITabsContent } from "./UITabsContent";
+import { UITabsIndicator } from "./UITabsIndicator";
 
-export { UITabsTrigger } from "./UITabsTrigger";
+UITabs.List = UITabsList;
 
-export { UITabsContent } from "./UITabsContent";
+UITabs.Trigger = UITabsTrigger;
 
-export { UITabsIndicator } from "./UITabsIndicator";
+UITabs.Content = UITabsContent;
+
+UITabs.Indicator = UITabsIndicator;
+
+export { UITabs, UITabsList, UITabsTrigger, UITabsContent, UITabsIndicator };

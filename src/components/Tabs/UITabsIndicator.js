@@ -5,8 +5,9 @@ import { View } from "react-native";
 import { useUITabs } from "./UITabs";
 
 export const UITabsIndicator = memo(function UITabsIndicator({
-  children,
   style,
+
+  children,
 }) {
   const tabs = useUITabs();
 
