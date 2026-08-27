@@ -126,8 +126,8 @@ export {
   UIAccordionContent,
   UIAccordionIcon,
   UITabs,
-  UITabsList,
-  UITabsTrigger,
-  UITabsContent,
-  UITabsIndicator,
+  UITabsSizes,
+  UITabsAnimations,
+  UITabsAnimationPresets,
+  useUITabs,
 } from "./components";

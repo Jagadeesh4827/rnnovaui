@@ -7,18 +7,18 @@ import { useUIAccordionItem } from "./UIAccordionItem";
 
 export const UIAccordionContent = memo(function UIAccordionContent({
   children,
-
   style,
-
   innerStyle,
-
   testID,
-
   onLayout,
 }) {
   const accordion = useUIAccordion();
 
   const item = useUIAccordionItem();
+
+  const [contentHeight, setContentHeight] = useState(0);
+
+  const [mounted, setMounted] = useState(item.open);
 
   const heightAnimation = useRef(new Animated.Value(item.open ? 1 : 0)).current;
 
@@ -26,20 +26,21 @@ export const UIAccordionContent = memo(function UIAccordionContent({
     new Animated.Value(item.open ? 1 : 0),
   ).current;
 
-  const [contentHeight, setContentHeight] = useState(0);
-
-  const [mounted, setMounted] = useState(item.open);
+  const previousOpen = useRef(item.open);
 
   /*
-   * ------------------------------------------------
-   * MEASURE CONTENT
-   * ------------------------------------------------
+   * -----------------------------------------------
+   * CONTENT MEASUREMENT
+   * -----------------------------------------------
+   *
+   * We only update the cached height when the
+   * actual content height changes.
    */
 
-  const handleLayout = (event) => {
-    const height = event.nativeEvent.layout.height;
+  const handleContentLayout = (event) => {
+    const height = Math.ceil(event.nativeEvent.layout.height);
 
-    if (height !== contentHeight) {
+    if (height > 0 && height !== contentHeight) {
       setContentHeight(height);
     }
 
@@ -47,17 +48,43 @@ export const UIAccordionContent = memo(function UIAccordionContent({
   };
 
   /*
-   * ------------------------------------------------
-   * OPEN / CLOSE
-   * ------------------------------------------------
+   * -----------------------------------------------
+   * OPEN / CLOSE ANIMATION
+   * -----------------------------------------------
    */
 
   useEffect(() => {
+    const wasOpen = previousOpen.current;
+
+    previousOpen.current = item.open;
+
+    /*
+     * Nothing changed.
+     */
+    if (wasOpen === item.open) {
+      return;
+    }
+
+    /*
+     * ---------------------------------------------
+     * OPEN
+     * ---------------------------------------------
+     */
+
     if (item.open) {
-      /*
-       * Mount before opening.
-       */
       setMounted(true);
+
+      /*
+       * If content has not been measured yet,
+       * wait for onLayout.
+       */
+      if (contentHeight <= 0) {
+        heightAnimation.setValue(0);
+
+        opacityAnimation.setValue(0);
+
+        return;
+      }
 
       if (!accordion.animated) {
         heightAnimation.setValue(1);
@@ -68,8 +95,12 @@ export const UIAccordionContent = memo(function UIAccordionContent({
       }
 
       /*
-       * Smooth opening.
+       * Start exactly from closed.
        */
+      heightAnimation.setValue(0);
+
+      opacityAnimation.setValue(0);
+
       Animated.parallel([
         Animated.timing(heightAnimation, {
           toValue: 1,
@@ -82,7 +113,7 @@ export const UIAccordionContent = memo(function UIAccordionContent({
         Animated.timing(opacityAnimation, {
           toValue: 1,
 
-          duration: Math.min(accordion.animationDuration, 180),
+          duration: Math.min(accordion.animationDuration, 160),
 
           useNativeDriver: false,
         }),
@@ -92,9 +123,9 @@ export const UIAccordionContent = memo(function UIAccordionContent({
     }
 
     /*
-     * ------------------------------------------------
+     * ---------------------------------------------
      * CLOSE
-     * ------------------------------------------------
+     * ---------------------------------------------
      */
 
     if (!accordion.animated) {
@@ -107,9 +138,6 @@ export const UIAccordionContent = memo(function UIAccordionContent({
       return;
     }
 
-    /*
-     * Animate to zero first.
-     */
     Animated.parallel([
       Animated.timing(heightAnimation, {
         toValue: 0,
@@ -122,7 +150,7 @@ export const UIAccordionContent = memo(function UIAccordionContent({
       Animated.timing(opacityAnimation, {
         toValue: 0,
 
-        duration: Math.min(accordion.animationDuration, 160),
+        duration: Math.min(accordion.animationDuration, 150),
 
         useNativeDriver: false,
       }),
@@ -133,6 +161,7 @@ export const UIAccordionContent = memo(function UIAccordionContent({
     });
   }, [
     item.open,
+    contentHeight,
     accordion.animated,
     accordion.animationDuration,
     heightAnimation,
@@ -140,31 +169,40 @@ export const UIAccordionContent = memo(function UIAccordionContent({
   ]);
 
   /*
-   * ------------------------------------------------
-   * CLOSED
-   * ------------------------------------------------
+   * -----------------------------------------------
+   * IMPORTANT:
+   *
+   * Keep the content mounted while measuring.
+   *
+   * We use a wrapper whose height is animated.
+   * The inner content itself keeps its natural
+   * height.
+   * -----------------------------------------------
    */
 
-  if (!mounted && !item.open) {
+  if (!mounted) {
+    /*
+     * Keep a non-visible measurement copy mounted
+     * only when the component has never measured.
+     *
+     * Once contentHeight is known, don't keep
+     * measurement content around.
+     */
+    if (contentHeight > 0) {
+      return null;
+    }
+
     return (
-      <View
-        style={{
-          position: "absolute",
-
-          opacity: 0,
-
-          pointerEvents: "none",
-        }}
-      >
-        <View onLayout={handleLayout}>{children}</View>
+      <View style={styles.measureOnly} pointerEvents="none">
+        <View onLayout={handleContentLayout}>{children}</View>
       </View>
     );
   }
 
   /*
-   * ------------------------------------------------
+   * -----------------------------------------------
    * ANIMATED HEIGHT
-   * ------------------------------------------------
+   * -----------------------------------------------
    */
 
   const animatedHeight =
@@ -174,13 +212,7 @@ export const UIAccordionContent = memo(function UIAccordionContent({
 
           outputRange: [0, contentHeight],
         })
-      : undefined;
-
-  /*
-   * ------------------------------------------------
-   * RENDER
-   * ------------------------------------------------
-   */
+      : 0;
 
   return (
     <Animated.View
@@ -197,7 +229,7 @@ export const UIAccordionContent = memo(function UIAccordionContent({
         style,
       ]}
     >
-      <View style={[styles.content, innerStyle]} onLayout={handleLayout}>
+      <View style={[styles.inner, innerStyle]} onLayout={handleContentLayout}>
         {children}
       </View>
     </Animated.View>
@@ -211,8 +243,20 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 
-  content: {
+  inner: {
     width: "100%",
+  },
+
+  measureOnly: {
+    position: "absolute",
+
+    left: 0,
+
+    right: 0,
+
+    opacity: 0,
+
+    zIndex: -1,
   },
 });
 

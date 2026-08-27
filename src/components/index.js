@@ -118,8 +118,8 @@ export {
 } from "./Accordion";
 export {
   UITabs,
-  UITabsList,
-  UITabsTrigger,
-  UITabsContent,
-  UITabsIndicator,
+  UITabsSizes,
+  UITabsAnimations,
+  UITabsAnimationPresets,
+  useUITabs,
 } from "./Tabs";
