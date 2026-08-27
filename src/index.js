@@ -125,7 +125,6 @@ export {
   UIAccordionTrigger,
   UIAccordionContent,
   UIAccordionIcon,
-  UIAccordionAnimationPresets,
   UITabs,
   UITabsList,
   UITabsTrigger,

@@ -15,30 +15,33 @@ export const UIAccordionItem = memo(function UIAccordionItem({
 
   style,
 
-  activeStyle,
-  inactiveStyle,
-
   testID,
 }) {
   const accordion = useUIAccordion();
 
   const open = accordion.isOpen(value);
 
-  const itemDisabled = disabled || accordion.disabled;
-
-  const contextValue = {
+  const itemContext = {
     value,
 
     open,
 
-    disabled: itemDisabled,
+    disabled: disabled || accordion.disabled,
   };
 
   return (
-    <AccordionItemContext.Provider value={contextValue}>
+    <AccordionItemContext.Provider value={itemContext}>
       <View
         testID={testID}
-        style={[styles.item, inactiveStyle, open ? activeStyle : null, style]}
+        style={[
+          styles.item,
+
+          {
+            backgroundColor: accordion.colors.card || "transparent",
+          },
+
+          style,
+        ]}
       >
         {children}
       </View>
@@ -51,7 +54,7 @@ export function useUIAccordionItem() {
 
   if (!context) {
     throw new Error(
-      "UIAccordion.Item components must be used inside <UIAccordion.Item>.",
+      "UIAccordion.Item components must be used inside UIAccordion.Item.",
     );
   }
 

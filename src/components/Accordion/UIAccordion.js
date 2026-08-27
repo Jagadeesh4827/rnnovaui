@@ -1,5 +1,7 @@
 import React, {
+  Children,
   createContext,
+  isValidElement,
   memo,
   useCallback,
   useContext,
@@ -10,52 +12,19 @@ import React, {
 import { StyleSheet, View } from "react-native";
 
 import { useUITheme } from "../../theme";
+import { UIAccordionItem } from "./UIAccordionItem";
+import { UIAccordionHeader } from "./UIAccordionHeader";
+import { UIAccordionTrigger } from "./UIAccordionTrigger";
+import { UIAccordionContent } from "./UIAccordionContent";
+import { UIAccordionIcon } from "./UIAccordionIcon";
 
 const AccordionContext = createContext(null);
-
-const ANIMATION_PRESETS = {
-  none: {
-    content: "none",
-    icon: "none",
-    press: "none",
-  },
-
-  subtle: {
-    content: "fade",
-    icon: "rotate",
-    press: "scale",
-  },
-
-  smooth: {
-    content: "fadeExpand",
-    icon: "rotate",
-    press: "scale",
-  },
-
-  snappy: {
-    content: "expand",
-    icon: "rotate",
-    press: "scale",
-  },
-
-  spring: {
-    content: "springExpand",
-    icon: "springRotate",
-    press: "scale",
-  },
-
-  bouncy: {
-    content: "springFadeExpand",
-    icon: "springRotate",
-    press: "scale",
-  },
-};
 
 export const UIAccordion = memo(function UIAccordion({
   children,
 
   value,
-  defaultValue = null,
+  defaultValue,
 
   multiple = false,
 
@@ -64,45 +33,21 @@ export const UIAccordion = memo(function UIAccordion({
   disabled = false,
 
   animated = true,
-
-  animationPreset = "smooth",
-
-  contentAnimation,
-  iconAnimation,
-  pressAnimation,
-
-  animationDuration = 260,
-
-  spring = {
-    damping: 18,
-    stiffness: 180,
-    mass: 0.8,
-  },
+  animationDuration = 220,
 
   variant = "default",
-
   size = "md",
 
   separator = true,
 
-  border = false,
-
-  radius = 12,
-
-  backgroundColor,
-
-  borderColor,
-
-  style,
   containerStyle,
+  itemStyle,
 
   testID,
 }) {
   const { theme } = useUITheme();
 
   const colors = theme?.colors || {};
-
-  const controlled = value !== undefined;
 
   const normalizeValue = useCallback(
     (input) => {
@@ -111,7 +56,7 @@ export const UIAccordion = memo(function UIAccordion({
           return input;
         }
 
-        if (input === null || input === undefined) {
+        if (input === undefined || input === null) {
           return [];
         }
 
@@ -127,25 +72,13 @@ export const UIAccordion = memo(function UIAccordion({
     [multiple],
   );
 
+  const controlled = value !== undefined;
+
   const [internalValue, setInternalValue] = useState(() =>
     normalizeValue(defaultValue),
   );
 
   const currentValue = controlled ? normalizeValue(value) : internalValue;
-
-  const preset = ANIMATION_PRESETS[animationPreset] || ANIMATION_PRESETS.smooth;
-
-  const resolvedContentAnimation = animated
-    ? (contentAnimation ?? preset.content)
-    : "none";
-
-  const resolvedIconAnimation = animated
-    ? (iconAnimation ?? preset.icon)
-    : "none";
-
-  const resolvedPressAnimation = animated
-    ? (pressAnimation ?? preset.press)
-    : "none";
 
   const isOpen = useCallback(
     (itemValue) => {
@@ -191,36 +124,21 @@ export const UIAccordion = memo(function UIAccordion({
     () => ({
       colors,
 
-      value: currentValue,
+      currentValue,
 
       multiple,
 
       disabled,
 
-      size,
-
       animated,
-
       animationDuration,
 
-      spring,
-
-      contentAnimation: resolvedContentAnimation,
-
-      iconAnimation: resolvedIconAnimation,
-
-      pressAnimation: resolvedPressAnimation,
-
       variant,
+      size,
 
       separator,
 
-      border,
-
-      radius,
-
       isOpen,
-
       toggle,
     }),
     [
@@ -228,17 +146,11 @@ export const UIAccordion = memo(function UIAccordion({
       currentValue,
       multiple,
       disabled,
-      size,
       animated,
       animationDuration,
-      spring,
-      resolvedContentAnimation,
-      resolvedIconAnimation,
-      resolvedPressAnimation,
       variant,
+      size,
       separator,
-      border,
-      radius,
       isOpen,
       toggle,
     ],
@@ -252,23 +164,25 @@ export const UIAccordion = memo(function UIAccordion({
           styles.container,
 
           {
-            backgroundColor:
-              backgroundColor || colors.card || colors.surface || "transparent",
+            backgroundColor: colors.card || colors.background || "transparent",
 
-            borderColor: borderColor || colors.border || "#E5E5E5",
-
-            borderRadius: radius,
+            borderColor: colors.border || "#E5E5E5",
           },
 
-          border ? styles.border : null,
-
-          variant === "outlined" ? styles.border : null,
+          variant === "outlined" ? styles.outlined : null,
 
           containerStyle,
-          style,
         ]}
       >
-        {children}
+        {Children.map(children, (child) => {
+          if (!isValidElement(child)) {
+            return child;
+          }
+
+          return React.cloneElement(child, {
+            style: [itemStyle, child.props.style],
+          });
+        })}
       </View>
     </AccordionContext.Provider>
   );
@@ -278,24 +192,31 @@ export function useUIAccordion() {
   const context = useContext(AccordionContext);
 
   if (!context) {
-    throw new Error("Accordion components must be used inside <UIAccordion>.");
+    throw new Error("Accordion components must be used inside UIAccordion.");
   }
 
   return context;
 }
 
-export const UIAccordionAnimationPresets = ANIMATION_PRESETS;
-
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-
     overflow: "hidden",
   },
 
-  border: {
+  outlined: {
     borderWidth: 1,
+    borderRadius: 12,
   },
 });
 
 UIAccordion.displayName = "UIAccordion";
+UIAccordion.Item = UIAccordionItem;
+
+UIAccordion.Header = UIAccordionHeader;
+
+UIAccordion.Trigger = UIAccordionTrigger;
+
+UIAccordion.Content = UIAccordionContent;
+
+UIAccordion.Icon = UIAccordionIcon;
