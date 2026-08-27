@@ -20,6 +20,11 @@ export const UIAccordionContent = memo(function UIAccordionContent({
   contentStyle,
 
   testID,
+
+  accessible = false,
+
+  accessibilityLabel,
+  accessibilityHint,
 }) {
   const accordion = useUIAccordion();
 
@@ -38,9 +43,7 @@ export const UIAccordionContent = memo(function UIAccordionContent({
   const handleLayout = (event) => {
     const height = event.nativeEvent.layout.height;
 
-    if (height > measuredHeight.current) {
-      measuredHeight.current = height;
-    }
+    measuredHeight.current = height;
   };
 
   useEffect(() => {
@@ -136,10 +139,11 @@ export const UIAccordionContent = memo(function UIAccordionContent({
     animationType === "springExpand" ||
     animationType === "springFadeExpand";
 
+  const maxHeight = Math.max(measuredHeight.current, 1);
+
   return (
     <Animated.View
       testID={testID}
-      accessibilityRole="region"
       style={[
         styles.container,
 
@@ -154,7 +158,7 @@ export const UIAccordionContent = memo(function UIAccordionContent({
               maxHeight: progress.interpolate({
                 inputRange: [0, 1],
 
-                outputRange: [0, Math.max(measuredHeight.current, 1)],
+                outputRange: [0, maxHeight],
               }),
             }
           : null,
@@ -164,6 +168,9 @@ export const UIAccordionContent = memo(function UIAccordionContent({
     >
       <View
         onLayout={handleLayout}
+        accessible={accessible}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={accessibilityHint}
         style={[styles.inner, innerStyle, contentStyle]}
       >
         {children}
