@@ -3,183 +3,163 @@ import React, { memo, useEffect, useRef, useState } from "react";
 import { Animated, StyleSheet, View } from "react-native";
 
 import { useUIAccordion } from "./UIAccordion";
-
 import { useUIAccordionItem } from "./UIAccordionItem";
 
 export const UIAccordionContent = memo(function UIAccordionContent({
   children,
-
-  animation,
-
-  animationDuration,
-
   style,
-
   innerStyle,
-
-  contentStyle,
-
   testID,
 }) {
   const accordion = useUIAccordion();
-
   const item = useUIAccordionItem();
 
-  const animationType = animation ?? accordion.contentAnimation;
+  const [contentHeight, setContentHeight] = useState(0);
 
-  const duration = animationDuration ?? accordion.animationDuration;
+  const animation = useRef(new Animated.Value(item.open ? 1 : 0)).current;
 
-  const [mounted, setMounted] = useState(item.open);
+  /*
+   * ------------------------------------------------
+   * MEASURE REAL CONTENT
+   * ------------------------------------------------
+   */
 
-  const progress = useRef(new Animated.Value(item.open ? 1 : 0)).current;
+  const handleMeasureLayout = (event) => {
+    const height = Math.ceil(event.nativeEvent.layout.height);
 
-  const measuredHeight = useRef(0);
-
-  const handleLayout = (event) => {
-    const height = event.nativeEvent.layout.height;
-
-    if (height > measuredHeight.current) {
-      measuredHeight.current = height;
+    if (height > 0 && height !== contentHeight) {
+      setContentHeight(height);
     }
   };
 
+  /*
+   * ------------------------------------------------
+   * OPEN / CLOSE
+   * ------------------------------------------------
+   */
+
   useEffect(() => {
-    if (item.open) {
-      setMounted(true);
+    if (contentHeight <= 0) {
+      return;
+    }
 
-      if (animationType === "none" || !accordion.animated) {
-        progress.setValue(1);
-        return;
-      }
-
-      progress.setValue(0);
-
-      if (
-        animationType === "springExpand" ||
-        animationType === "springFadeExpand"
-      ) {
-        Animated.spring(progress, {
-          toValue: 1,
-
-          ...accordion.spring,
-
-          useNativeDriver: false,
-        }).start();
-
-        return;
-      }
-
-      Animated.timing(progress, {
-        toValue: 1,
-
-        duration,
-
-        useNativeDriver: false,
-      }).start();
+    if (!accordion.animated) {
+      animation.setValue(item.open ? 1 : 0);
 
       return;
     }
 
-    if (animationType === "none" || !accordion.animated) {
-      progress.setValue(0);
-      setMounted(false);
-      return;
-    }
+    Animated.timing(animation, {
+      toValue: item.open ? 1 : 0,
 
-    const finish = () => {
-      setMounted(false);
-    };
+      duration: accordion.animationDuration,
 
-    if (
-      animationType === "springExpand" ||
-      animationType === "springFadeExpand"
-    ) {
-      Animated.spring(progress, {
-        toValue: 0,
-
-        ...accordion.spring,
-
-        useNativeDriver: false,
-      }).start(finish);
-
-      return;
-    }
-
-    Animated.timing(progress, {
-      toValue: 0,
-
-      duration,
+      easing: undefined,
 
       useNativeDriver: false,
-    }).start(finish);
+    }).start();
   }, [
     item.open,
-    animationType,
+    contentHeight,
     accordion.animated,
-    accordion.spring,
-    duration,
-    progress,
+    accordion.animationDuration,
+    animation,
   ]);
 
-  if (!mounted) {
-    return null;
-  }
+  /*
+   * ------------------------------------------------
+   * ANIMATED HEIGHT
+   * ------------------------------------------------
+   */
 
-  const shouldFade =
-    animationType === "fade" ||
-    animationType === "fadeExpand" ||
-    animationType === "springFadeExpand";
+  const animatedHeight = animation.interpolate({
+    inputRange: [0, 1],
 
-  const shouldExpand =
-    animationType === "expand" ||
-    animationType === "fadeExpand" ||
-    animationType === "springExpand" ||
-    animationType === "springFadeExpand";
+    outputRange: [0, contentHeight],
+
+    extrapolate: "clamp",
+  });
+
+  /*
+   * ------------------------------------------------
+   * MEASUREMENT CONTENT
+   *
+   * This is always rendered.
+   *
+   * It does NOT participate in normal layout.
+   * Therefore it cannot cause accordion shaking.
+   * ------------------------------------------------
+   */
 
   return (
-    <Animated.View
-      testID={testID}
-      accessibilityRole="region"
-      style={[
-        styles.container,
-
-        shouldFade
-          ? {
-              opacity: progress,
-            }
-          : null,
-
-        shouldExpand
-          ? {
-              maxHeight: progress.interpolate({
-                inputRange: [0, 1],
-
-                outputRange: [0, Math.max(measuredHeight.current, 1)],
-              }),
-            }
-          : null,
-
-        style,
-      ]}
-    >
-      <View
-        onLayout={handleLayout}
-        style={[styles.inner, innerStyle, contentStyle]}
-      >
-        {children}
+    <View style={styles.root}>
+      <View pointerEvents="none" style={styles.measureContainer}>
+        <View
+          style={[styles.measureContent, innerStyle]}
+          onLayout={handleMeasureLayout}
+        >
+          {children}
+        </View>
       </View>
-    </Animated.View>
+
+      <Animated.View
+        testID={testID}
+        style={[
+          styles.animatedContainer,
+
+          {
+            height: animatedHeight,
+          },
+
+          style,
+        ]}
+      >
+        <View style={[styles.visibleContent, innerStyle]}>{children}</View>
+      </Animated.View>
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
+    width: "100%",
+  },
+
+  /*
+   * Hidden measurement layer.
+   *
+   * It remains available so onLayout can always
+   * calculate the real content height.
+   */
+  measureContainer: {
+    position: "absolute",
+
+    left: 0,
+    right: 0,
+
+    top: 0,
+
+    opacity: 0,
+
+    zIndex: -1,
+
+    pointerEvents: "none",
+  },
+
+  measureContent: {
+    width: "100%",
+  },
+
+  /*
+   * Visible animated layer.
+   */
+  animatedContainer: {
     width: "100%",
 
     overflow: "hidden",
   },
 
-  inner: {
+  visibleContent: {
     width: "100%",
   },
 });
