@@ -69,12 +69,12 @@ export const UITabsAnimationPresets = {
   },
 
   smooth: {
-    animation: "indicatorSlide",
-    duration: 240,
+    animation: "fade",
+    duration: 220,
   },
 
   snappy: {
-    animation: "indicatorSlide",
+    animation: "fade",
     duration: 160,
   },
 
@@ -100,27 +100,29 @@ const TabsContext = createContext(null);
  * ======================================================= */
 
 function getSizeConfig(size) {
-  if (size === "sm") {
-    return {
-      height: 42,
-      horizontalPadding: 10,
-      fontSize: 12,
-    };
-  }
+  switch (size) {
+    case "sm":
+      return {
+        height: 42,
+        horizontalPadding: 10,
+        fontSize: 12,
+      };
 
-  if (size === "lg") {
-    return {
-      height: 58,
-      horizontalPadding: 16,
-      fontSize: 16,
-    };
-  }
+    case "lg":
+      return {
+        height: 58,
+        horizontalPadding: 16,
+        fontSize: 16,
+      };
 
-  return {
-    height: 48,
-    horizontalPadding: 12,
-    fontSize: 14,
-  };
+    case "md":
+    default:
+      return {
+        height: 48,
+        horizontalPadding: 12,
+        fontSize: 14,
+      };
+  }
 }
 
 function getEasing(type) {
@@ -196,9 +198,14 @@ const UITabsRoot = forwardRef(function UITabs(
 
     indicatorAnimation,
 
+    /*
+     * IMPORTANT:
+     * Content defaults to fade.
+     * It does NOT slide by default.
+     */
     contentAnimation = "fade",
 
-    directionAware = true,
+    directionAware = false,
 
     spring = {
       damping: 18,
@@ -302,6 +309,7 @@ const UITabsRoot = forwardRef(function UITabs(
       if (
         old &&
         old.x === layout.x &&
+        old.y === layout.y &&
         old.width === layout.width &&
         old.height === layout.height
       ) {
@@ -574,7 +582,7 @@ const UITabsList = memo(function UITabsList({
           showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
           keyboardShouldPersistTaps={keyboardShouldPersistTaps}
           bounces
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent]}
         >
           {content}
         </ScrollView>
@@ -657,7 +665,9 @@ const UITabsTrigger = memo(function UITabsTrigger({
     if (animation === "opacity") {
       Animated.timing(opacity, {
         toValue: 0.65,
+
         duration: 80,
+
         useNativeDriver: true,
       }).start();
 
@@ -675,7 +685,9 @@ const UITabsTrigger = memo(function UITabsTrigger({
 
       Animated.timing(opacity, {
         toValue: 0.8,
+
         duration: 80,
+
         useNativeDriver: true,
       }),
     ]).start();
@@ -693,7 +705,9 @@ const UITabsTrigger = memo(function UITabsTrigger({
 
       Animated.timing(opacity, {
         toValue: 1,
+
         duration: 100,
+
         useNativeDriver: true,
       }),
     ]).start();
@@ -887,9 +901,9 @@ const UITabsIndicator = memo(function UITabsIndicator({
 
     const targetWidth = activeLayout.width;
 
-    const animation = tabs.indicatorAnimation;
+    const indicatorAnimation = tabs.indicatorAnimation;
 
-    if (!tabs.animated || animation === "none") {
+    if (!tabs.animated || indicatorAnimation === "none") {
       animatedX.setValue(targetX);
 
       animatedWidth.setValue(targetWidth);
@@ -901,37 +915,51 @@ const UITabsIndicator = memo(function UITabsIndicator({
       return;
     }
 
-    if (animation === "indicatorFade" || animation === "indicatorFadeScale") {
+    if (indicatorAnimation === "indicatorFade") {
       animatedOpacity.setValue(0);
     }
 
-    if (animation === "indicatorScale" || animation === "indicatorFadeScale") {
+    if (
+      indicatorAnimation === "indicatorScale" ||
+      indicatorAnimation === "indicatorFadeScale"
+    ) {
       animatedScale.setValue(0.8);
     }
 
-    if (animation === "indicatorSpring" || animation === "spring") {
+    if (
+      indicatorAnimation === "indicatorSpring" ||
+      indicatorAnimation === "spring"
+    ) {
       Animated.parallel([
         Animated.spring(animatedX, {
           toValue: targetX,
+
           useNativeDriver: false,
+
           ...tabs.spring,
         }),
 
         Animated.spring(animatedWidth, {
           toValue: targetWidth,
+
           useNativeDriver: false,
+
           ...tabs.spring,
         }),
 
         Animated.spring(animatedScale, {
           toValue: 1,
+
           useNativeDriver: false,
+
           ...tabs.spring,
         }),
 
         Animated.timing(animatedOpacity, {
           toValue: 1,
+
           duration: tabs.animationDuration,
+
           useNativeDriver: false,
         }),
       ]).start();
@@ -942,27 +970,37 @@ const UITabsIndicator = memo(function UITabsIndicator({
     Animated.parallel([
       Animated.timing(animatedX, {
         toValue: targetX,
+
         duration: tabs.animationDuration,
+
         easing: getEasing(tabs.animationEasing),
+
         useNativeDriver: false,
       }),
 
       Animated.timing(animatedWidth, {
         toValue: targetWidth,
+
         duration: tabs.animationDuration,
+
         easing: getEasing(tabs.animationEasing),
+
         useNativeDriver: false,
       }),
 
       Animated.timing(animatedOpacity, {
         toValue: 1,
+
         duration: tabs.animationDuration,
+
         useNativeDriver: false,
       }),
 
       Animated.timing(animatedScale, {
         toValue: 1,
+
         duration: tabs.animationDuration,
+
         useNativeDriver: false,
       }),
     ]).start();
@@ -1039,6 +1077,18 @@ const UITabsContent = memo(function UITabsContent({
   style,
   contentContainerStyle,
 
+  /*
+   * Default is fade.
+   *
+   * Supported:
+   * none
+   * fade
+   * scale
+   * fadeScale
+   * slide
+   * slideFade
+   * slideScale
+   */
   animation,
 
   animationDuration,
@@ -1065,9 +1115,7 @@ const UITabsContent = memo(function UITabsContent({
 
   const previousActive = useRef(active);
 
-  const direction = tabs.getDirection(value);
-
-  const resolvedAnimation = animation || tabs.contentAnimation;
+  const resolvedAnimation = animation ?? tabs.contentAnimation ?? "fade";
 
   useEffect(() => {
     if (active) {
@@ -1119,6 +1167,8 @@ const UITabsContent = memo(function UITabsContent({
 
       duration: animationDuration ?? tabs.animationDuration,
 
+      easing: getEasing(tabs.animationEasing),
+
       useNativeDriver: true,
     }).start(() => {
       if (unmountOnExit) {
@@ -1142,10 +1192,22 @@ const UITabsContent = memo(function UITabsContent({
     return null;
   }
 
+  /*
+   * IMPORTANT:
+   *
+   * Default fade has:
+   * - opacity animation
+   * - NO translateX
+   * - NO translateY
+   *
+   * Therefore it cannot behave
+   * like a carousel.
+   */
+
   const isFade =
     resolvedAnimation === "fade" ||
-    resolvedAnimation === "slideFade" ||
-    resolvedAnimation === "fadeScale";
+    resolvedAnimation === "fadeScale" ||
+    resolvedAnimation === "slideFade";
 
   const isScale =
     resolvedAnimation === "scale" ||
@@ -1157,19 +1219,23 @@ const UITabsContent = memo(function UITabsContent({
     resolvedAnimation === "slideFade" ||
     resolvedAnimation === "slideScale";
 
-  const translateX = isSlide
+  const translateX = isSlide && tabs.directionAware ? 16 : 0;
+
+  const animatedTranslateX = isSlide
     ? progress.interpolate({
         inputRange: [0, 1],
-        outputRange: [direction * 16, 0],
+        outputRange: [translateX, 0],
       })
     : 0;
 
-  const scale = isScale
+  const animatedScale = isScale
     ? progress.interpolate({
         inputRange: [0, 1],
-        outputRange: [0.96, 1],
+        outputRange: [0.98, 1],
       })
     : 1;
+
+  const animatedOpacity = isFade ? progress : 1;
 
   return (
     <Animated.View
@@ -1177,20 +1243,24 @@ const UITabsContent = memo(function UITabsContent({
       accessible={accessible}
       accessibilityLabel={accessibilityLabel}
       style={[
+        styles.content,
+
         {
-          opacity: isFade ? progress : 1,
+          opacity: animatedOpacity,
 
           transform: [
             {
-              translateX,
+              translateX: animatedTranslateX,
             },
+
             {
-              scale,
+              scale: animatedScale,
             },
           ],
         },
 
         style,
+
         contentContainerStyle,
       ]}
       {...props}
@@ -1219,31 +1289,10 @@ export function useUITabs() {
 }
 
 /* =========================================================
- * DISPLAY NAMES
- * ======================================================= */
-
-UITabsRoot.displayName = "UITabs";
-
-UITabsList.displayName = "UITabs.List";
-
-UITabsTrigger.displayName = "UITabs.Trigger";
-
-UITabsContent.displayName = "UITabs.Content";
-
-UITabsIndicator.displayName = "UITabs.Indicator";
-
-/* =========================================================
- * MEMOIZED ROOT
+ * COMPOUND COMPONENT API
  * ======================================================= */
 
 const UITabs = memo(UITabsRoot);
-
-/* =========================================================
- * COMPOUND COMPONENT API
- *
- * IMPORTANT:
- * Attach compound components AFTER memo().
- * ======================================================= */
 
 UITabs.List = UITabsList;
 
@@ -1252,6 +1301,20 @@ UITabs.Trigger = UITabsTrigger;
 UITabs.Content = UITabsContent;
 
 UITabs.Indicator = UITabsIndicator;
+
+/* =========================================================
+ * DISPLAY NAMES
+ * ======================================================= */
+
+UITabs.displayName = "UITabs";
+
+UITabsList.displayName = "UITabs.List";
+
+UITabsTrigger.displayName = "UITabs.Trigger";
+
+UITabsContent.displayName = "UITabs.Content";
+
+UITabsIndicator.displayName = "UITabs.Indicator";
 
 /* =========================================================
  * EXPORT
@@ -1270,6 +1333,7 @@ const styles = StyleSheet.create({
 
   list: {
     width: "100%",
+
     overflow: "hidden",
   },
 
@@ -1343,5 +1407,9 @@ const styles = StyleSheet.create({
     bottom: 0,
 
     zIndex: 20,
+  },
+
+  content: {
+    width: "100%",
   },
 });
