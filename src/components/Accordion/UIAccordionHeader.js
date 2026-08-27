@@ -11,11 +11,19 @@ export const UIAccordionHeader = memo(function UIAccordionHeader({
 
   style,
 
+  borderBottomWidth,
+
+  borderBottomColor,
+
   testID,
 }) {
   const accordion = useUIAccordion();
 
   const item = useUIAccordionItem();
+
+  const resolvedBorderWidth =
+    borderBottomWidth ??
+    (accordion.separator && !item.open ? StyleSheet.hairlineWidth : 0);
 
   return (
     <View
@@ -27,10 +35,11 @@ export const UIAccordionHeader = memo(function UIAccordionHeader({
           minHeight:
             accordion.size === "sm" ? 44 : accordion.size === "lg" ? 60 : 52,
 
-          borderBottomColor: accordion.colors.border || "#E5E5E5",
-        },
+          borderBottomWidth: resolvedBorderWidth,
 
-        accordion.separator && item.open ? styles.headerOpen : null,
+          borderBottomColor:
+            borderBottomColor || accordion.colors.border || "#E5E5E5",
+        },
 
         style,
       ]}
@@ -45,10 +54,6 @@ const styles = StyleSheet.create({
     width: "100%",
 
     justifyContent: "center",
-  },
-
-  headerOpen: {
-    borderBottomWidth: 1,
   },
 });
 

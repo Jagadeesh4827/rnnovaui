@@ -115,6 +115,7 @@ export {
   UIAccordionTrigger,
   UIAccordionContent,
   UIAccordionIcon,
+  UIAccordionAnimationPresets,
 } from "./Accordion";
 export {
   UITabs,

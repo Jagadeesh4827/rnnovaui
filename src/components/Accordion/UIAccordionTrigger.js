@@ -1,6 +1,6 @@
-import React, { memo } from "react";
+import React, { memo, useRef } from "react";
 
-import { Pressable, StyleSheet, View } from "react-native";
+import { Animated, Pressable, StyleSheet, View } from "react-native";
 
 import { useUIAccordion } from "./UIAccordion";
 
@@ -13,11 +13,16 @@ export const UIAccordionTrigger = memo(function UIAccordionTrigger({
 
   disabled,
 
-  style,
+  pressScale = 0.98,
 
+  style,
   contentStyle,
 
-  activeOpacity = 0.7,
+  activeStyle,
+
+  inactiveStyle,
+
+  pressAnimation,
 
   testID,
 
@@ -31,6 +36,40 @@ export const UIAccordionTrigger = memo(function UIAccordionTrigger({
 
   const isDisabled = disabled ?? item.disabled;
 
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const resolvedAnimation = pressAnimation ?? accordion.pressAnimation;
+
+  const pressIn = () => {
+    if (isDisabled || resolvedAnimation === "none") {
+      return;
+    }
+
+    if (resolvedAnimation === "scale") {
+      Animated.spring(scale, {
+        toValue: pressScale,
+
+        ...accordion.spring,
+
+        useNativeDriver: true,
+      }).start();
+    }
+  };
+
+  const pressOut = () => {
+    if (resolvedAnimation === "none") {
+      return;
+    }
+
+    Animated.spring(scale, {
+      toValue: 1,
+
+      ...accordion.spring,
+
+      useNativeDriver: true,
+    }).start();
+  };
+
   const handlePress = (event) => {
     if (isDisabled) {
       return;
@@ -42,36 +81,60 @@ export const UIAccordionTrigger = memo(function UIAccordionTrigger({
   };
 
   return (
-    <Pressable
-      {...props}
-      testID={testID}
-      disabled={isDisabled}
-      onPress={handlePress}
-      accessibilityRole="button"
-      accessibilityState={{
-        expanded: item.open,
-        disabled: isDisabled,
-      }}
-      accessibilityLabel={accessibilityLabel}
-      style={({ pressed }) => [
-        styles.trigger,
+    <Animated.View
+      style={[
+        styles.wrapper,
 
         {
-          minHeight:
-            accordion.size === "sm" ? 44 : accordion.size === "lg" ? 60 : 52,
-
-          opacity: isDisabled ? 0.5 : pressed ? activeOpacity : 1,
+          transform: [
+            {
+              scale,
+            },
+          ],
         },
-
-        style,
       ]}
     >
-      <View style={[styles.content, contentStyle]}>{children}</View>
-    </Pressable>
+      <Pressable
+        {...props}
+        testID={testID}
+        disabled={isDisabled}
+        onPress={handlePress}
+        onPressIn={pressIn}
+        onPressOut={pressOut}
+        accessibilityRole="button"
+        accessibilityState={{
+          expanded: item.open,
+          disabled: isDisabled,
+        }}
+        accessibilityLabel={accessibilityLabel}
+        style={[
+          styles.trigger,
+
+          {
+            minHeight:
+              accordion.size === "sm" ? 44 : accordion.size === "lg" ? 60 : 52,
+
+            opacity: isDisabled ? 0.45 : 1,
+          },
+
+          inactiveStyle,
+
+          item.open ? activeStyle : null,
+
+          style,
+        ]}
+      >
+        <View style={[styles.content, contentStyle]}>{children}</View>
+      </Pressable>
+    </Animated.View>
   );
 });
 
 const styles = StyleSheet.create({
+  wrapper: {
+    width: "100%",
+  },
+
   trigger: {
     width: "100%",
 

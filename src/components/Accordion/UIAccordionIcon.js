@@ -12,87 +12,65 @@ export const UIAccordionIcon = memo(function UIAccordionIcon({
   openIcon,
   closedIcon,
 
-  size,
+  animation,
+
+  rotation = 180,
+
+  size = 20,
 
   color,
 
   style,
-
-  animated = true,
-
-  rotation = 180,
 }) {
   const accordion = useUIAccordion();
 
   const item = useUIAccordionItem();
 
-  const animation = useRef(new Animated.Value(item.open ? 1 : 0)).current;
+  const animationType = animation ?? accordion.iconAnimation;
+
+  const rotationValue = useRef(new Animated.Value(item.open ? 1 : 0)).current;
 
   useEffect(() => {
-    if (!animated) {
-      animation.setValue(item.open ? 1 : 0);
+    if (animationType === "none") {
+      rotationValue.setValue(item.open ? 1 : 0);
 
       return;
     }
 
-    Animated.timing(animation, {
+    if (animationType === "springRotate") {
+      Animated.spring(rotationValue, {
+        toValue: item.open ? 1 : 0,
+
+        ...accordion.spring,
+
+        useNativeDriver: true,
+      }).start();
+
+      return;
+    }
+
+    Animated.timing(rotationValue, {
       toValue: item.open ? 1 : 0,
 
       duration: accordion.animationDuration,
 
       useNativeDriver: true,
     }).start();
-  }, [item.open, animated, accordion.animationDuration, animation]);
+  }, [
+    item.open,
+    animationType,
+    accordion.animationDuration,
+    accordion.spring,
+    rotationValue,
+  ]);
 
-  if (children || openIcon || closedIcon) {
-    const customIcon = item.open ? openIcon : closedIcon;
+  const rotate = rotationValue.interpolate({
+    inputRange: [0, 1],
 
-    if (customIcon) {
-      return (
-        <Animated.View
-          style={[
-            {
-              transform: [
-                {
-                  rotate: animation.interpolate({
-                    inputRange: [0, 1],
+    outputRange: ["0deg", `${rotation}deg`],
+  });
 
-                    outputRange: ["0deg", `${rotation}deg`],
-                  }),
-                },
-              ],
-            },
-
-            style,
-          ]}
-        >
-          {customIcon}
-        </Animated.View>
-      );
-    }
-
-    return (
-      <Animated.View
-        style={[
-          {
-            transform: [
-              {
-                rotate: animation.interpolate({
-                  inputRange: [0, 1],
-
-                  outputRange: ["0deg", `${rotation}deg`],
-                }),
-              },
-            ],
-          },
-
-          style,
-        ]}
-      >
-        {children}
-      </Animated.View>
-    );
-  }
+  const customIcon = item.open ? openIcon : closedIcon;
 
   return (
     <Animated.View
@@ -100,11 +78,7 @@ export const UIAccordionIcon = memo(function UIAccordionIcon({
         {
           transform: [
             {
-              rotate: animation.interpolate({
-                inputRange: [0, 1],
-
-                outputRange: ["0deg", `${rotation}deg`],
-              }),
+              rotate,
             },
           ],
         },
@@ -112,17 +86,25 @@ export const UIAccordionIcon = memo(function UIAccordionIcon({
         style,
       ]}
     >
-      <Text
-        style={{
-          fontSize: size || 20,
+      {customIcon || children ? (
+        customIcon || children
+      ) : (
+        <View>
+          <Text
+            style={{
+              fontSize: size,
 
-          color: color || accordion.colors.text || "#111111",
+              lineHeight: size,
 
-          lineHeight: size || 20,
-        }}
-      >
-        ›
-      </Text>
+              color: color || accordion.colors.text || "#111111",
+
+              fontWeight: "400",
+            }}
+          >
+            ›
+          </Text>
+        </View>
+      )}
     </Animated.View>
   );
 });
