@@ -1219,18 +1219,6 @@ export function useUITabs() {
 }
 
 /* =========================================================
- * COMPOUND COMPONENT API
- * ======================================================= */
-
-UITabsRoot.List = UITabsList;
-
-UITabsRoot.Trigger = UITabsTrigger;
-
-UITabsRoot.Content = UITabsContent;
-
-UITabsRoot.Indicator = UITabsIndicator;
-
-/* =========================================================
  * DISPLAY NAMES
  * ======================================================= */
 
@@ -1245,10 +1233,31 @@ UITabsContent.displayName = "UITabs.Content";
 UITabsIndicator.displayName = "UITabs.Indicator";
 
 /* =========================================================
+ * MEMOIZED ROOT
+ * ======================================================= */
+
+const UITabs = memo(UITabsRoot);
+
+/* =========================================================
+ * COMPOUND COMPONENT API
+ *
+ * IMPORTANT:
+ * Attach compound components AFTER memo().
+ * ======================================================= */
+
+UITabs.List = UITabsList;
+
+UITabs.Trigger = UITabsTrigger;
+
+UITabs.Content = UITabsContent;
+
+UITabs.Indicator = UITabsIndicator;
+
+/* =========================================================
  * EXPORT
  * ======================================================= */
 
-export const UITabs = memo(UITabsRoot);
+export { UITabs };
 
 /* =========================================================
  * STYLES
