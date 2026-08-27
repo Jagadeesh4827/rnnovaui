@@ -13,6 +13,8 @@ export const UITabsContent = memo(function UITabsContent({
 
   animationDuration,
 
+  scaleFrom = 0.96,
+
   style,
 
   contentStyle,
@@ -33,37 +35,54 @@ export const UITabsContent = memo(function UITabsContent({
 
   const isActive = tabs.value === value;
 
+  /*
+   * Supported content animations:
+   *
+   * none
+   * fade
+   * fadeIn
+   * fadeOut
+   * scale
+   * fadeScale
+   */
+
   const animationType = animation ?? tabs.contentAnimation ?? "fade";
 
   const duration = animationDuration ?? tabs.animationDuration ?? 260;
 
   const [mounted, setMounted] = useState(isActive);
 
-  const opacity = useRef(new Animated.Value(isActive ? 1 : 0)).current;
+  const progress = useRef(new Animated.Value(isActive ? 1 : 0)).current;
 
   const mountedRef = useRef(true);
 
+  /*
+   * Cleanup
+   */
   useEffect(() => {
     mountedRef.current = true;
 
     return () => {
       mountedRef.current = false;
-      opacity.stopAnimation();
+      progress.stopAnimation();
     };
-  }, [opacity]);
+  }, [progress]);
 
+  /*
+   * Main animation
+   */
   useEffect(() => {
     /*
-     * No animation
+     * Animation disabled
      */
     if (!tabs.animated || animationType === "none") {
-      opacity.stopAnimation();
+      progress.stopAnimation();
 
       if (isActive) {
         setMounted(true);
-        opacity.setValue(1);
+        progress.setValue(1);
       } else {
-        opacity.setValue(0);
+        progress.setValue(0);
         setMounted(false);
       }
 
@@ -71,32 +90,57 @@ export const UITabsContent = memo(function UITabsContent({
     }
 
     /*
-     * ACTIVE
+     * ==========================
+     * ACTIVE CONTENT
+     * ==========================
      */
     if (isActive) {
       setMounted(true);
 
-      opacity.stopAnimation();
+      progress.stopAnimation();
 
       /*
-       * fadeOut means the incoming
-       * content appears immediately.
+       * fadeOut:
+       *
+       * Incoming content appears
+       * immediately.
        */
       if (animationType === "fadeOut") {
-        opacity.setValue(1);
+        progress.setValue(1);
         return;
       }
 
       /*
        * fade
        * fadeIn
-       * fadeInOut
+       * scale
+       * fadeScale
        */
-      opacity.setValue(0);
+      progress.setValue(0);
 
-      Animated.timing(opacity, {
+      /*
+       * Scale-only animation
+       */
+      if (animationType === "scale") {
+        Animated.timing(progress, {
+          toValue: 1,
+
+          duration,
+
+          useNativeDriver: true,
+        }).start();
+
+        return;
+      }
+
+      /*
+       * Fade / FadeScale
+       */
+      Animated.timing(progress, {
         toValue: 1,
+
         duration,
+
         useNativeDriver: true,
       }).start();
 
@@ -104,54 +148,94 @@ export const UITabsContent = memo(function UITabsContent({
     }
 
     /*
-     * INACTIVE
+     * ==========================
+     * INACTIVE CONTENT
+     * ==========================
      */
 
     /*
-     * fadeIn means only the
-     * incoming content animates.
+     * fadeIn:
+     *
+     * This content doesn't
+     * animate out.
      */
     if (animationType === "fadeIn") {
-      opacity.stopAnimation();
-      opacity.setValue(0);
+      progress.stopAnimation();
+
+      progress.setValue(0);
+
       setMounted(false);
 
       return;
     }
 
     /*
-     * fade
      * fadeOut
-     * fadeInOut
+     * fade
+     * scale
+     * fadeScale
      */
-    opacity.stopAnimation();
+    progress.stopAnimation();
 
-    Animated.timing(opacity, {
+    Animated.timing(progress, {
       toValue: 0,
+
       duration,
+
       useNativeDriver: true,
     }).start(({ finished }) => {
       if (finished && mountedRef.current) {
         setMounted(false);
       }
     });
-  }, [isActive, animationType, duration, tabs.animated, opacity]);
+  }, [isActive, animationType, duration, tabs.animated, progress]);
 
   if (!mounted) {
     return null;
   }
+
+  /*
+   * ==========================
+   * OPACITY
+   * ==========================
+   */
+
+  const opacity = getOpacity(animationType, progress);
+
+  /*
+   * ==========================
+   * SCALE
+   * ==========================
+   */
+
+  const scale = getScale(animationType, progress, scaleFrom);
 
   return (
     <Animated.View
       testID={testID}
       style={[
         styles.container,
+
         {
           opacity,
+
+          transform: [
+            {
+              scale,
+            },
+          ],
         },
+
         style,
       ]}
     >
+      {/*
+          IMPORTANT:
+
+          Accessibility properties
+          are placed on a normal View,
+          NOT Animated.View.
+        */}
       <View
         accessible={accessible}
         accessibilityLabel={accessibilityLabel}
@@ -165,6 +249,52 @@ export const UITabsContent = memo(function UITabsContent({
     </Animated.View>
   );
 });
+
+/*
+ * ==============================
+ * OPACITY
+ * ==============================
+ */
+
+function getOpacity(type, progress) {
+  switch (type) {
+    case "fade":
+    case "fadeIn":
+    case "fadeOut":
+    case "fadeScale":
+      return progress;
+
+    case "scale":
+    case "none":
+    default:
+      return 1;
+  }
+}
+
+/*
+ * ==============================
+ * SCALE
+ * ==============================
+ */
+
+function getScale(type, progress, scaleFrom) {
+  switch (type) {
+    case "scale":
+    case "fadeScale":
+      return progress.interpolate({
+        inputRange: [0, 1],
+
+        outputRange: [scaleFrom, 1],
+      });
+
+    case "fade":
+    case "fadeIn":
+    case "fadeOut":
+    case "none":
+    default:
+      return 1;
+  }
+}
 
 const styles = StyleSheet.create({
   container: {
