@@ -1,39 +1,97 @@
 import React, { memo, useEffect, useRef, useState } from "react";
 
-import { Animated, StyleSheet } from "react-native";
+import { Animated, StyleSheet, View } from "react-native";
 
 import { useUITabs } from "./UITabs";
 
 export const UITabsContent = memo(function UITabsContent({
   children,
+
   value,
 
-  animation = "fade",
+  animation,
 
   animationDuration,
 
   style,
+
+  contentStyle,
+
   testID,
+
+  accessible = false,
+
+  accessibilityLabel,
+
+  accessibilityHint,
+
+  accessibilityState,
+
+  onLayout,
 }) {
   const tabs = useUITabs();
 
-  const active = tabs.value === value;
+  const isActive = tabs.value === value;
 
-  const [mounted, setMounted] = useState(active);
+  const animationType = animation ?? tabs.contentAnimation ?? "fade";
 
-  const opacity = useRef(new Animated.Value(active ? 1 : 0)).current;
+  const duration = animationDuration ?? tabs.animationDuration ?? 260;
+
+  const [mounted, setMounted] = useState(isActive);
+
+  const opacity = useRef(new Animated.Value(isActive ? 1 : 0)).current;
+
+  const mountedRef = useRef(true);
 
   useEffect(() => {
-    const duration = animationDuration ?? tabs.animationDuration;
+    mountedRef.current = true;
 
-    if (active) {
+    return () => {
+      mountedRef.current = false;
+      opacity.stopAnimation();
+    };
+  }, [opacity]);
+
+  useEffect(() => {
+    /*
+     * No animation
+     */
+    if (!tabs.animated || animationType === "none") {
+      opacity.stopAnimation();
+
+      if (isActive) {
+        setMounted(true);
+        opacity.setValue(1);
+      } else {
+        opacity.setValue(0);
+        setMounted(false);
+      }
+
+      return;
+    }
+
+    /*
+     * ACTIVE
+     */
+    if (isActive) {
       setMounted(true);
 
-      if (animation === "none" || !tabs.animated) {
+      opacity.stopAnimation();
+
+      /*
+       * fadeOut means the incoming
+       * content appears immediately.
+       */
+      if (animationType === "fadeOut") {
         opacity.setValue(1);
         return;
       }
 
+      /*
+       * fade
+       * fadeIn
+       * fadeInOut
+       */
       opacity.setValue(0);
 
       Animated.timing(opacity, {
@@ -45,27 +103,39 @@ export const UITabsContent = memo(function UITabsContent({
       return;
     }
 
-    if (animation === "none" || !tabs.animated) {
+    /*
+     * INACTIVE
+     */
+
+    /*
+     * fadeIn means only the
+     * incoming content animates.
+     */
+    if (animationType === "fadeIn") {
+      opacity.stopAnimation();
       opacity.setValue(0);
       setMounted(false);
+
       return;
     }
+
+    /*
+     * fade
+     * fadeOut
+     * fadeInOut
+     */
+    opacity.stopAnimation();
 
     Animated.timing(opacity, {
       toValue: 0,
       duration,
       useNativeDriver: true,
-    }).start(() => {
-      setMounted(false);
+    }).start(({ finished }) => {
+      if (finished && mountedRef.current) {
+        setMounted(false);
+      }
     });
-  }, [
-    active,
-    animation,
-    tabs.animated,
-    tabs.animationDuration,
-    animationDuration,
-    opacity,
-  ]);
+  }, [isActive, animationType, duration, tabs.animated, opacity]);
 
   if (!mounted) {
     return null;
@@ -74,7 +144,6 @@ export const UITabsContent = memo(function UITabsContent({
   return (
     <Animated.View
       testID={testID}
-      accessibilityRole="tabpanel"
       style={[
         styles.container,
         {
@@ -83,13 +152,26 @@ export const UITabsContent = memo(function UITabsContent({
         style,
       ]}
     >
-      {children}
+      <View
+        accessible={accessible}
+        accessibilityLabel={accessibilityLabel}
+        accessibilityHint={accessibilityHint}
+        accessibilityState={accessibilityState}
+        onLayout={onLayout}
+        style={[styles.content, contentStyle]}
+      >
+        {children}
+      </View>
     </Animated.View>
   );
 });
 
 const styles = StyleSheet.create({
   container: {
+    width: "100%",
+  },
+
+  content: {
     width: "100%",
   },
 });
