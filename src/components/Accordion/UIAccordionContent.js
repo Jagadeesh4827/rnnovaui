@@ -12,24 +12,19 @@ export const UIAccordionContent = memo(function UIAccordionContent({
   testID,
 }) {
   const accordion = useUIAccordion();
-
   const item = useUIAccordionItem();
 
   const [contentHeight, setContentHeight] = useState(0);
 
-  const heightAnimation = useRef(new Animated.Value(item.open ? 1 : 0)).current;
-
-  const opacityAnimation = useRef(
-    new Animated.Value(item.open ? 1 : 0),
-  ).current;
+  const animation = useRef(new Animated.Value(item.open ? 1 : 0)).current;
 
   /*
    * ------------------------------------------------
-   * MEASURE REAL CONTENT HEIGHT
+   * MEASURE REAL CONTENT
    * ------------------------------------------------
    */
 
-  const handleLayout = (event) => {
+  const handleMeasureLayout = (event) => {
     const height = Math.ceil(event.nativeEvent.layout.height);
 
     if (height > 0 && height !== contentHeight) {
@@ -39,51 +34,36 @@ export const UIAccordionContent = memo(function UIAccordionContent({
 
   /*
    * ------------------------------------------------
-   * ANIMATION
+   * OPEN / CLOSE
    * ------------------------------------------------
    */
 
   useEffect(() => {
-    /*
-     * If content has not been measured yet,
-     * don't try to animate to an unknown height.
-     */
     if (contentHeight <= 0) {
       return;
     }
 
     if (!accordion.animated) {
-      heightAnimation.setValue(item.open ? 1 : 0);
-
-      opacityAnimation.setValue(item.open ? 1 : 0);
+      animation.setValue(item.open ? 1 : 0);
 
       return;
     }
 
-    Animated.parallel([
-      Animated.timing(heightAnimation, {
-        toValue: item.open ? 1 : 0,
+    Animated.timing(animation, {
+      toValue: item.open ? 1 : 0,
 
-        duration: accordion.animationDuration,
+      duration: accordion.animationDuration,
 
-        useNativeDriver: false,
-      }),
+      easing: undefined,
 
-      Animated.timing(opacityAnimation, {
-        toValue: item.open ? 1 : 0,
-
-        duration: Math.min(accordion.animationDuration, 160),
-
-        useNativeDriver: true,
-      }),
-    ]).start();
+      useNativeDriver: false,
+    }).start();
   }, [
     item.open,
     contentHeight,
     accordion.animated,
     accordion.animationDuration,
-    heightAnimation,
-    opacityAnimation,
+    animation,
   ]);
 
   /*
@@ -92,51 +72,94 @@ export const UIAccordionContent = memo(function UIAccordionContent({
    * ------------------------------------------------
    */
 
-  const animatedHeight = heightAnimation.interpolate({
+  const animatedHeight = animation.interpolate({
     inputRange: [0, 1],
 
     outputRange: [0, contentHeight],
+
+    extrapolate: "clamp",
   });
 
   /*
    * ------------------------------------------------
-   * CONTENT
-   * ------------------------------------------------
+   * MEASUREMENT CONTENT
    *
-   * The inner content remains mounted all the time.
-   * Therefore backend content can have any height.
+   * This is always rendered.
+   *
+   * It does NOT participate in normal layout.
+   * Therefore it cannot cause accordion shaking.
+   * ------------------------------------------------
    */
 
   return (
-    <Animated.View
-      testID={testID}
-      style={[
-        styles.container,
-
-        {
-          height: animatedHeight,
-
-          opacity: opacityAnimation,
-        },
-
-        style,
-      ]}
-    >
-      <View style={[styles.inner, innerStyle]} onLayout={handleLayout}>
-        {children}
+    <View style={styles.root}>
+      <View pointerEvents="none" style={styles.measureContainer}>
+        <View
+          style={[styles.measureContent, innerStyle]}
+          onLayout={handleMeasureLayout}
+        >
+          {children}
+        </View>
       </View>
-    </Animated.View>
+
+      <Animated.View
+        testID={testID}
+        style={[
+          styles.animatedContainer,
+
+          {
+            height: animatedHeight,
+          },
+
+          style,
+        ]}
+      >
+        <View style={[styles.visibleContent, innerStyle]}>{children}</View>
+      </Animated.View>
+    </View>
   );
 });
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
+    width: "100%",
+  },
+
+  /*
+   * Hidden measurement layer.
+   *
+   * It remains available so onLayout can always
+   * calculate the real content height.
+   */
+  measureContainer: {
+    position: "absolute",
+
+    left: 0,
+    right: 0,
+
+    top: 0,
+
+    opacity: 0,
+
+    zIndex: -1,
+
+    pointerEvents: "none",
+  },
+
+  measureContent: {
+    width: "100%",
+  },
+
+  /*
+   * Visible animated layer.
+   */
+  animatedContainer: {
     width: "100%",
 
     overflow: "hidden",
   },
 
-  inner: {
+  visibleContent: {
     width: "100%",
   },
 });

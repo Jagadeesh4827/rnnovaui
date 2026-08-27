@@ -35,26 +35,28 @@ export const UITabsSizes = {
 export const UITabsAnimations = {
   none: "none",
 
-  fade: "fade",
-  scale: "scale",
-  fadeScale: "fadeScale",
-
-  slide: "slide",
-  slideFade: "slideFade",
-  slideScale: "slideScale",
-
-  spring: "spring",
-  springScale: "springScale",
-  springSlide: "springSlide",
-
-  bounce: "bounce",
-  pulse: "pulse",
-
+  /* Heading / indicator animations */
   indicatorSlide: "indicatorSlide",
   indicatorSpring: "indicatorSpring",
   indicatorFade: "indicatorFade",
   indicatorScale: "indicatorScale",
   indicatorFadeScale: "indicatorFadeScale",
+
+  /* Heading press animations */
+  pressScale: "pressScale",
+  pressOpacity: "pressOpacity",
+
+  /* These remain available for future explicit use,
+   * but are NOT used by UITabs.Content.
+   */
+  fade: "fade",
+  scale: "scale",
+  fadeScale: "fadeScale",
+  slide: "slide",
+  slideFade: "slideFade",
+  slideScale: "slideScale",
+  bounce: "bounce",
+  pulse: "pulse",
 };
 
 export const UITabsAnimationPresets = {
@@ -63,18 +65,13 @@ export const UITabsAnimationPresets = {
     duration: 0,
   },
 
-  subtle: {
-    animation: "fade",
-    duration: 160,
-  },
-
   smooth: {
-    animation: "fade",
+    animation: "indicatorSlide",
     duration: 220,
   },
 
   snappy: {
-    animation: "fade",
+    animation: "indicatorSlide",
     duration: 160,
   },
 
@@ -84,7 +81,7 @@ export const UITabsAnimationPresets = {
   },
 
   bouncy: {
-    animation: "bounce",
+    animation: "indicatorSpring",
     duration: 420,
   },
 };
@@ -165,7 +162,7 @@ function getAnimationConfig(animation, animationPreset, animationDuration) {
   return {
     animation: animation || "indicatorSlide",
 
-    duration: animationDuration ?? 240,
+    duration: animationDuration ?? 220,
   };
 }
 
@@ -186,25 +183,39 @@ const UITabsRoot = forwardRef(function UITabs(
 
     variant = "default",
 
+    /*
+     * IMPORTANT:
+     *
+     * animated controls ONLY:
+     * - tab heading press
+     * - active indicator
+     *
+     * It does NOT animate Content.
+     */
     animated = true,
 
     animation = "indicatorSlide",
 
     animationPreset,
 
-    animationDuration = 240,
+    animationDuration = 220,
 
     animationEasing = "easeOut",
 
     indicatorAnimation,
 
     /*
-     * IMPORTANT:
-     * Content defaults to fade.
-     * It does NOT slide by default.
+     * Kept for API compatibility.
+     *
+     * Content animation is intentionally
+     * disabled in this component.
      */
-    contentAnimation = "fade",
+    contentAnimation = "none",
 
+    /*
+     * Kept for compatibility.
+     * Content never slides.
+     */
     directionAware = false,
 
     spring = {
@@ -349,6 +360,10 @@ const UITabsRoot = forwardRef(function UITabs(
     scrollToTab(currentValue);
   }, [currentValue, scrollToTab]);
 
+  /*
+   * Direction is kept only for API compatibility.
+   * Content never uses it.
+   */
   const getDirection = useCallback(
     (tabValue) => {
       if (!directionAware) {
@@ -388,6 +403,9 @@ const UITabsRoot = forwardRef(function UITabs(
 
       animated,
 
+      /*
+       * Heading animation only.
+       */
       animation: resolvedAnimation,
 
       animationDuration: resolvedDuration,
@@ -396,9 +414,12 @@ const UITabsRoot = forwardRef(function UITabs(
 
       indicatorAnimation: indicatorAnimation || resolvedAnimation,
 
-      contentAnimation,
+      /*
+       * Always none for Content.
+       */
+      contentAnimation: "none",
 
-      directionAware,
+      directionAware: false,
 
       spring,
 
@@ -448,8 +469,6 @@ const UITabsRoot = forwardRef(function UITabs(
       resolvedDuration,
       animationEasing,
       indicatorAnimation,
-      contentAnimation,
-      directionAware,
       spring,
       resolvedActiveColor,
       resolvedInactiveColor,
@@ -582,7 +601,7 @@ const UITabsList = memo(function UITabsList({
           showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
           keyboardShouldPersistTaps={keyboardShouldPersistTaps}
           bounces
-          contentContainerStyle={[styles.scrollContent]}
+          contentContainerStyle={styles.scrollContent}
         >
           {content}
         </ScrollView>
@@ -662,7 +681,7 @@ const UITabsTrigger = memo(function UITabsTrigger({
       return;
     }
 
-    if (animation === "opacity") {
+    if (animation === "opacity" || animation === "pressOpacity") {
       Animated.timing(opacity, {
         toValue: 0.65,
 
@@ -782,9 +801,11 @@ const UITabsTrigger = memo(function UITabsTrigger({
             <View
               style={[
                 styles.icon,
+
                 {
                   marginRight: 6,
                 },
+
                 iconStyle,
               ]}
             >
@@ -815,9 +836,11 @@ const UITabsTrigger = memo(function UITabsTrigger({
             <View
               style={[
                 styles.icon,
+
                 {
                   marginLeft: 6,
                 },
+
                 iconStyle,
               ]}
             >
@@ -1067,6 +1090,19 @@ const UITabsIndicator = memo(function UITabsIndicator({
 
 /* =========================================================
  * CONTENT
+ *
+ * NO ANIMATION.
+ *
+ * This component intentionally does not use:
+ * - Animated.Value
+ * - opacity animation
+ * - translateX
+ * - translateY
+ * - scale
+ * - spring
+ * - timing
+ *
+ * React simply mounts/unmounts the active content.
  * ======================================================= */
 
 const UITabsContent = memo(function UITabsContent({
@@ -1078,16 +1114,8 @@ const UITabsContent = memo(function UITabsContent({
   contentContainerStyle,
 
   /*
-   * Default is fade.
-   *
-   * Supported:
-   * none
-   * fade
-   * scale
-   * fadeScale
-   * slide
-   * slideFade
-   * slideScale
+   * Kept for API compatibility.
+   * Ignored intentionally.
    */
   animation,
 
@@ -1109,164 +1137,36 @@ const UITabsContent = memo(function UITabsContent({
 
   const active = tabs.isActive(value);
 
-  const [mounted, setMounted] = useState(active || !lazy);
-
-  const progress = useRef(new Animated.Value(active ? 1 : 0)).current;
-
-  const previousActive = useRef(active);
-
-  const resolvedAnimation = animation ?? tabs.contentAnimation ?? "fade";
+  const [hasMounted, setHasMounted] = useState(active || !lazy);
 
   useEffect(() => {
     if (active) {
-      setMounted(true);
-
-      if (!tabs.animated || resolvedAnimation === "none") {
-        progress.setValue(1);
-
-        previousActive.current = true;
-
-        return;
-      }
-
-      progress.setValue(0);
-
-      Animated.timing(progress, {
-        toValue: 1,
-
-        duration: animationDuration ?? tabs.animationDuration,
-
-        easing: getEasing(tabs.animationEasing),
-
-        useNativeDriver: true,
-      }).start();
-
-      previousActive.current = true;
-
-      return;
+      setHasMounted(true);
+    } else if (unmountOnExit) {
+      setHasMounted(false);
     }
+  }, [active, unmountOnExit]);
 
-    if (!previousActive.current) {
-      return;
-    }
-
-    if (!tabs.animated || resolvedAnimation === "none") {
-      progress.setValue(0);
-
-      if (unmountOnExit) {
-        setMounted(false);
-      }
-
-      previousActive.current = false;
-
-      return;
-    }
-
-    Animated.timing(progress, {
-      toValue: 0,
-
-      duration: animationDuration ?? tabs.animationDuration,
-
-      easing: getEasing(tabs.animationEasing),
-
-      useNativeDriver: true,
-    }).start(() => {
-      if (unmountOnExit) {
-        setMounted(false);
-      }
-    });
-
-    previousActive.current = false;
-  }, [
-    active,
-    tabs.animated,
-    tabs.animationDuration,
-    tabs.animationEasing,
-    resolvedAnimation,
-    animationDuration,
-    progress,
-    unmountOnExit,
-  ]);
-
-  if (!mounted) {
+  if (!hasMounted) {
     return null;
   }
 
   /*
    * IMPORTANT:
    *
-   * Default fade has:
-   * - opacity animation
-   * - NO translateX
-   * - NO translateY
-   *
-   * Therefore it cannot behave
-   * like a carousel.
+   * This is a normal View.
+   * There is ZERO Animated.View here.
    */
-
-  const isFade =
-    resolvedAnimation === "fade" ||
-    resolvedAnimation === "fadeScale" ||
-    resolvedAnimation === "slideFade";
-
-  const isScale =
-    resolvedAnimation === "scale" ||
-    resolvedAnimation === "fadeScale" ||
-    resolvedAnimation === "slideScale";
-
-  const isSlide =
-    resolvedAnimation === "slide" ||
-    resolvedAnimation === "slideFade" ||
-    resolvedAnimation === "slideScale";
-
-  const translateX = isSlide && tabs.directionAware ? 16 : 0;
-
-  const animatedTranslateX = isSlide
-    ? progress.interpolate({
-        inputRange: [0, 1],
-        outputRange: [translateX, 0],
-      })
-    : 0;
-
-  const animatedScale = isScale
-    ? progress.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0.98, 1],
-      })
-    : 1;
-
-  const animatedOpacity = isFade ? progress : 1;
-
   return (
-    <Animated.View
+    <View
       testID={testID}
       accessible={accessible}
       accessibilityLabel={accessibilityLabel}
-      style={[
-        styles.content,
-
-        {
-          opacity: animatedOpacity,
-
-          transform: [
-            {
-              translateX: animatedTranslateX,
-            },
-
-            {
-              scale: animatedScale,
-            },
-          ],
-        },
-
-        style,
-
-        contentContainerStyle,
-      ]}
+      style={[styles.content, style, contentContainerStyle]}
       {...props}
     >
       {children}
-    </Animated.View>
+    </View>
   );
 });
 
@@ -1289,7 +1189,7 @@ export function useUITabs() {
 }
 
 /* =========================================================
- * COMPOUND COMPONENT API
+ * COMPOUND COMPONENT
  * ======================================================= */
 
 const UITabs = memo(UITabsRoot);
