@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useRef } from "react";
+import React, { memo, useRef } from "react";
 
 import { Animated, Pressable, StyleSheet, Text, View } from "react-native";
 
@@ -10,6 +10,7 @@ export const UITabsTrigger = memo(function UITabsTrigger({
   value,
 
   icon,
+
   iconPosition = "left",
 
   badge,
@@ -19,28 +20,32 @@ export const UITabsTrigger = memo(function UITabsTrigger({
   onPress,
 
   activeColor,
+
   inactiveColor,
 
   style,
+
   activeStyle,
+
   inactiveStyle,
 
   contentStyle,
 
   textStyle,
+
   activeTextStyle,
+
   inactiveTextStyle,
 
   iconStyle,
 
   badgeStyle,
+
   badgeTextStyle,
 
   pressAnimation,
 
   pressScale = 0.96,
-
-  indicator = true,
 
   __registerMeasurement,
 
@@ -58,17 +63,22 @@ export const UITabsTrigger = memo(function UITabsTrigger({
 
   const resolvedPressAnimation = pressAnimation ?? tabs.pressAnimation;
 
+  /*
+   * IMPORTANT:
+   *
+   * Measure the wrapper itself.
+   *
+   * This wrapper is a direct child
+   * of UITabs.List's row.
+   */
   const handleLayout = (event) => {
     const layout = event.nativeEvent.layout;
 
-    __registerMeasurement?.(value, layout);
+    __registerMeasurement?.(value, {
+      x: layout.x,
+      width: layout.width,
+    });
   };
-
-  useEffect(() => {
-    if (resolvedPressAnimation === "none") {
-      scale.setValue(1);
-    }
-  }, [resolvedPressAnimation, scale]);
 
   const handlePressIn = () => {
     if (isDisabled || resolvedPressAnimation === "none") {
@@ -116,6 +126,7 @@ export const UITabsTrigger = memo(function UITabsTrigger({
 
   return (
     <Animated.View
+      onLayout={handleLayout}
       style={[
         styles.wrapper,
 
@@ -131,7 +142,6 @@ export const UITabsTrigger = memo(function UITabsTrigger({
       <Pressable
         testID={testID}
         disabled={isDisabled}
-        onLayout={handleLayout}
         onPress={handlePress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
@@ -161,7 +171,9 @@ export const UITabsTrigger = memo(function UITabsTrigger({
       >
         <View style={[styles.content, contentStyle]}>
           {iconPosition === "left" && icon ? (
-            <View style={[styles.icon, iconStyle]}>{icon}</View>
+            <View style={[styles.icon, styles.iconLeft, iconStyle]}>
+              {icon}
+            </View>
           ) : null}
 
           <Text
@@ -186,7 +198,9 @@ export const UITabsTrigger = memo(function UITabsTrigger({
           </Text>
 
           {iconPosition === "right" && icon ? (
-            <View style={[styles.icon, iconStyle]}>{icon}</View>
+            <View style={[styles.icon, styles.iconRight, iconStyle]}>
+              {icon}
+            </View>
           ) : null}
 
           {badge !== undefined ? (
@@ -221,8 +235,6 @@ export const UITabsTrigger = memo(function UITabsTrigger({
             </View>
           ) : null}
         </View>
-
-        {indicator === false ? null : null}
       </Pressable>
     </Animated.View>
   );
@@ -247,8 +259,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
 
     justifyContent: "center",
-
-    gap: 6,
   },
 
   text: {
@@ -263,6 +273,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
+  iconLeft: {
+    marginRight: 6,
+  },
+
+  iconRight: {
+    marginLeft: 6,
+  },
+
   badge: {
     minWidth: 18,
 
@@ -275,6 +293,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
 
     justifyContent: "center",
+
+    marginLeft: 6,
   },
 
   badgeText: {

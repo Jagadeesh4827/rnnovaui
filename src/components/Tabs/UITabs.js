@@ -4,7 +4,6 @@ import React, {
   useCallback,
   useContext,
   useMemo,
-  useRef,
   useState,
 } from "react";
 
@@ -34,6 +33,12 @@ const TAB_SIZES = {
   },
 };
 
+/*
+ * IMPORTANT:
+ *
+ * Content animations intentionally contain
+ * NO slide animations.
+ */
 const ANIMATION_PRESETS = {
   none: {
     indicator: "none",
@@ -48,26 +53,26 @@ const ANIMATION_PRESETS = {
   },
 
   smooth: {
-    indicator: "slide",
-    content: "fadeSlide",
+    indicator: "spring",
+    content: "fade",
     press: "scale",
   },
 
   snappy: {
-    indicator: "spring",
-    content: "slideFade",
+    indicator: "slide",
+    content: "fade",
     press: "scale",
   },
 
   spring: {
     indicator: "spring",
-    content: "slideScale",
+    content: "fade",
     press: "scale",
   },
 
   bouncy: {
     indicator: "spring",
-    content: "springScale",
+    content: "fadeScale",
     press: "scale",
   },
 };
@@ -75,19 +80,36 @@ const ANIMATION_PRESETS = {
 export const UITabs = memo(function UITabs({
   children,
 
+  /*
+   * Controlled
+   */
   value,
+
+  /*
+   * Uncontrolled
+   */
   defaultValue = null,
 
   onValueChange,
 
+  /*
+   * General
+   */
   size = "md",
 
+  disabled = false,
+
+  /*
+   * Animation
+   */
   animated = true,
 
   animationPreset = "smooth",
 
   indicatorAnimation,
+
   contentAnimation,
+
   pressAnimation,
 
   animationDuration = 280,
@@ -98,11 +120,13 @@ export const UITabs = memo(function UITabs({
     mass: 0.8,
   },
 
-  directionAware = true,
-
+  /*
+   * Appearance
+   */
   variant = "default",
 
   activeColor,
+
   inactiveColor,
 
   indicatorColor,
@@ -113,9 +137,11 @@ export const UITabs = memo(function UITabs({
 
   indicatorRadius,
 
-  disabled = false,
-
+  /*
+   * Styling
+   */
   style,
+
   containerStyle,
 
   testID,
@@ -124,26 +150,43 @@ export const UITabs = memo(function UITabs({
 
   const colors = theme?.colors || {};
 
-  const controlled = value !== undefined;
+  const isControlled = value !== undefined;
 
   const [internalValue, setInternalValue] = useState(defaultValue);
 
   const [previousValue, setPreviousValue] = useState(null);
 
-  const currentValue = controlled ? value : internalValue;
+  const currentValue = isControlled ? value : internalValue;
 
-  const safeSize = TAB_SIZES[size] || TAB_SIZES.md;
+  const sizeConfig = TAB_SIZES[size] || TAB_SIZES.md;
 
   const preset = ANIMATION_PRESETS[animationPreset] || ANIMATION_PRESETS.smooth;
 
+  /*
+   * Indicator animation
+   */
   const resolvedIndicatorAnimation = animated
     ? (indicatorAnimation ?? preset.indicator)
     : "none";
 
+  /*
+   * Content animation
+   *
+   * Only:
+   * none
+   * fade
+   * fadeIn
+   * fadeOut
+   * scale
+   * fadeScale
+   */
   const resolvedContentAnimation = animated
     ? (contentAnimation ?? preset.content)
     : "none";
 
+  /*
+   * Press animation
+   */
   const resolvedPressAnimation = animated
     ? (pressAnimation ?? preset.press)
     : "none";
@@ -160,13 +203,13 @@ export const UITabs = memo(function UITabs({
 
       setPreviousValue(currentValue);
 
-      if (!controlled) {
+      if (!isControlled) {
         setInternalValue(nextValue);
       }
 
       onValueChange?.(nextValue);
     },
-    [disabled, currentValue, controlled, onValueChange],
+    [disabled, currentValue, isControlled, onValueChange],
   );
 
   const contextValue = useMemo(
@@ -174,17 +217,22 @@ export const UITabs = memo(function UITabs({
       colors,
 
       value: currentValue,
+
       previousValue,
 
       setValue: changeValue,
 
       size,
-      sizeConfig: safeSize,
+
+      sizeConfig,
+
+      disabled,
 
       animated,
+
       animationDuration,
+
       spring,
-      directionAware,
 
       indicatorAnimation: resolvedIndicatorAnimation,
 
@@ -202,11 +250,10 @@ export const UITabs = memo(function UITabs({
         indicatorColor || activeColor || colors.primary || "#FF5A1F",
 
       indicatorHeight,
+
       indicatorWidth,
 
       indicatorRadius: indicatorRadius ?? indicatorHeight / 2,
-
-      disabled,
     }),
     [
       colors,
@@ -214,11 +261,11 @@ export const UITabs = memo(function UITabs({
       previousValue,
       changeValue,
       size,
-      safeSize,
+      sizeConfig,
+      disabled,
       animated,
       animationDuration,
       spring,
-      directionAware,
       resolvedIndicatorAnimation,
       resolvedContentAnimation,
       resolvedPressAnimation,
@@ -229,7 +276,6 @@ export const UITabs = memo(function UITabs({
       indicatorHeight,
       indicatorWidth,
       indicatorRadius,
-      disabled,
     ],
   );
 

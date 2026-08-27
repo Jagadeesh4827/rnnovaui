@@ -129,5 +129,4 @@ export {
   UITabsList,
   UITabsTrigger,
   UITabsContent,
-  UITabsIndicator,
 } from "./components";
