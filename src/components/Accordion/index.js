@@ -1,31 +1,11 @@
-import { UIAccordion, UIAccordionAnimationPresets } from "./UIAccordion";
+export { UIAccordion } from "./UIAccordion";
 
-import { UIAccordionItem } from "./UIAccordionItem";
+export { UIAccordionItem } from "./UIAccordionItem";
 
-import { UIAccordionHeader } from "./UIAccordionHeader";
+export { UIAccordionHeader } from "./UIAccordionHeader";
 
-import { UIAccordionTrigger } from "./UIAccordionTrigger";
+export { UIAccordionTrigger } from "./UIAccordionTrigger";
 
-import { UIAccordionContent } from "./UIAccordionContent";
+export { UIAccordionContent } from "./UIAccordionContent";
 
-import { UIAccordionIcon } from "./UIAccordionIcon";
-
-UIAccordion.Item = UIAccordionItem;
-
-UIAccordion.Header = UIAccordionHeader;
-
-UIAccordion.Trigger = UIAccordionTrigger;
-
-UIAccordion.Content = UIAccordionContent;
-
-UIAccordion.Icon = UIAccordionIcon;
-
-export {
-  UIAccordion,
-  UIAccordionItem,
-  UIAccordionHeader,
-  UIAccordionTrigger,
-  UIAccordionContent,
-  UIAccordionIcon,
-  UIAccordionAnimationPresets,
-};
+export { UIAccordionIcon } from "./UIAccordionIcon";
