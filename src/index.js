@@ -135,4 +135,7 @@ export {
   UILayout,
   UIHeader,
   UIBannerCarousel,
+  UIScratchCard,
+  UIScratchCardThemes,
+  UIScratchCardLabels,
 } from "./components";
