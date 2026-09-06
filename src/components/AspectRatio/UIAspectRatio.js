@@ -2,13 +2,11 @@ import React, { forwardRef, memo, useEffect, useMemo, useRef } from "react";
 
 import { Animated, StyleSheet, View } from "react-native";
 
-import { useUIResponsive, resolveUIResponsiveValue } from "../../responsive";
-
-import { useUITheme } from "../../theme";
+import { useTheme } from "rnnovaui";
 
 /*
 |--------------------------------------------------------------------------
-| Ratio presets
+| Aspect Ratio Presets
 |--------------------------------------------------------------------------
 */
 
@@ -28,7 +26,7 @@ const UI_ASPECT_RATIO_PRESETS = {
 
 /*
 |--------------------------------------------------------------------------
-| Animation presets
+| Animation Types
 |--------------------------------------------------------------------------
 */
 
@@ -58,10 +56,6 @@ const UI_ASPECT_RATIO_ANIMATIONS = {
 |--------------------------------------------------------------------------
 */
 
-function resolveResponsive(value, breakpoint) {
-  return resolveUIResponsiveValue(value, breakpoint);
-}
-
 function resolveThemeColor(value, colors) {
   if (value === undefined || value === null) {
     return value;
@@ -78,11 +72,72 @@ function resolveThemeColor(value, colors) {
   return value;
 }
 
-function resolveRatio(ratio, preset, breakpoint) {
-  const responsiveRatio = resolveResponsive(ratio, breakpoint);
+/*
+|--------------------------------------------------------------------------
+| Resolve responsive value
+|--------------------------------------------------------------------------
+|
+| This helper intentionally does not
+| import internal rnnovaui responsive
+| modules.
+|
+| It supports:
+|
+|   value
+|
+| and:
+|
+|   {
+|     base,
+|     mobile,
+|     tablet,
+|     desktop,
+|     large
+|   }
+|
+*/
 
-  if (typeof responsiveRatio === "number" && responsiveRatio > 0) {
-    return responsiveRatio;
+function resolveResponsiveValue(value, breakpoint) {
+  if (value === undefined || value === null) {
+    return value;
+  }
+
+  if (typeof value !== "object" || Array.isArray(value)) {
+    return value;
+  }
+
+  const order = ["base", "mobile", "tablet", "desktop", "large"];
+
+  const breakpointIndex = order.indexOf(breakpoint);
+
+  if (breakpointIndex === -1) {
+    return value.base;
+  }
+
+  let resolved;
+
+  for (let index = 0; index <= breakpointIndex; index += 1) {
+    const key = order[index];
+
+    if (value[key] !== undefined) {
+      resolved = value[key];
+    }
+  }
+
+  return resolved;
+}
+
+/*
+|--------------------------------------------------------------------------
+| Resolve ratio
+|--------------------------------------------------------------------------
+*/
+
+function resolveRatio(ratio, preset, breakpoint) {
+  const resolvedRatio = resolveResponsiveValue(ratio, breakpoint);
+
+  if (typeof resolvedRatio === "number" && resolvedRatio > 0) {
+    return resolvedRatio;
   }
 
   if (preset && UI_ASPECT_RATIO_PRESETS[preset]) {
@@ -91,6 +146,12 @@ function resolveRatio(ratio, preset, breakpoint) {
 
   return 1;
 }
+
+/*
+|--------------------------------------------------------------------------
+| Content Position
+|--------------------------------------------------------------------------
+*/
 
 function getContentAlignment(position) {
   switch (position) {
@@ -151,6 +212,12 @@ function getContentAlignment(position) {
   }
 }
 
+/*
+|--------------------------------------------------------------------------
+| Animation opacity
+|--------------------------------------------------------------------------
+*/
+
 function getAnimationOpacity(animation, progress) {
   switch (animation) {
     case "fade":
@@ -164,6 +231,12 @@ function getAnimationOpacity(animation, progress) {
       return 1;
   }
 }
+
+/*
+|--------------------------------------------------------------------------
+| Animation transform
+|--------------------------------------------------------------------------
+*/
 
 function getAnimationTransform(animation, progress, slideDistance, scaleFrom) {
   switch (animation) {
@@ -199,7 +272,7 @@ function getAnimationTransform(animation, progress, slideDistance, scaleFrom) {
 
 /*
 |--------------------------------------------------------------------------
-| Component
+| UIAspectRatio
 |--------------------------------------------------------------------------
 */
 
@@ -210,7 +283,7 @@ export const UIAspectRatio = memo(
 
       /*
         |--------------------------------------------------------------------------
-        | Core
+        | Ratio
         |--------------------------------------------------------------------------
         */
 
@@ -238,7 +311,7 @@ export const UIAspectRatio = memo(
 
       /*
         |--------------------------------------------------------------------------
-        | Spacing
+        | Padding
         |--------------------------------------------------------------------------
         */
 
@@ -255,6 +328,12 @@ export const UIAspectRatio = memo(
       paddingBottom,
 
       paddingLeft,
+
+      /*
+        |--------------------------------------------------------------------------
+        | Margin
+        |--------------------------------------------------------------------------
+        */
 
       margin,
 
@@ -417,12 +496,36 @@ export const UIAspectRatio = memo(
       testID,
 
       onLayout,
+
+      /*
+        |--------------------------------------------------------------------------
+        | Responsive
+        |--------------------------------------------------------------------------
+        |
+        | Public breakpoint value.
+        |
+        */
+
+      breakpoint = "base",
     },
+
     ref,
   ) {
-    const { breakpoint } = useUIResponsive();
+    /*
+      |--------------------------------------------------------------------------
+      | Theme
+      |--------------------------------------------------------------------------
+      */
 
-    const { theme } = useUITheme();
+    let theme;
+
+    try {
+      const result = useTheme();
+
+      theme = result?.theme || result;
+    } catch {
+      theme = undefined;
+    }
 
     const colors = theme?.colors || {};
 
@@ -433,115 +536,122 @@ export const UIAspectRatio = memo(
       */
 
     const resolved = useMemo(() => {
-      const resolvedRatio = resolveRatio(ratio, preset, breakpoint);
-
       return {
-        ratio: resolvedRatio,
+        ratio: resolveRatio(ratio, preset, breakpoint),
 
-        width: resolveResponsive(width, breakpoint),
+        width: resolveResponsiveValue(width, breakpoint),
 
-        height: resolveResponsive(height, breakpoint),
+        height: resolveResponsiveValue(height, breakpoint),
 
-        minWidth: resolveResponsive(minWidth, breakpoint),
+        minWidth: resolveResponsiveValue(minWidth, breakpoint),
 
-        maxWidth: resolveResponsive(maxWidth, breakpoint),
+        maxWidth: resolveResponsiveValue(maxWidth, breakpoint),
 
-        minHeight: resolveResponsive(minHeight, breakpoint),
+        minHeight: resolveResponsiveValue(minHeight, breakpoint),
 
-        maxHeight: resolveResponsive(maxHeight, breakpoint),
+        maxHeight: resolveResponsiveValue(maxHeight, breakpoint),
 
-        padding: resolveResponsive(padding, breakpoint),
+        padding: resolveResponsiveValue(padding, breakpoint),
 
-        paddingHorizontal: resolveResponsive(paddingHorizontal, breakpoint),
+        paddingHorizontal: resolveResponsiveValue(
+          paddingHorizontal,
+          breakpoint,
+        ),
 
-        paddingVertical: resolveResponsive(paddingVertical, breakpoint),
+        paddingVertical: resolveResponsiveValue(paddingVertical, breakpoint),
 
-        paddingTop: resolveResponsive(paddingTop, breakpoint),
+        paddingTop: resolveResponsiveValue(paddingTop, breakpoint),
 
-        paddingRight: resolveResponsive(paddingRight, breakpoint),
+        paddingRight: resolveResponsiveValue(paddingRight, breakpoint),
 
-        paddingBottom: resolveResponsive(paddingBottom, breakpoint),
+        paddingBottom: resolveResponsiveValue(paddingBottom, breakpoint),
 
-        paddingLeft: resolveResponsive(paddingLeft, breakpoint),
+        paddingLeft: resolveResponsiveValue(paddingLeft, breakpoint),
 
-        margin: resolveResponsive(margin, breakpoint),
+        margin: resolveResponsiveValue(margin, breakpoint),
 
-        marginHorizontal: resolveResponsive(marginHorizontal, breakpoint),
+        marginHorizontal: resolveResponsiveValue(marginHorizontal, breakpoint),
 
-        marginVertical: resolveResponsive(marginVertical, breakpoint),
+        marginVertical: resolveResponsiveValue(marginVertical, breakpoint),
 
-        marginTop: resolveResponsive(marginTop, breakpoint),
+        marginTop: resolveResponsiveValue(marginTop, breakpoint),
 
-        marginRight: resolveResponsive(marginRight, breakpoint),
+        marginRight: resolveResponsiveValue(marginRight, breakpoint),
 
-        marginBottom: resolveResponsive(marginBottom, breakpoint),
+        marginBottom: resolveResponsiveValue(marginBottom, breakpoint),
 
-        marginLeft: resolveResponsive(marginLeft, breakpoint),
+        marginLeft: resolveResponsiveValue(marginLeft, breakpoint),
 
         backgroundColor: resolveThemeColor(
-          resolveResponsive(backgroundColor, breakpoint),
+          resolveResponsiveValue(backgroundColor, breakpoint),
           colors,
         ),
 
-        opacity: resolveResponsive(opacity, breakpoint),
+        opacity: resolveResponsiveValue(opacity, breakpoint),
 
-        borderWidth: resolveResponsive(borderWidth, breakpoint),
+        borderWidth: resolveResponsiveValue(borderWidth, breakpoint),
 
-        borderTopWidth: resolveResponsive(borderTopWidth, breakpoint),
+        borderTopWidth: resolveResponsiveValue(borderTopWidth, breakpoint),
 
-        borderRightWidth: resolveResponsive(borderRightWidth, breakpoint),
+        borderRightWidth: resolveResponsiveValue(borderRightWidth, breakpoint),
 
-        borderBottomWidth: resolveResponsive(borderBottomWidth, breakpoint),
+        borderBottomWidth: resolveResponsiveValue(
+          borderBottomWidth,
+          breakpoint,
+        ),
 
-        borderLeftWidth: resolveResponsive(borderLeftWidth, breakpoint),
+        borderLeftWidth: resolveResponsiveValue(borderLeftWidth, breakpoint),
 
         borderColor: resolveThemeColor(
-          resolveResponsive(borderColor, breakpoint),
+          resolveResponsiveValue(borderColor, breakpoint),
           colors,
         ),
 
         borderTopColor: resolveThemeColor(
-          resolveResponsive(borderTopColor, breakpoint),
+          resolveResponsiveValue(borderTopColor, breakpoint),
           colors,
         ),
 
         borderRightColor: resolveThemeColor(
-          resolveResponsive(borderRightColor, breakpoint),
+          resolveResponsiveValue(borderRightColor, breakpoint),
           colors,
         ),
 
         borderBottomColor: resolveThemeColor(
-          resolveResponsive(borderBottomColor, breakpoint),
+          resolveResponsiveValue(borderBottomColor, breakpoint),
           colors,
         ),
 
         borderLeftColor: resolveThemeColor(
-          resolveResponsive(borderLeftColor, breakpoint),
+          resolveResponsiveValue(borderLeftColor, breakpoint),
           colors,
         ),
 
-        borderRadius: resolveResponsive(borderRadius, breakpoint),
+        borderRadius: resolveResponsiveValue(borderRadius, breakpoint),
 
-        borderTopLeftRadius: resolveResponsive(borderTopLeftRadius, breakpoint),
+        borderTopLeftRadius: resolveResponsiveValue(
+          borderTopLeftRadius,
+          breakpoint,
+        ),
 
-        borderTopRightRadius: resolveResponsive(
+        borderTopRightRadius: resolveResponsiveValue(
           borderTopRightRadius,
           breakpoint,
         ),
 
-        borderBottomLeftRadius: resolveResponsive(
+        borderBottomLeftRadius: resolveResponsiveValue(
           borderBottomLeftRadius,
           breakpoint,
         ),
 
-        borderBottomRightRadius: resolveResponsive(
+        borderBottomRightRadius: resolveResponsiveValue(
           borderBottomRightRadius,
           breakpoint,
         ),
 
-        align: resolveResponsive(align, breakpoint),
+        align: resolveResponsiveValue(align, breakpoint),
 
-        justify: resolveResponsive(justify, breakpoint),
+        justify: resolveResponsiveValue(justify, breakpoint),
       };
     }, [
       breakpoint,
@@ -613,6 +723,12 @@ export const UIAspectRatio = memo(
       new Animated.Value(animated && resolvedAnimation !== "none" ? 0 : 1),
     ).current;
 
+    /*
+      |--------------------------------------------------------------------------
+      | Animation lifecycle
+      |--------------------------------------------------------------------------
+      */
+
     useEffect(() => {
       if (!animated || resolvedAnimation === "none") {
         progress.stopAnimation();
@@ -624,7 +740,7 @@ export const UIAspectRatio = memo(
       progress.stopAnimation();
       progress.setValue(0);
 
-      let timer;
+      let timeout;
 
       const start = () => {
         if (typeof onAnimationStart === "function") {
@@ -659,14 +775,14 @@ export const UIAspectRatio = memo(
       };
 
       if (animationDelay > 0) {
-        timer = setTimeout(start, animationDelay);
+        timeout = setTimeout(start, animationDelay);
       } else {
         start();
       }
 
       return () => {
-        if (timer) {
-          clearTimeout(timer);
+        if (timeout) {
+          clearTimeout(timeout);
         }
 
         progress.stopAnimation();
@@ -697,7 +813,7 @@ export const UIAspectRatio = memo(
 
     /*
       |--------------------------------------------------------------------------
-      | Base container style
+      | Container style
       |--------------------------------------------------------------------------
       */
 
@@ -824,7 +940,7 @@ export const UIAspectRatio = memo(
 
     /*
       |--------------------------------------------------------------------------
-      | Animation style
+      | Animated style
       |--------------------------------------------------------------------------
       */
 
@@ -847,7 +963,7 @@ export const UIAspectRatio = memo(
 
     /*
       |--------------------------------------------------------------------------
-      | Static mode
+      | Static rendering
       |--------------------------------------------------------------------------
       */
 
@@ -856,13 +972,13 @@ export const UIAspectRatio = memo(
         <View
           ref={ref}
           testID={testID}
-          onLayout={onLayout}
           style={containerStyle}
           accessible={accessible}
           accessibilityLabel={accessibilityLabel}
           accessibilityHint={accessibilityHint}
           accessibilityRole={accessibilityRole}
           accessibilityState={accessibilityState}
+          onLayout={onLayout}
         >
           <View style={[styles.content, contentStyle]}>{children}</View>
         </View>
@@ -871,8 +987,13 @@ export const UIAspectRatio = memo(
 
     /*
       |--------------------------------------------------------------------------
-      | Animated mode
+      | Animated rendering
       |--------------------------------------------------------------------------
+      |
+      | Accessibility props remain
+      | on the normal View instead of
+      | Animated.View.
+      |
       */
 
     return (
@@ -882,13 +1003,13 @@ export const UIAspectRatio = memo(
         style={[containerStyle, animatedStyle]}
       >
         <View
-          onLayout={onLayout}
+          style={[styles.content, contentStyle]}
           accessible={accessible}
           accessibilityLabel={accessibilityLabel}
           accessibilityHint={accessibilityHint}
           accessibilityRole={accessibilityRole}
           accessibilityState={accessibilityState}
-          style={[styles.content, contentStyle]}
+          onLayout={onLayout}
         >
           {children}
         </View>
@@ -896,6 +1017,12 @@ export const UIAspectRatio = memo(
     );
   }),
 );
+
+/*
+|--------------------------------------------------------------------------
+| Styles
+|--------------------------------------------------------------------------
+*/
 
 const styles = StyleSheet.create({
   container: {
@@ -908,7 +1035,19 @@ const styles = StyleSheet.create({
   },
 });
 
+/*
+|--------------------------------------------------------------------------
+| Component metadata
+|--------------------------------------------------------------------------
+*/
+
 UIAspectRatio.displayName = "UIAspectRatio";
+
+/*
+|--------------------------------------------------------------------------
+| Exports
+|--------------------------------------------------------------------------
+*/
 
 export {
   UI_ASPECT_RATIO_PRESETS as UIAspectRatioPresets,
