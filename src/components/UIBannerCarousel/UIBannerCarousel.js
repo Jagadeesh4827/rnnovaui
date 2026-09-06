@@ -29,7 +29,7 @@ import Animated, {
 import { LinearGradient } from "expo-linear-gradient";
 
 // Keep this pointing to the SAME theme hook used by your UIProvider.
-import { useTheme } from "../../theme";
+import { useUITheme } from "../../theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -1050,7 +1050,7 @@ export default function UIBannerCarousel({
    * UIProvider controls the theme.
    * This component never changes theme.
    */
-  const { theme } = useTheme();
+  const { theme } = useUITheme();
 
   const safeBanners = useMemo(
     () => (Array.isArray(banners) ? banners : []),
