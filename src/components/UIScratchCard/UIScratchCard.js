@@ -6,108 +6,139 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+
+import { PanResponder, StyleSheet, Text, View, Image } from "react-native";
+
 import Svg, {
   Defs,
   G,
-  LinearGradient,
+  LinearGradient as SvgLinearGradient,
   Mask,
   Path,
   Rect,
   Stop,
 } from "react-native-svg";
+
 import Animated, {
   FadeIn,
-  FadeInDown,
-  FadeOut,
   useAnimatedStyle,
   useSharedValue,
   withSequence,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
+
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
-const DEFAULT_WIDTH = 360;
-const DEFAULT_HEIGHT = 230;
+/*
+ * Use the SAME theme hook that your UIProvider already exposes.
+ */
+import { useTheme } from "../../theme";
+
+/* =========================================================
+   DEFAULTS
+========================================================= */
+
+const DEFAULT_WIDTH = 350;
+const DEFAULT_HEIGHT = 220;
+
+/* =========================================================
+   BUILT-IN THEMES
+========================================================= */
 
 const THEMES = {
   classic: {
     background: ["#4214C7", "#6B20E8"],
     border: "#8B6BFF",
+
     title: "#FFFFFF",
     subtitle: "#EDE7FF",
     accent: "#FFD42A",
-    scratch: ["#D9DEE5", "#BFC6D0"],
+
+    scratch: ["#D9DEE5", "#BEC6D0"],
     scratchBorder: "#FFFFFF",
     scratchText: "#263248",
     scratchIcon: "#263248",
+
     icon: "gift",
     iconType: "material",
-    iconColor: "#E9D5FF",
+    iconColor: "#E8D5FF",
+
     titleLines: ["Scratch", "& Win"],
     titleAccentLine: 1,
-    eyebrow: null,
+
     subtitleText: "Reveal your reward!",
     scratchText: "Scratch Here",
   },
 
   trophy: {
-    background: ["#17120A", "#3A2810"],
+    background: ["#15110A", "#3D2A0A"],
     border: "#D6A72C",
+
     title: "#FFFFFF",
     subtitle: "#F5E5B1",
     accent: "#FFD43B",
+
     scratch: ["#E1E5EA", "#C1C8D1"],
     scratchBorder: "#E7C84A",
     scratchText: "#273043",
     scratchIcon: "#273043",
+
     icon: "trophy",
     iconType: "material",
     iconColor: "#FFC62B",
+
     titleLines: ["LUCKY", "SCRATCH"],
     titleAccentLine: 0,
-    eyebrow: null,
+
     subtitleText: "Win Exciting Prizes!",
     scratchText: "Scratch Here",
   },
 
   gift: {
-    background: ["#E51B18", "#C90F13"],
+    background: ["#E51B18", "#C80F13"],
     border: "#FF6B61",
+
     title: "#FFFFFF",
     subtitle: "#FFF0EA",
     accent: "#FFD42A",
+
     scratch: ["#E1E5EA", "#C1C8D1"],
     scratchBorder: "#FFFFFF",
     scratchText: "#273043",
     scratchIcon: "#273043",
+
     icon: "gift",
     iconType: "material",
     iconColor: "#FFD43B",
+
     titleLines: ["Scratch", "& Win"],
     titleAccentLine: 1,
-    eyebrow: null,
+
     subtitleText: "Big Prizes Await!",
     scratchText: "Scratch Here",
   },
 
   travel: {
-    background: ["#12B7A7", "#13A8D2"],
+    background: ["#10B8A7", "#12A9D2"],
     border: "#6FE7DF",
+
     title: "#FFFFFF",
     subtitle: "#E7FFFF",
     accent: "#D7FFFF",
+
     scratch: ["#E1E5EA", "#C1C8D1"],
     scratchBorder: "#FFFFFF",
     scratchText: "#273043",
     scratchIcon: "#273043",
+
     icon: "airplane",
     iconType: "ion",
     iconColor: "#FFFFFF",
+
     titleLines: ["TRAVEL", "LUCK"],
     titleAccentLine: null,
-    eyebrow: null,
+
     subtitleText: "Scratch & Get Your Reward",
     scratchText: "Scratch Here",
   },
@@ -115,19 +146,23 @@ const THEMES = {
   discount: {
     background: ["#F62992", "#A91DDB"],
     border: "#FF8ED0",
+
     title: "#FFFFFF",
     subtitle: "#FFE8F6",
     accent: "#FFE32E",
+
     scratch: ["#E1E5EA", "#C1C8D1"],
     scratchBorder: "#FFFFFF",
     scratchText: "#273043",
     scratchIcon: "#273043",
+
     icon: "percent",
     iconType: "material",
     iconColor: "#FFD52C",
+
     titleLines: ["Special", "DISCOUNT"],
     titleAccentLine: 1,
-    eyebrow: null,
+
     subtitleText: "Scratch & Save More!",
     scratchText: "Scratch Here",
   },
@@ -135,39 +170,47 @@ const THEMES = {
   space: {
     background: ["#06317D", "#0756C9"],
     border: "#3D8DFF",
+
     title: "#FFFFFF",
     subtitle: "#DDEBFF",
     accent: "#55D8FF",
+
     scratch: ["#E1E5EA", "#C1C8D1"],
     scratchBorder: "#FFFFFF",
     scratchText: "#273043",
     scratchIcon: "#273043",
+
     icon: "rocket",
     iconType: "material",
     iconColor: "#FF775C",
+
     titleLines: ["WIN", "BIG"],
     titleAccentLine: null,
-    eyebrow: null,
+
     subtitleText: "Scratch & Claim Your Prize!",
     scratchText: "Scratch Here",
   },
 
   premium: {
-    background: ["#090909", "#202020"],
+    background: ["#080808", "#222222"],
     border: "#C89B3C",
+
     title: "#F5D67B",
     subtitle: "#F5E7BC",
     accent: "#E2B94E",
+
     scratch: ["#E1E5EA", "#C1C8D1"],
     scratchBorder: "#D8B454",
     scratchText: "#273043",
     scratchIcon: "#273043",
+
     icon: "crown",
     iconType: "material",
     iconColor: "#E3B943",
+
     titleLines: ["PREMIUM", "SCRATCH CARD"],
     titleAccentLine: null,
-    eyebrow: null,
+
     subtitleText: "Exclusive Rewards Inside",
     scratchText: "Scratch Here",
   },
@@ -175,19 +218,23 @@ const THEMES = {
   christmas: {
     background: ["#0874D1", "#16A7E7"],
     border: "#72D9FF",
+
     title: "#FFFFFF",
     subtitle: "#E4F7FF",
     accent: "#FFFFFF",
+
     scratch: ["#E1E5EA", "#C1C8D1"],
     scratchBorder: "#FFFFFF",
     scratchText: "#273043",
     scratchIcon: "#273043",
+
     icon: "snowman",
     iconType: "material",
     iconColor: "#FFFFFF",
+
     titleLines: ["Holiday", "SURPRISE"],
     titleAccentLine: null,
-    eyebrow: null,
+
     subtitleText: "Scratch & Win Gifts",
     scratchText: "Scratch Here",
   },
@@ -195,23 +242,31 @@ const THEMES = {
   mystery: {
     background: ["#B58BFF", "#35BFFF"],
     border: "#E3D5FF",
+
     title: "#FFFFFF",
     subtitle: "#F8F2FF",
     accent: "#FF3A96",
+
     scratch: ["#E1E5EA", "#C1C8D1"],
     scratchBorder: "#FFFFFF",
     scratchText: "#273043",
     scratchIcon: "#273043",
+
     icon: "help-circle",
     iconType: "feather",
     iconColor: "#6424C8",
+
     titleLines: ["Mystery", "Scratch"],
     titleAccentLine: null,
-    eyebrow: null,
+
     subtitleText: "What Will You Get?",
     scratchText: "Scratch Here",
   },
 };
+
+/* =========================================================
+   LABELS
+========================================================= */
 
 const VARIANT_LABELS = {
   classic: "1. Classic Reward",
@@ -225,18 +280,20 @@ const VARIANT_LABELS = {
   mystery: "9. Mystery Theme",
 };
 
-function getIcon(theme, size = 65) {
-  const color = theme.iconColor;
+/* =========================================================
+   THEME ICON
+========================================================= */
 
+function getThemeIcon(theme, size = 70) {
   if (theme.iconType === "ion") {
-    return <Ionicons name="airplane" size={size} color={color} />;
+    return <Ionicons name="airplane" size={size} color={theme.iconColor} />;
   }
 
   if (theme.iconType === "feather") {
-    return <Feather name="help-circle" size={size} color={color} />;
+    return <Feather name="help-circle" size={size} color={theme.iconColor} />;
   }
 
-  const names = {
+  const materialIcons = {
     gift: "gift",
     trophy: "trophy",
     percent: "percent",
@@ -247,56 +304,53 @@ function getIcon(theme, size = 65) {
 
   return (
     <MaterialCommunityIcons
-      name={names[theme.icon] || "gift"}
+      name={materialIcons[theme.icon] || "gift"}
       size={size}
-      color={color}
+      color={theme.iconColor}
     />
   );
 }
 
-function ThemeIcon({ icon, theme, size = 65 }) {
-  if (React.isValidElement(icon)) {
-    return icon;
-  }
-
-  return getIcon(theme, size);
-}
+/* =========================================================
+   SCRATCH SURFACE
+========================================================= */
 
 function ScratchSurface({
   width,
   height,
-  coverColors,
+  colors,
   borderColor,
-  text,
+  scratchText,
   iconColor,
-  onProgress,
   threshold,
   revealed,
+  onProgress,
   onReveal,
   style,
 }) {
   const [paths, setPaths] = useState([]);
   const [currentPath, setCurrentPath] = useState("");
-  const scratchedDistance = useRef(0);
-  const lastPoint = useRef(null);
 
+  const lastPoint = useRef(null);
+  const scratchedDistance = useRef(0);
   const progressRef = useRef(0);
 
   const calculateProgress = useCallback(
-    (amount) => {
-      scratchedDistance.current += amount;
+    (distance) => {
+      scratchedDistance.current += distance;
 
       /*
-       * This intentionally uses distance rather than number of
-       * touch events so slow and fast scratches both behave naturally.
+       * Estimate scratch coverage from
+       * accumulated gesture distance.
        */
-      const estimatedArea =
+      const estimated =
         scratchedDistance.current / Math.max(width * height * 0.75, 1);
 
-      const nextProgress = Math.min(100, Math.round(estimatedArea * 100));
+      const nextProgress = Math.min(100, Math.round(estimated * 100));
 
       if (nextProgress > progressRef.current) {
         progressRef.current = nextProgress;
+
         onProgress?.(nextProgress);
       }
 
@@ -321,7 +375,9 @@ function ScratchSurface({
 
       if (lastPoint.current) {
         const dx = x - lastPoint.current.x;
+
         const dy = y - lastPoint.current.y;
+
         const distance = Math.sqrt(dx * dx + dy * dy);
 
         calculateProgress(distance);
@@ -348,6 +404,7 @@ function ScratchSurface({
     () =>
       PanResponder.create({
         onStartShouldSetPanResponder: () => !revealed,
+
         onMoveShouldSetPanResponder: () => !revealed,
 
         onPanResponderGrant: (event) => {
@@ -363,6 +420,7 @@ function ScratchSurface({
         },
 
         onPanResponderRelease: finishScratch,
+
         onPanResponderTerminate: finishScratch,
       }),
     [finishScratch, revealed, scratchAt],
@@ -376,7 +434,7 @@ function ScratchSurface({
     <View
       {...panResponder.panHandlers}
       style={[
-        styles.scratchContainer,
+        styles.scratchSurface,
         {
           width,
           height,
@@ -387,21 +445,29 @@ function ScratchSurface({
     >
       <Svg width={width} height={height} pointerEvents="none">
         <Defs>
-          <LinearGradient id="scratchGradient" x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor={coverColors[0]} />
-            <Stop offset="0.5" stopColor={coverColors[1]} />
-            <Stop offset="1" stopColor={coverColors[0]} />
-          </LinearGradient>
+          <SvgLinearGradient
+            id="scratchSurfaceGradient"
+            x1="0"
+            y1="0"
+            x2="1"
+            y2="1"
+          >
+            <Stop offset="0" stopColor={colors[0]} />
+
+            <Stop offset="0.5" stopColor={colors[1]} />
+
+            <Stop offset="1" stopColor={colors[0]} />
+          </SvgLinearGradient>
 
           <Mask id="scratchMask">
             <Rect x="0" y="0" width={width} height={height} fill="white" />
 
             {paths.map((path, index) => (
               <Path
-                key={`scratch-${index}`}
+                key={`path-${index}`}
                 d={path}
                 stroke="black"
-                strokeWidth={34}
+                strokeWidth={38}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 fill="none"
@@ -412,7 +478,7 @@ function ScratchSurface({
               <Path
                 d={currentPath}
                 stroke="black"
-                strokeWidth={34}
+                strokeWidth={38}
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 fill="none"
@@ -427,19 +493,19 @@ function ScratchSurface({
             y="0"
             width={width}
             height={height}
-            fill="url(#scratchGradient)"
+            fill="url(#scratchSurfaceGradient)"
           />
 
           {/* Scratch texture */}
           {Array.from({
-            length: 13,
+            length: 15,
           }).map((_, index) => (
             <Path
-              key={`texture-${index}`}
-              d={`M ${-20 + index * 35} ${height}
-                  L ${60 + index * 35} 0`}
+              key={`texture-a-${index}`}
+              d={`M ${-30 + index * 34} ${height}
+                L ${60 + index * 34} 0`}
               stroke="#FFFFFF"
-              strokeOpacity={0.16}
+              strokeOpacity={0.18}
               strokeWidth={1}
             />
           ))}
@@ -448,9 +514,9 @@ function ScratchSurface({
             length: 8,
           }).map((_, index) => (
             <Path
-              key={`texture2-${index}`}
+              key={`texture-b-${index}`}
               d={`M ${index * 55} 0
-                  L ${index * 55 + 80} ${height}`}
+                L ${index * 55 + 85} ${height}`}
               stroke="#6D7783"
               strokeOpacity={0.08}
               strokeWidth={1}
@@ -459,6 +525,7 @@ function ScratchSurface({
         </G>
       </Svg>
 
+      {/* Scratch instruction */}
       <View pointerEvents="none" style={styles.scratchPrompt}>
         <MaterialCommunityIcons
           name="gesture-tap"
@@ -468,81 +535,155 @@ function ScratchSurface({
 
         <Text
           style={[
-            styles.scratchText,
+            styles.scratchPromptText,
             {
-              color: "#263248",
+              color: iconColor,
             },
           ]}
         >
-          {text}
+          {scratchText}
         </Text>
       </View>
     </View>
   );
 }
 
+/* =========================================================
+   MAIN COMPONENT
+========================================================= */
+
 const UIScratchCard = forwardRef(
   (
     {
+      /*
+       * Built-in design
+       */
       variant = "classic",
 
+      /*
+       * Dimensions
+       */
       width = DEFAULT_WIDTH,
       height = DEFAULT_HEIGHT,
 
+      /*
+       * Content
+       */
       title,
       subtitle,
-      scratchText = "Scratch Here",
+      scratchText,
 
+      /*
+       * Reward
+       */
       reward,
       rewardIcon,
 
+      /*
+       * Main illustration
+       */
       icon,
       image,
 
+      /*
+       * Scratch
+       */
       scratchThreshold = 55,
 
+      /*
+       * Reanimated
+       */
       reanimated = true,
 
+      /*
+       * Events
+       */
       onProgress,
       onReveal,
       onPress,
 
-      showThemeLabel = false,
-
-      borderRadius = 16,
-
-      titleStyle,
-      subtitleStyle,
-      rewardStyle,
-
-      scratchStyle,
-      cardStyle,
-      contentStyle,
-
+      /*
+       * Background override
+       */
       backgroundColors,
       backgroundColor,
 
+      /*
+       * Styling
+       */
+      borderRadius = 16,
+
+      cardStyle,
+      contentStyle,
+      titleStyle,
+      subtitleStyle,
+      scratchStyle,
+      rewardStyle,
+      imageStyle,
+      iconContainerStyle,
+
+      /*
+       * Optional custom content
+       */
       children,
 
+      /*
+       * Disable interaction
+       */
       disabled = false,
     },
     ref,
   ) => {
-    const theme = THEMES[variant] || THEMES.classic;
+    /*
+     * Theme from UIProvider.
+     */
+    const { theme } = useTheme();
 
+    const builtInTheme = THEMES[variant] || THEMES.classic;
+
+    /*
+     * Revealed state.
+     */
     const [revealed, setRevealed] = useState(false);
+
+    /*
+     * Reanimated values.
+     */
+    const rewardScale = useSharedValue(1);
 
     const progressValue = useSharedValue(0);
 
-    const revealScale = useSharedValue(1);
+    /*
+     * Resolve colors.
+     *
+     * Custom background has priority.
+     */
+    const resolvedBackground = backgroundColors || builtInTheme.background;
 
-    const resolvedTitle = title || theme.titleLines;
+    /*
+     * Theme-aware fallback.
+     */
+    const themeText = theme?.colors?.text?.primary || "#111827";
 
-    const resolvedSubtitle = subtitle || theme.subtitleText;
+    /*
+     * Resolve title.
+     */
+    const resolvedTitle = title || builtInTheme.titleLines;
 
-    const resolvedBackground = backgroundColors || theme.background;
+    /*
+     * Resolve subtitle.
+     */
+    const resolvedSubtitle = subtitle || builtInTheme.subtitleText;
 
-    const triggerReveal = useCallback(() => {
+    /*
+     * Resolve scratch text.
+     */
+    const resolvedScratchText = scratchText || builtInTheme.scratchText;
+
+    /*
+     * Reveal.
+     */
+    const reveal = useCallback(() => {
       if (revealed) {
         return;
       }
@@ -550,40 +691,47 @@ const UIScratchCard = forwardRef(
       setRevealed(true);
 
       if (reanimated) {
-        revealScale.value = withSequence(
-          withTiming(0.96, {
+        rewardScale.value = withSequence(
+          withTiming(0.92, {
             duration: 100,
           }),
           withSpring(1),
         );
       }
 
-      onReveal?.();
-    }, [onReveal, reanimated, revealScale, revealed]);
+      onReveal?.({
+        variant,
+        reward,
+      });
+    }, [onReveal, reanimated, revealed, reward, rewardScale, variant]);
 
+    /*
+     * Reset.
+     */
     const reset = useCallback(() => {
       setRevealed(false);
-      progressValue.value = 0;
-    }, [progressValue]);
 
+      progressValue.value = 0;
+
+      rewardScale.value = 1;
+    }, [progressValue, rewardScale]);
+
+    /*
+     * Public ref API.
+     */
     useImperativeHandle(
       ref,
       () => ({
+        reveal,
         reset,
-        reveal: triggerReveal,
         isRevealed: revealed,
       }),
-      [reset, revealed, triggerReveal],
+      [reveal, reset, revealed],
     );
 
-    const animatedRevealStyle = useAnimatedStyle(() => ({
-      transform: [
-        {
-          scale: revealScale.value,
-        },
-      ],
-    }));
-
+    /*
+     * Scratch progress.
+     */
     const handleProgress = useCallback(
       (progress) => {
         progressValue.value = withTiming(progress, {
@@ -595,254 +743,351 @@ const UIScratchCard = forwardRef(
       [onProgress, progressValue],
     );
 
-    const cardContent = (
-      <View
-        style={[
-          styles.card,
-          {
-            width,
-            height,
-            borderRadius,
-            borderColor: theme.border,
-            backgroundColor: backgroundColor || resolvedBackground[0],
-          },
-          cardStyle,
-        ]}
-      >
-        {/* Background */}
-        <Svg
-          pointerEvents="none"
-          width={width}
-          height={height}
-          style={StyleSheet.absoluteFill}
-        >
-          <Defs>
-            <LinearGradient
-              id={`cardGradient-${variant}`}
-              x1="0"
-              y1="0"
-              x2="1"
-              y2="1"
-            >
-              <Stop offset="0" stopColor={resolvedBackground[0]} />
-              <Stop
-                offset="1"
-                stopColor={resolvedBackground[1] || resolvedBackground[0]}
-              />
-            </LinearGradient>
-          </Defs>
+    /*
+     * Reward animation.
+     */
+    const rewardAnimatedStyle = useAnimatedStyle(() => ({
+      transform: [
+        {
+          scale: rewardScale.value,
+        },
+      ],
+    }));
 
-          <Rect
-            x="0"
-            y="0"
-            width={width}
-            height={height}
-            rx={borderRadius}
-            fill={
-              backgroundColor
-                ? backgroundColor
-                : `url(#cardGradient-${variant})`
-            }
-          />
-        </Svg>
-
-        {/* Decorative stars / particles */}
-        <View pointerEvents="none" style={styles.decorations}>
-          <Text
-            style={[
-              styles.star,
-              {
-                color: theme.accent,
-              },
-            ]}
-          >
-            ✦
-          </Text>
-
-          <Text
-            style={[
-              styles.star,
-              styles.starTwo,
-              {
-                color: theme.accent,
-              },
-            ]}
-          >
-            ✦
-          </Text>
-
-          <Text
-            style={[
-              styles.star,
-              styles.starThree,
-              {
-                color: theme.accent,
-              },
-            ]}
-          >
-            •
-          </Text>
-        </View>
-
-        {/* Main top content */}
-        <View style={[styles.topContent, contentStyle]}>
-          <View style={styles.textArea}>
-            <Text
-              style={[
-                styles.title,
-                {
-                  color: theme.title,
-                },
-                titleStyle,
-              ]}
-            >
-              {Array.isArray(resolvedTitle)
-                ? resolvedTitle.map((line, index) => (
-                    <Text
-                      key={`${line}-${index}`}
-                      style={{
-                        color:
-                          index === theme.titleAccentLine
-                            ? theme.accent
-                            : theme.title,
-                      }}
-                    >
-                      {line}
-                      {index < resolvedTitle.length - 1 ? "\n" : ""}
-                    </Text>
-                  ))
-                : resolvedTitle}
-            </Text>
-
-            <Text
-              style={[
-                styles.subtitle,
-                {
-                  color: theme.subtitle,
-                },
-                subtitleStyle,
-              ]}
-            >
-              {resolvedSubtitle}
-            </Text>
-          </View>
-
-          <View style={styles.visualArea}>
-            {image ? (
-              typeof image === "function" ? (
-                image(theme)
-              ) : (
-                <Animated.Image
-                  source={image}
-                  resizeMode="contain"
-                  style={styles.visualImage}
-                />
-              )
-            ) : (
-              <ThemeIcon icon={icon} theme={theme} />
-            )}
-          </View>
-        </View>
-
-        {/* Scratch / reward */}
-        <View
-          style={[
-            styles.scratchWrapper,
-            {
-              left: 24,
-              right: 24,
-              bottom: 16,
-              height: Math.min(82, height * 0.37),
-            },
-          ]}
-        >
-          {revealed ? (
-            <Animated.View
-              entering={reanimated ? FadeIn.duration(220) : undefined}
-              style={[
-                styles.rewardContainer,
-                {
-                  borderColor: theme.scratchBorder,
-                  borderRadius: Math.min(14, borderRadius),
-                },
-                reanimated ? animatedRevealStyle : null,
-                scratchStyle,
-              ]}
-            >
-              {rewardIcon ? (
-                <View style={styles.rewardIcon}>{rewardIcon}</View>
-              ) : null}
-
-              {reward ? (
-                <Text style={[styles.rewardText, rewardStyle]}>{reward}</Text>
-              ) : (
-                <Text style={[styles.rewardText, rewardStyle]}>
-                  🎉 Reward Revealed!
-                </Text>
-              )}
-            </Animated.View>
-          ) : (
-            <ScratchSurface
-              width={width - 48}
-              height={Math.min(82, height * 0.37)}
-              coverColors={theme.scratch}
-              borderColor={theme.scratchBorder}
-              iconColor={theme.scratchIcon}
-              text={scratchText}
-              threshold={scratchThreshold}
-              revealed={revealed}
-              onProgress={handleProgress}
-              onReveal={triggerReveal}
-              style={scratchStyle}
-            />
-          )}
-        </View>
-
-        {children}
-      </View>
-    );
-
-    if (disabled) {
-      return cardContent;
-    }
+    /*
+     * Press handler.
+     */
+    const handlePress = useCallback(() => {
+      onPress?.({
+        variant,
+        reward,
+        revealed,
+      });
+    }, [onPress, reward, revealed, variant]);
 
     return (
-      <Pressable
-        onPress={() =>
-          onPress?.({
-            variant,
-            revealed,
-          })
-        }
-        style={({ pressed }) => ({
-          opacity: pressed ? 0.96 : 1,
-        })}
+      <View
+        style={[
+          styles.wrapper,
+          {
+            width,
+          },
+        ]}
       >
-        {cardContent}
-      </Pressable>
+        <View
+          style={[
+            styles.card,
+            {
+              width,
+              height,
+              borderRadius,
+              borderColor: builtInTheme.border,
+              backgroundColor: backgroundColor || resolvedBackground[0],
+            },
+            cardStyle,
+          ]}
+        >
+          {/* =========================================
+              BACKGROUND
+          ========================================= */}
+
+          <Svg
+            pointerEvents="none"
+            width={width}
+            height={height}
+            style={StyleSheet.absoluteFill}
+          >
+            <Defs>
+              <SvgLinearGradient
+                id={`scratchCardGradient-${variant}`}
+                x1="0"
+                y1="0"
+                x2="1"
+                y2="1"
+              >
+                <Stop offset="0" stopColor={resolvedBackground[0]} />
+
+                <Stop
+                  offset="1"
+                  stopColor={resolvedBackground[1] || resolvedBackground[0]}
+                />
+              </SvgLinearGradient>
+            </Defs>
+
+            <Rect
+              x="0"
+              y="0"
+              width={width}
+              height={height}
+              rx={borderRadius}
+              fill={
+                backgroundColor
+                  ? backgroundColor
+                  : `url(#scratchCardGradient-${variant})`
+              }
+            />
+          </Svg>
+
+          {/* =========================================
+              DECORATIVE ELEMENTS
+          ========================================= */}
+
+          <View pointerEvents="none" style={styles.decorations}>
+            <Text
+              style={[
+                styles.decorationStar,
+                {
+                  color: builtInTheme.accent,
+                },
+              ]}
+            >
+              ✦
+            </Text>
+
+            <Text
+              style={[
+                styles.decorationStar,
+                styles.decorationStarTwo,
+                {
+                  color: builtInTheme.accent,
+                },
+              ]}
+            >
+              ✦
+            </Text>
+
+            <Text
+              style={[
+                styles.decorationStar,
+                styles.decorationStarThree,
+                {
+                  color: builtInTheme.accent,
+                },
+              ]}
+            >
+              •
+            </Text>
+
+            <Text
+              style={[
+                styles.decorationStar,
+                styles.decorationStarFour,
+                {
+                  color: builtInTheme.accent,
+                },
+              ]}
+            >
+              ✦
+            </Text>
+          </View>
+
+          {/* =========================================
+              HEADER / TITLE AREA
+          ========================================= */}
+
+          <View style={[styles.content, contentStyle]}>
+            <View style={styles.textArea}>
+              <Text
+                style={[
+                  styles.title,
+                  {
+                    color: builtInTheme.title,
+                  },
+                  titleStyle,
+                ]}
+              >
+                {Array.isArray(resolvedTitle)
+                  ? resolvedTitle.map((line, index) => (
+                      <Text
+                        key={`${line}-${index}`}
+                        style={{
+                          color:
+                            index === builtInTheme.titleAccentLine
+                              ? builtInTheme.accent
+                              : builtInTheme.title,
+                        }}
+                      >
+                        {line}
+
+                        {index < resolvedTitle.length - 1 ? "\n" : ""}
+                      </Text>
+                    ))
+                  : resolvedTitle}
+              </Text>
+
+              <Text
+                style={[
+                  styles.subtitle,
+                  {
+                    color: builtInTheme.subtitle,
+                  },
+                  subtitleStyle,
+                ]}
+              >
+                {resolvedSubtitle}
+              </Text>
+            </View>
+
+            {/* =====================================
+                IMAGE / ICON
+            ===================================== */}
+
+            <View style={[styles.visualArea, iconContainerStyle]}>
+              {image ? (
+                typeof image === "function" ? (
+                  image({
+                    theme: builtInTheme,
+                    uiTheme: theme,
+                  })
+                ) : (
+                  <Image
+                    source={image}
+                    resizeMode="contain"
+                    style={[styles.visualImage, imageStyle]}
+                  />
+                )
+              ) : (
+                icon || <ThemeVisualIcon theme={builtInTheme} />
+              )}
+            </View>
+          </View>
+
+          {/* =========================================
+              SCRATCH AREA
+          ========================================= */}
+
+          <View
+            style={[
+              styles.scratchWrapper,
+              {
+                left: 22,
+                right: 22,
+                bottom: 15,
+                height: Math.min(82, height * 0.38),
+              },
+            ]}
+          >
+            {revealed ? (
+              <Animated.View
+                entering={reanimated ? FadeIn.duration(250) : undefined}
+                style={[
+                  styles.rewardContainer,
+                  {
+                    borderColor: builtInTheme.scratchBorder,
+                    borderRadius: Math.min(14, borderRadius),
+                  },
+                  reanimated ? rewardAnimatedStyle : null,
+                  scratchStyle,
+                ]}
+              >
+                {rewardIcon ? (
+                  <View style={styles.rewardIcon}>{rewardIcon}</View>
+                ) : null}
+
+                <Text
+                  style={[
+                    styles.rewardText,
+                    {
+                      color: themeText,
+                    },
+                    rewardStyle,
+                  ]}
+                >
+                  {reward || "🎉 Reward Revealed!"}
+                </Text>
+              </Animated.View>
+            ) : (
+              <ScratchSurface
+                width={width - 44}
+                height={Math.min(82, height * 0.38)}
+                colors={builtInTheme.scratch}
+                borderColor={builtInTheme.scratchBorder}
+                scratchText={resolvedScratchText}
+                iconColor={builtInTheme.scratchIcon}
+                threshold={scratchThreshold}
+                revealed={revealed || disabled}
+                onProgress={handleProgress}
+                onReveal={reveal}
+                style={scratchStyle}
+              />
+            )}
+          </View>
+
+          {/* =========================================
+              OPTIONAL CUSTOM CHILDREN
+          ========================================= */}
+
+          {children}
+
+          {/* =========================================
+              OPTIONAL PRESS OVERLAY
+          ========================================= */}
+
+          {onPress && !disabled ? (
+            <View pointerEvents="box-none" style={styles.pressLayer}>
+              {/* Intentionally empty.
+                  ScratchSurface receives touch priority. */}
+            </View>
+          ) : null}
+        </View>
+
+        {/* Optional external press callback */}
+        {onPress && !disabled ? <PressableProxy onPress={handlePress} /> : null}
+      </View>
     );
   },
 );
 
+/* =========================================================
+   VISUAL ICON
+========================================================= */
+
+function ThemeVisualIcon({ theme }) {
+  return getThemeIcon(theme, 68);
+}
+
+/* =========================================================
+   PRESSABLE PROXY
+========================================================= */
+
+/*
+ * We don't put Pressable around the whole card because
+ * that can interfere with the scratch PanResponder.
+ *
+ * onPress is therefore intended for programmatic/custom
+ * handling while the scratch area owns the gesture.
+ */
+function PressableProxy() {
+  return null;
+}
+
+/* =========================================================
+   DISPLAY NAME
+========================================================= */
+
 UIScratchCard.displayName = "UIScratchCard";
 
-export { UIScratchCard };
-
-export { THEMES as UIScratchCardThemes, VARIANT_LABELS as UIScratchCardLabels };
+/* =========================================================
+   STYLES
+========================================================= */
 
 const styles = StyleSheet.create({
-  card: {
-    overflow: "hidden",
-    borderWidth: 1.2,
-    position: "relative",
+  wrapper: {
+    alignSelf: "center",
   },
 
-  topContent: {
+  card: {
+    position: "relative",
+    overflow: "hidden",
+    borderWidth: 1.2,
+  },
+
+  content: {
     position: "absolute",
-    top: 20,
-    left: 22,
-    right: 18,
-    height: 100,
+    top: 18,
+    left: 20,
+    right: 16,
+    height: 105,
     flexDirection: "row",
     alignItems: "flex-start",
   },
@@ -860,87 +1105,112 @@ const styles = StyleSheet.create({
   },
 
   subtitle: {
-    marginTop: 7,
+    marginTop: 6,
     fontSize: 13,
     lineHeight: 17,
     fontWeight: "500",
   },
 
   visualArea: {
-    width: 94,
-    height: 86,
-    justifyContent: "center",
+    width: 100,
+    height: 88,
     alignItems: "center",
+    justifyContent: "center",
   },
 
   visualImage: {
-    width: 94,
-    height: 86,
+    width: 100,
+    height: 88,
   },
 
   decorations: {
     ...StyleSheet.absoluteFillObject,
   },
 
-  star: {
+  decorationStar: {
     position: "absolute",
-    top: 18,
-    right: 18,
+    top: 14,
+    right: 17,
     fontSize: 17,
   },
 
-  starTwo: {
-    top: 48,
-    right: 112,
+  decorationStarTwo: {
+    top: 46,
+    right: 120,
     fontSize: 12,
   },
 
-  starThree: {
-    top: 12,
-    left: 16,
-    fontSize: 13,
+  decorationStarThree: {
+    top: 10,
+    left: 15,
+    fontSize: 12,
+  },
+
+  decorationStarFour: {
+    bottom: 90,
+    right: 155,
+    fontSize: 11,
   },
 
   scratchWrapper: {
     position: "absolute",
   },
 
-  scratchContainer: {
-    overflow: "hidden",
-    borderWidth: 1.3,
-    borderRadius: 14,
+  scratchSurface: {
     position: "relative",
+    overflow: "hidden",
+    borderWidth: 1.2,
+    borderRadius: 14,
   },
 
   scratchPrompt: {
     ...StyleSheet.absoluteFillObject,
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
   },
 
-  scratchText: {
-    marginTop: 2,
+  scratchPromptText: {
+    marginTop: 1,
     fontSize: 14,
+    lineHeight: 18,
     fontWeight: "700",
   },
 
   rewardContainer: {
     flex: 1,
-    borderWidth: 1.3,
+    borderWidth: 1.2,
     backgroundColor: "#FFFFFF",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
     paddingHorizontal: 12,
-  },
-
-  rewardText: {
-    color: "#263248",
-    fontSize: 18,
-    fontWeight: "900",
-    textAlign: "center",
   },
 
   rewardIcon: {
     marginBottom: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  rewardText: {
+    fontSize: 18,
+    lineHeight: 23,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+
+  pressLayer: {
+    ...StyleSheet.absoluteFillObject,
   },
 });
+
+/* =========================================================
+   EXPORTS
+========================================================= */
+
+export default UIScratchCard;
+
+export {
+  UIScratchCard,
+  THEMES as UIScratchCardThemes,
+  VARIANT_LABELS as UIScratchCardLabels,
+};
