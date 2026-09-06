@@ -18,22 +18,17 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+const DEFAULT_DURATION = 400;
+const DEFAULT_SLIDE_DISTANCE = 24;
+const DEFAULT_SCALE_FROM = 0.96;
+
 /*
 |--------------------------------------------------------------------------
-| Default theme colors
+| UILayout theme colors
 |--------------------------------------------------------------------------
-|
-| These are the fallback UILayout colors.
-|
-| mode="light"
-| mode="dark"
-| mode="system"
-|
-| An explicit backgroundColor always overrides these values.
-|
 */
 
-const UILAYOUT_THEME = {
+const UILAYOUT_THEMES = {
   light: {
     background: "#FFFFFF",
   },
@@ -43,17 +38,13 @@ const UILAYOUT_THEME = {
   },
 };
 
-const DEFAULT_DURATION = 400;
-const DEFAULT_SLIDE_DISTANCE = 24;
-const DEFAULT_SCALE_FROM = 0.96;
-
 /*
 |--------------------------------------------------------------------------
-| Theme resolver
+| Resolve mode
 |--------------------------------------------------------------------------
 */
 
-const resolveMode = (mode, systemMode) => {
+const resolveMode = (mode, systemColorScheme) => {
   if (mode === "light") {
     return "light";
   }
@@ -62,22 +53,32 @@ const resolveMode = (mode, systemMode) => {
     return "dark";
   }
 
-  return systemMode === "dark" ? "dark" : "light";
-};
-
-const resolveBackgroundColor = ({ mode, systemMode, backgroundColor }) => {
-  if (backgroundColor) {
-    return backgroundColor;
-  }
-
-  const resolvedMode = resolveMode(mode, systemMode);
-
-  return UILAYOUT_THEME[resolvedMode].background;
+  return systemColorScheme === "dark" ? "dark" : "light";
 };
 
 /*
 |--------------------------------------------------------------------------
-| Animation
+| Resolve background
+|--------------------------------------------------------------------------
+*/
+
+const resolveBackgroundColor = ({
+  mode,
+  systemColorScheme,
+  backgroundColor,
+}) => {
+  if (backgroundColor) {
+    return backgroundColor;
+  }
+
+  const resolvedMode = resolveMode(mode, systemColorScheme);
+
+  return UILAYOUT_THEMES[resolvedMode].background;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Animation helpers
 |--------------------------------------------------------------------------
 */
 
@@ -121,8 +122,8 @@ const getInitialValues = ({ animation, slideDistance, scaleFrom }) => {
       };
 
     case "slide":
-    case "slideUp":
     case "slideFade":
+    case "slideUp":
       return {
         opacity: animation === "slideUp" ? 1 : 0,
         scale: 1,
@@ -171,6 +172,12 @@ const getInitialValues = ({ animation, slideDistance, scaleFrom }) => {
       };
   }
 };
+
+/*
+|--------------------------------------------------------------------------
+| Animated Layout
+|--------------------------------------------------------------------------
+*/
 
 const AnimatedLayout = ({
   children,
@@ -228,10 +235,6 @@ const AnimatedLayout = ({
       return;
     }
 
-    /*
-     * Reset values when animation
-     * configuration changes.
-     */
     opacity.value = initialValues.opacity;
     scale.value = initialValues.scale;
     translateX.value = initialValues.translateX;
@@ -339,12 +342,6 @@ const AnimatedLayout = ({
     };
   });
 
-  /*
-   * IMPORTANT:
-   *
-   * Accessibility props stay on normal View.
-   * They are not passed to Animated.View.
-   */
   return (
     <Animated.View
       {...rest}
@@ -380,7 +377,7 @@ const UILayout = ({
   children,
 
   /*
-   * Theme
+   * Theme mode
    *
    * light
    * dark
@@ -461,38 +458,28 @@ const UILayout = ({
   ...rest
 }) => {
   /*
-   * React Native system appearance.
+   * Only READ the system color scheme.
    *
-   * Used only when:
-   *
-   * mode="system"
+   * No state update happens here.
    */
   const systemColorScheme = useColorScheme();
 
   /*
-   * Resolve final mode.
+   * Resolve light/dark/system.
    */
   const resolvedMode = resolveMode(mode, systemColorScheme);
 
   /*
    * Resolve background.
    *
-   * Explicit backgroundColor wins.
-   *
-   * Otherwise:
-   *
-   * light -> #FFFFFF
-   * dark  -> #000000
+   * Explicit backgroundColor has priority.
    */
   const resolvedBackgroundColor = resolveBackgroundColor({
     mode: resolvedMode,
-    systemMode: systemColorScheme,
+    systemColorScheme,
     backgroundColor,
   });
 
-  /*
-   * Root style.
-   */
   const rootStyle = [
     styles.root,
     {
@@ -502,21 +489,37 @@ const UILayout = ({
     style,
   ];
 
-  /*
-   * Resolve animation type.
-   */
   const animationType = resolveAnimationType(animation);
 
   /*
-   * IMPORTANT:
-   *
-   * reanimated=false:
-   * normal View only.
-   *
-   * reanimated=true:
-   * Animated.View.
+   * Normal View when Reanimated
+   * is disabled.
    */
-  const content = reanimated ? (
+  const normalContent = (
+    <View
+      {...rest}
+      style={[styles.flex, contentContainerStyle]}
+      testID={testID}
+      onLayout={onLayout}
+      accessible={accessible}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityHint={accessibilityHint}
+      accessibilityRole={accessibilityRole}
+      accessibilityState={accessibilityState}
+      accessibilityValue={accessibilityValue}
+      accessibilityLiveRegion={accessibilityLiveRegion}
+      accessibilityViewIsModal={accessibilityViewIsModal}
+      importantForAccessibility={importantForAccessibility}
+    >
+      {children}
+    </View>
+  );
+
+  /*
+   * Animated content only when
+   * explicitly requested.
+   */
+  const animatedContent = (
     <AnimatedLayout
       animation={animationType}
       animationDuration={animationDuration}
@@ -542,29 +545,10 @@ const UILayout = ({
     >
       {children}
     </AnimatedLayout>
-  ) : (
-    <View
-      {...rest}
-      style={[styles.flex, contentContainerStyle]}
-      testID={testID}
-      onLayout={onLayout}
-      accessible={accessible}
-      accessibilityLabel={accessibilityLabel}
-      accessibilityHint={accessibilityHint}
-      accessibilityRole={accessibilityRole}
-      accessibilityState={accessibilityState}
-      accessibilityValue={accessibilityValue}
-      accessibilityLiveRegion={accessibilityLiveRegion}
-      accessibilityViewIsModal={accessibilityViewIsModal}
-      importantForAccessibility={importantForAccessibility}
-    >
-      {children}
-    </View>
   );
 
-  /*
-   * Keyboard avoiding wrapper.
-   */
+  const content = reanimated ? animatedContent : normalContent;
+
   const layoutContent = keyboardAvoiding ? (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -579,9 +563,6 @@ const UILayout = ({
     content
   );
 
-  /*
-   * Safe area root.
-   */
   return (
     <SafeAreaView edges={edges} style={rootStyle}>
       {layoutContent}
