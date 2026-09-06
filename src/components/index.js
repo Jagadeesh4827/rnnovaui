@@ -117,4 +117,3 @@ export {
   UIAccordionIcon,
 } from "./Accordion";
 export { UITabs, UITabsList, UITabsTrigger, UITabsContent } from "./Tabs";
-export { default as UILayout } from "./layout/UILayout";
