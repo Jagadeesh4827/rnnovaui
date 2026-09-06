@@ -1,6 +1,14 @@
 import React, { useEffect, useMemo } from "react";
-import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  View,
+  useColorScheme,
+} from "react-native";
+
 import { SafeAreaView } from "react-native-safe-area-context";
+
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -10,14 +18,73 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { useTheme } from "../../../theme";
+/*
+|--------------------------------------------------------------------------
+| Default theme colors
+|--------------------------------------------------------------------------
+|
+| These are the fallback UILayout colors.
+|
+| mode="light"
+| mode="dark"
+| mode="system"
+|
+| An explicit backgroundColor always overrides these values.
+|
+*/
+
+const UILAYOUT_THEME = {
+  light: {
+    background: "#FFFFFF",
+  },
+
+  dark: {
+    background: "#000000",
+  },
+};
 
 const DEFAULT_DURATION = 400;
 const DEFAULT_SLIDE_DISTANCE = 24;
 const DEFAULT_SCALE_FROM = 0.96;
 
+/*
+|--------------------------------------------------------------------------
+| Theme resolver
+|--------------------------------------------------------------------------
+*/
+
+const resolveMode = (mode, systemMode) => {
+  if (mode === "light") {
+    return "light";
+  }
+
+  if (mode === "dark") {
+    return "dark";
+  }
+
+  return systemMode === "dark" ? "dark" : "light";
+};
+
+const resolveBackgroundColor = ({ mode, systemMode, backgroundColor }) => {
+  if (backgroundColor) {
+    return backgroundColor;
+  }
+
+  const resolvedMode = resolveMode(mode, systemMode);
+
+  return UILAYOUT_THEME[resolvedMode].background;
+};
+
+/*
+|--------------------------------------------------------------------------
+| Animation
+|--------------------------------------------------------------------------
+*/
+
 const resolveAnimationType = (animation) => {
-  if (!animation) return "fade";
+  if (!animation) {
+    return "fade";
+  }
 
   if (typeof animation === "string") {
     return animation;
@@ -26,7 +93,7 @@ const resolveAnimationType = (animation) => {
   return animation.type || "fade";
 };
 
-const getInitialValues = (animation, slideDistance, scaleFrom) => {
+const getInitialValues = ({ animation, slideDistance, scaleFrom }) => {
   switch (animation) {
     case "fade":
     case "fadeIn":
@@ -107,14 +174,20 @@ const getInitialValues = (animation, slideDistance, scaleFrom) => {
 
 const AnimatedLayout = ({
   children,
-  animation,
-  animationDuration,
-  animationDelay,
-  slideDistance,
-  scaleFrom,
+
+  animation = "fade",
+
+  animationDuration = DEFAULT_DURATION,
+  animationDelay = 0,
+
+  slideDistance = DEFAULT_SLIDE_DISTANCE,
+  scaleFrom = DEFAULT_SCALE_FROM,
+
   springConfig,
+
   onAnimationStart,
   onAnimationComplete,
+
   style,
 
   accessible,
@@ -132,43 +205,56 @@ const AnimatedLayout = ({
 
   ...rest
 }) => {
-  const initial = useMemo(
-    () => getInitialValues(animation, slideDistance, scaleFrom),
+  const initialValues = useMemo(
+    () =>
+      getInitialValues({
+        animation,
+        slideDistance,
+        scaleFrom,
+      }),
     [animation, slideDistance, scaleFrom],
   );
 
-  const opacity = useSharedValue(initial.opacity);
-  const scale = useSharedValue(initial.scale);
-  const translateX = useSharedValue(initial.translateX);
-  const translateY = useSharedValue(initial.translateY);
+  const opacity = useSharedValue(initialValues.opacity);
+
+  const scale = useSharedValue(initialValues.scale);
+
+  const translateX = useSharedValue(initialValues.translateX);
+
+  const translateY = useSharedValue(initialValues.translateY);
 
   useEffect(() => {
     if (animation === "none") {
       return;
     }
 
-    opacity.value = initial.opacity;
-    scale.value = initial.scale;
-    translateX.value = initial.translateX;
-    translateY.value = initial.translateY;
+    /*
+     * Reset values when animation
+     * configuration changes.
+     */
+    opacity.value = initialValues.opacity;
+    scale.value = initialValues.scale;
+    translateX.value = initialValues.translateX;
+    translateY.value = initialValues.translateY;
 
     onAnimationStart?.();
 
-    const timing = {
+    const timingConfig = {
       duration: animationDuration,
       easing: Easing.out(Easing.cubic),
     };
 
     const delay = animationDelay;
 
-    const complete = (finished) => {
-      if (finished) {
-        onAnimationComplete?.();
-      }
-    };
-
     if (animation === "spring") {
-      opacity.value = withDelay(delay, withTiming(1, timing, complete));
+      opacity.value = withDelay(
+        delay,
+        withTiming(1, timingConfig, (finished) => {
+          if (finished) {
+            onAnimationComplete?.();
+          }
+        }),
+      );
 
       scale.value = withDelay(
         delay,
@@ -203,18 +289,25 @@ const AnimatedLayout = ({
       return;
     }
 
-    opacity.value = withDelay(delay, withTiming(1, timing, complete));
+    opacity.value = withDelay(
+      delay,
+      withTiming(1, timingConfig, (finished) => {
+        if (finished) {
+          onAnimationComplete?.();
+        }
+      }),
+    );
 
-    scale.value = withDelay(delay, withTiming(1, timing));
+    scale.value = withDelay(delay, withTiming(1, timingConfig));
 
-    translateX.value = withDelay(delay, withTiming(0, timing));
+    translateX.value = withDelay(delay, withTiming(0, timingConfig));
 
-    translateY.value = withDelay(delay, withTiming(0, timing));
+    translateY.value = withDelay(delay, withTiming(0, timingConfig));
   }, [
     animation,
     animationDuration,
     animationDelay,
-    initial,
+    initialValues,
     springConfig,
     onAnimationStart,
     onAnimationComplete,
@@ -231,6 +324,7 @@ const AnimatedLayout = ({
 
     return {
       opacity: opacity.value,
+
       transform: [
         {
           translateX: translateX.value,
@@ -245,6 +339,12 @@ const AnimatedLayout = ({
     };
   });
 
+  /*
+   * IMPORTANT:
+   *
+   * Accessibility props stay on normal View.
+   * They are not passed to Animated.View.
+   */
   return (
     <Animated.View
       {...rest}
@@ -270,20 +370,23 @@ const AnimatedLayout = ({
   );
 };
 
+/*
+|--------------------------------------------------------------------------
+| UILayout
+|--------------------------------------------------------------------------
+*/
+
 const UILayout = ({
   children,
 
   /*
    * Theme
    *
-   * Uses the existing rnnovaui theme system.
-   *
-   * mode:
-   * - "light"
-   * - "dark"
-   * - "system"
+   * light
+   * dark
+   * system
    */
-  mode,
+  mode = "system",
 
   /*
    * Safe area
@@ -291,15 +394,12 @@ const UILayout = ({
   edges = ["top", "bottom", "left", "right"],
 
   /*
-   * Root
+   * Layout
    */
   flex = 1,
 
   /*
    * Background
-   *
-   * Explicit backgroundColor overrides
-   * the theme background.
    */
   backgroundColor,
 
@@ -312,18 +412,26 @@ const UILayout = ({
    * Keyboard
    */
   keyboardAvoiding = false,
+
   keyboardBehavior,
+
   keyboardVerticalOffset = 0,
 
   /*
    * Reanimated
    */
   reanimated = false,
+
   animation = "fade",
+
   animationDuration = DEFAULT_DURATION,
+
   animationDelay = 0,
+
   slideDistance = DEFAULT_SLIDE_DISTANCE,
+
   scaleFrom = DEFAULT_SCALE_FROM,
+
   springConfig,
 
   onAnimationStart,
@@ -352,31 +460,39 @@ const UILayout = ({
 
   ...rest
 }) => {
-  const themeContext = useTheme();
-
-  const { theme, mode: currentMode, isDark, setTheme } = themeContext;
+  /*
+   * React Native system appearance.
+   *
+   * Used only when:
+   *
+   * mode="system"
+   */
+  const systemColorScheme = useColorScheme();
 
   /*
-   * If mode is supplied, synchronize it
-   * with the existing global theme system.
-   *
-   * No separate theme state is created here.
+   * Resolve final mode.
    */
-  useEffect(() => {
-    if (mode && mode !== "system" && mode !== currentMode) {
-      setTheme?.(mode);
-    }
-  }, [mode, currentMode, setTheme]);
+  const resolvedMode = resolveMode(mode, systemColorScheme);
 
-  const activeMode = mode || currentMode;
+  /*
+   * Resolve background.
+   *
+   * Explicit backgroundColor wins.
+   *
+   * Otherwise:
+   *
+   * light -> #FFFFFF
+   * dark  -> #000000
+   */
+  const resolvedBackgroundColor = resolveBackgroundColor({
+    mode: resolvedMode,
+    systemMode: systemColorScheme,
+    backgroundColor,
+  });
 
-  const themeBackground =
-    theme?.colors?.background?.primary ??
-    theme?.colors?.background ??
-    theme?.colors?.backgroundColor;
-
-  const resolvedBackgroundColor = backgroundColor || themeBackground;
-
+  /*
+   * Root style.
+   */
   const rootStyle = [
     styles.root,
     {
@@ -386,8 +502,20 @@ const UILayout = ({
     style,
   ];
 
+  /*
+   * Resolve animation type.
+   */
   const animationType = resolveAnimationType(animation);
 
+  /*
+   * IMPORTANT:
+   *
+   * reanimated=false:
+   * normal View only.
+   *
+   * reanimated=true:
+   * Animated.View.
+   */
   const content = reanimated ? (
     <AnimatedLayout
       animation={animationType}
@@ -434,6 +562,9 @@ const UILayout = ({
     </View>
   );
 
+  /*
+   * Keyboard avoiding wrapper.
+   */
   const layoutContent = keyboardAvoiding ? (
     <KeyboardAvoidingView
       style={styles.flex}
@@ -448,6 +579,9 @@ const UILayout = ({
     content
   );
 
+  /*
+   * Safe area root.
+   */
   return (
     <SafeAreaView edges={edges} style={rootStyle}>
       {layoutContent}
