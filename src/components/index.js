@@ -123,3 +123,4 @@ export {
   UIAspectRatioAnimations,
 } from "./AspectRatio";
 export { default as UILayout } from "./layout/UILayout";
+export { default as UIHeader } from "./layout/UIHeader";

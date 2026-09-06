@@ -133,4 +133,5 @@ export {
   UIAspectRatioPresets,
   UIAspectRatioAnimations,
   UILayout,
+  UIHeader,
 } from "./components";
