@@ -63,6 +63,10 @@ const UILayout = ({
 }) => {
   const colorScheme = useColorScheme();
 
+  // -------------------------
+  // Resolve Background Color
+  // -------------------------
+
   let resolvedBackgroundColor = backgroundColor;
 
   if (!resolvedBackgroundColor) {
@@ -73,6 +77,10 @@ const UILayout = ({
     }
   }
 
+  // -------------------------
+  // Animation
+  // -------------------------
+
   const { animatedStyle } = useRNNovaAnimation({
     animated,
     animationStyle,
@@ -81,7 +89,15 @@ const UILayout = ({
     iterationCount,
   });
 
+  // -------------------------
+  // Content Component
+  // -------------------------
+
   const ContentView = animated ? AnimatedView : View;
+
+  // -------------------------
+  // Render
+  // -------------------------
 
   return (
     <View
@@ -129,6 +145,10 @@ const UILayout = ({
     </View>
   );
 };
+
+// -------------------------
+// Styles
+// -------------------------
 
 const styles = StyleSheet.create({
   container: {

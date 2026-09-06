@@ -21,11 +21,12 @@ const useRNNovaAnimation = ({
   const progress = useSharedValue(0);
 
   useEffect(() => {
+    // No animation requested
     if (!animated || animationStyle === "none") {
-      progress.value = 0;
       return;
     }
 
+    // Reset animation before starting
     progress.value = 0;
 
     const repeatCount =
@@ -34,6 +35,10 @@ const useRNNovaAnimation = ({
         : Math.max(1, Number(iterationCount) || 1);
 
     switch (animationStyle) {
+      // --------------------------------
+      // Fade
+      // --------------------------------
+
       case "fadeIn":
         progress.value = withDelay(
           delay,
@@ -51,6 +56,10 @@ const useRNNovaAnimation = ({
           }),
         );
         break;
+
+      // --------------------------------
+      // Bounce
+      // --------------------------------
 
       case "bounce":
         progress.value = withDelay(
@@ -72,6 +81,10 @@ const useRNNovaAnimation = ({
         );
         break;
 
+      // --------------------------------
+      // Elastic
+      // --------------------------------
+
       case "elastic":
         progress.value = withDelay(
           delay,
@@ -92,6 +105,10 @@ const useRNNovaAnimation = ({
         );
         break;
 
+      // --------------------------------
+      // Spring
+      // --------------------------------
+
       case "spring":
         progress.value = withDelay(
           delay,
@@ -101,6 +118,10 @@ const useRNNovaAnimation = ({
           }),
         );
         break;
+
+      // --------------------------------
+      // Pulse
+      // --------------------------------
 
       case "pulse":
         progress.value = withDelay(
@@ -119,6 +140,10 @@ const useRNNovaAnimation = ({
           ),
         );
         break;
+
+      // --------------------------------
+      // Shake
+      // --------------------------------
 
       case "shake":
         progress.value = withDelay(
@@ -141,6 +166,10 @@ const useRNNovaAnimation = ({
         );
         break;
 
+      // --------------------------------
+      // Zoom
+      // --------------------------------
+
       case "zoomIn":
         progress.value = withDelay(
           delay,
@@ -160,6 +189,10 @@ const useRNNovaAnimation = ({
           }),
         );
         break;
+
+      // --------------------------------
+      // Slide
+      // --------------------------------
 
       case "slideIn":
         progress.value = withDelay(
@@ -181,6 +214,10 @@ const useRNNovaAnimation = ({
         );
         break;
 
+      // --------------------------------
+      // Pop
+      // --------------------------------
+
       case "pop":
         progress.value = withDelay(
           delay,
@@ -197,9 +234,19 @@ const useRNNovaAnimation = ({
         );
         break;
 
+      // --------------------------------
+      // Unknown animation
+      // --------------------------------
+
       default:
-        progress.value = 0;
+        break;
     }
+
+    return () => {
+      // Stop any running animation when
+      // configuration/component changes.
+      progress.value = 0;
+    };
   }, [animated, animationStyle, duration, delay, iterationCount, progress]);
 
   const animatedStyle = useAnimatedStyle(() => {
@@ -208,6 +255,10 @@ const useRNNovaAnimation = ({
     }
 
     switch (animationStyle) {
+      // --------------------------------
+      // Fade
+      // --------------------------------
+
       case "fadeIn":
         return {
           opacity: progress.value,
@@ -218,6 +269,10 @@ const useRNNovaAnimation = ({
           opacity: 1 - progress.value,
         };
 
+      // --------------------------------
+      // Bounce
+      // --------------------------------
+
       case "bounce":
         return {
           transform: [
@@ -226,6 +281,10 @@ const useRNNovaAnimation = ({
             },
           ],
         };
+
+      // --------------------------------
+      // Elastic
+      // --------------------------------
 
       case "elastic":
         return {
@@ -236,6 +295,10 @@ const useRNNovaAnimation = ({
           ],
         };
 
+      // --------------------------------
+      // Spring
+      // --------------------------------
+
       case "spring":
         return {
           transform: [
@@ -245,6 +308,10 @@ const useRNNovaAnimation = ({
           ],
         };
 
+      // --------------------------------
+      // Pulse
+      // --------------------------------
+
       case "pulse":
         return {
           transform: [
@@ -252,8 +319,13 @@ const useRNNovaAnimation = ({
               scale: 1 + progress.value * 0.05,
             },
           ],
+
           opacity: 1 - progress.value * 0.15,
         };
+
+      // --------------------------------
+      // Shake
+      // --------------------------------
 
       case "shake":
         return {
@@ -263,6 +335,10 @@ const useRNNovaAnimation = ({
             },
           ],
         };
+
+      // --------------------------------
+      // Zoom
+      // --------------------------------
 
       case "zoomIn":
         return {
@@ -286,6 +362,10 @@ const useRNNovaAnimation = ({
           ],
         };
 
+      // --------------------------------
+      // Slide
+      // --------------------------------
+
       case "slideIn":
         return {
           opacity: progress.value,
@@ -308,6 +388,10 @@ const useRNNovaAnimation = ({
           ],
         };
 
+      // --------------------------------
+      // Pop
+      // --------------------------------
+
       case "pop":
         return {
           transform: [
@@ -316,6 +400,10 @@ const useRNNovaAnimation = ({
             },
           ],
         };
+
+      // --------------------------------
+      // Default
+      // --------------------------------
 
       default:
         return {};
