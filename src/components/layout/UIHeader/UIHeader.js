@@ -1,222 +1,206 @@
 import React, { useEffect, useMemo, useState } from "react";
-
 import {
-  ImageBackground,
-  Platform,
-  Pressable,
-  StyleSheet,
+  View,
   Text,
   TextInput,
-  View,
+  Pressable,
+  StyleSheet,
+  ImageBackground,
 } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
-
 import { Ionicons } from "@expo/vector-icons";
-
 import { LinearGradient } from "expo-linear-gradient";
-
 import { BlurView } from "expo-blur";
 
 import Animated, {
-  Easing,
-  runOnJS,
+  FadeIn,
+  FadeInDown,
+  FadeInUp,
+  FadeInLeft,
+  FadeInRight,
+  FadeInZoom,
+  SlideInDown,
+  SlideInUp,
+  SlideInLeft,
+  SlideInRight,
+  ZoomIn,
+  withSpring,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
-  withSpring,
   withTiming,
+  runOnJS,
 } from "react-native-reanimated";
 
 import { useUITheme } from "../../../theme";
 
-/*
-|--------------------------------------------------------------------------
-| Constants
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+   HEADER ICON
+========================================================= */
 
-const DEFAULT_HEIGHT = 64;
-const DEFAULT_SEARCH_HEIGHT = 46;
-
-const DEFAULT_ANIMATION_DURATION = 400;
-const DEFAULT_SLIDE_DISTANCE = 24;
-const DEFAULT_SCALE_FROM = 0.96;
-
-/*
-|--------------------------------------------------------------------------
-| Theme
-|--------------------------------------------------------------------------
-*/
-
-const getThemeValue = (theme, paths, fallback) => {
-  for (const path of paths) {
-    const parts = path.split(".");
-
-    let value = theme;
-
-    for (const part of parts) {
-      value = value?.[part];
-    }
-
-    if (value !== undefined && value !== null) {
-      return value;
-    }
-  }
-
-  return fallback;
-};
-
-const getThemeColors = (theme) => ({
-  background: getThemeValue(
-    theme,
-    [
-      "colors.background.primary",
-      "colors.background",
-      "colors.surface.primary",
-    ],
-    "#FFFFFF",
-  ),
-
-  surface: getThemeValue(
-    theme,
-    ["colors.surface.primary", "colors.surface", "colors.background.secondary"],
-    "#F5F5F5",
-  ),
-
-  text: getThemeValue(theme, ["colors.text.primary", "colors.text"], "#111111"),
-
-  secondaryText: getThemeValue(
-    theme,
-    ["colors.text.secondary", "colors.text.muted", "colors.muted"],
-    "#6B7280",
-  ),
-
-  border: getThemeValue(
-    theme,
-    ["colors.border.primary", "colors.border"],
-    "#E5E7EB",
-  ),
-
-  primary: getThemeValue(
-    theme,
-    ["colors.primary", "colors.brand.primary"],
-    "#2563EB",
-  ),
-
-  white: getThemeValue(theme, ["colors.white"], "#FFFFFF"),
-});
-
-/*
-|--------------------------------------------------------------------------
-| Icon
-|--------------------------------------------------------------------------
-*/
-
-const HeaderIcon = ({ icon, size = 24, color, style }) => {
-  if (!icon) {
-    return null;
-  }
-
-  if (React.isValidElement(icon)) {
-    return icon;
-  }
-
-  if (typeof icon === "object" && icon.name) {
-    return (
-      <Ionicons
-        name={icon.name}
-        size={icon.size || size}
-        color={icon.color || color}
-        style={style}
-      />
-    );
-  }
-
-  return <Ionicons name={icon} size={size} color={color} style={style} />;
-};
-
-/*
-|--------------------------------------------------------------------------
-| Action
-|--------------------------------------------------------------------------
-*/
-
-const HeaderAction = ({
-  action,
+function HeaderIcon({
+  icon,
+  size = 24,
   color,
-  size,
-  badgeStyle,
-  badgeTextStyle,
-  buttonStyle,
-}) => {
-  if (!action) {
-    return null;
-  }
-
-  const {
-    icon,
-    label,
-    badge,
-    disabled = false,
-    onPress,
-    accessibilityLabel,
-    hitSlop = 8,
-  } = action;
+  onPress,
+  disabled = false,
+  style,
+  accessibilityLabel,
+}) {
+  if (!icon) return null;
 
   return (
     <Pressable
       onPress={onPress}
-      disabled={disabled}
-      hitSlop={hitSlop}
+      disabled={disabled || !onPress}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel || label}
+      accessibilityLabel={accessibilityLabel}
       style={({ pressed }) => [
-        styles.actionButton,
-        buttonStyle,
-
-        pressed && !disabled && styles.actionPressed,
-
-        disabled && styles.actionDisabled,
+        styles.iconButton,
+        pressed && onPress && styles.pressed,
+        style,
       ]}
     >
-      <HeaderIcon icon={icon} size={size} color={color} />
+      <Ionicons name={icon} size={size} color={color} />
+    </Pressable>
+  );
+}
 
-      {label ? (
-        <Text
-          numberOfLines={1}
+/* =========================================================
+   HEADER ACTION
+========================================================= */
+
+function HeaderAction({
+  action,
+  color,
+  size,
+  actionStyle,
+  badgeStyle,
+  badgeTextStyle,
+}) {
+  if (!action) return null;
+
+  return (
+    <View style={styles.actionWrapper}>
+      <HeaderIcon
+        icon={action.icon}
+        size={action.size || size}
+        color={action.color || color}
+        onPress={action.onPress}
+        disabled={action.disabled}
+        style={[actionStyle, action.style]}
+        accessibilityLabel={
+          action.accessibilityLabel || action.label || action.icon
+        }
+      />
+
+      {action.badge !== undefined && action.badge !== null && (
+        <View style={[styles.badge, badgeStyle, action.badgeStyle]}>
+          <Text
+            style={[styles.badgeText, badgeTextStyle, action.badgeTextStyle]}
+          >
+            {action.badge}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+/* =========================================================
+   HEADER ACTIONS
+========================================================= */
+
+function HeaderActions({
+  actions = [],
+  color,
+  size = 24,
+  gap = 8,
+  actionStyle,
+  badgeStyle,
+  badgeTextStyle,
+  containerStyle,
+}) {
+  if (!actions || actions.length === 0) {
+    return null;
+  }
+
+  return (
+    <View style={[styles.actionsRow, containerStyle]}>
+      {actions.map((action, index) => (
+        <View
+          key={action.key || action.id || `${action.icon}-${index}`}
           style={[
-            styles.actionLabel,
-            {
-              color,
+            index > 0 && {
+              marginLeft: gap,
             },
           ]}
         >
-          {label}
-        </Text>
-      ) : null}
-
-      {badge !== undefined && badge !== null && badge !== false ? (
-        <View style={[styles.badge, badgeStyle]}>
-          <Text numberOfLines={1} style={[styles.badgeText, badgeTextStyle]}>
-            {badge}
-          </Text>
+          <HeaderAction
+            action={action}
+            color={color}
+            size={size}
+            actionStyle={actionStyle}
+            badgeStyle={badgeStyle}
+            badgeTextStyle={badgeTextStyle}
+          />
         </View>
-      ) : null}
-    </Pressable>
+      ))}
+    </View>
   );
-};
+}
 
-/*
-|--------------------------------------------------------------------------
-| Search
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+   SEARCH ACTIONS
+========================================================= */
 
-const HeaderSearch = ({
+function SearchActions({
+  actions = [],
+  color,
+  size = 22,
+  gap = 8,
+  actionStyle,
+  containerStyle,
+}) {
+  if (!actions || actions.length === 0) {
+    return null;
+  }
+
+  return (
+    <View style={[styles.searchActionsRow, containerStyle]}>
+      {actions.map((action, index) => (
+        <View
+          key={action.key || action.id || `${action.icon}-${index}`}
+          style={[
+            index > 0 && {
+              marginLeft: gap,
+            },
+          ]}
+        >
+          <HeaderIcon
+            icon={action.icon}
+            size={action.size || size}
+            color={action.color || color}
+            onPress={action.onPress}
+            disabled={action.disabled}
+            style={[actionStyle, action.style]}
+            accessibilityLabel={
+              action.accessibilityLabel || action.label || action.icon
+            }
+          />
+        </View>
+      ))}
+    </View>
+  );
+}
+
+/* =========================================================
+   SEARCH
+========================================================= */
+
+function HeaderSearch({
   value,
-  defaultValue = "",
-
+  defaultValue,
   onChangeText,
   onSubmitEditing,
   onFocus,
@@ -224,52 +208,46 @@ const HeaderSearch = ({
 
   placeholder = "Search...",
 
-  editable = true,
-  autoFocus = false,
-
-  keyboardType = "default",
-  returnKeyType = "search",
-
-  searchActions = [],
-
   searchIcon = "search-outline",
-  searchIconSize = 22,
+  searchIconSize = 21,
   searchIconColor,
 
   searchTextColor,
   searchPlaceholderColor,
 
-  searchBackgroundColor,
-  searchBorderColor,
-  searchBorderWidth = 0,
-  searchRadius = 14,
+  backgroundColor,
+  borderColor,
+  borderWidth = 0,
+  radius = 12,
 
-  searchContainerStyle,
-  searchInputStyle,
-  searchActionStyle,
-
+  actions = [],
+  actionsGap = 8,
   actionColor,
-  actionSize = 21,
-
-  badgeStyle,
-  badgeTextStyle,
+  actionSize = 22,
 
   onSearchPress,
 
-  accessibilityLabel = "Search",
+  containerStyle,
+  inputStyle,
+  actionStyle,
+  actionsContainerStyle,
 
-  ...rest
-}) => {
-  const [internalValue, setInternalValue] = useState(defaultValue);
+  searchProps = {},
+}) {
+  const [internalValue, setInternalValue] = useState(defaultValue || "");
 
-  const inputValue = value !== undefined ? value : internalValue;
+  const isControlled = value !== undefined;
 
-  const handleChangeText = (text) => {
-    if (value === undefined) {
+  const currentValue = isControlled ? value : internalValue;
+
+  const handleChange = (text) => {
+    if (!isControlled) {
       setInternalValue(text);
     }
 
-    onChangeText?.(text);
+    if (onChangeText) {
+      onChangeText(text);
+    }
   };
 
   return (
@@ -277,84 +255,65 @@ const HeaderSearch = ({
       style={[
         styles.searchContainer,
         {
-          height: DEFAULT_SEARCH_HEIGHT,
-
-          backgroundColor: searchBackgroundColor,
-
-          borderColor: searchBorderColor,
-
-          borderWidth: searchBorderWidth,
-
-          borderRadius: searchRadius,
+          backgroundColor,
+          borderColor,
+          borderWidth,
+          borderRadius: radius,
         },
-
-        searchContainerStyle,
+        containerStyle,
       ]}
     >
       <Pressable
-        onPress={onSearchPress}
         disabled={!onSearchPress}
-        accessibilityRole={onSearchPress ? "button" : undefined}
-        accessibilityLabel={onSearchPress ? "Search" : undefined}
-        style={styles.searchIconButton}
+        onPress={onSearchPress}
+        style={styles.searchIconContainer}
       >
-        <HeaderIcon
-          icon={searchIcon}
+        <Ionicons
+          name={searchIcon}
           size={searchIconSize}
           color={searchIconColor}
         />
       </Pressable>
 
       <TextInput
-        {...rest}
-        value={inputValue}
-        onChangeText={handleChangeText}
+        {...searchProps}
+        value={currentValue}
+        onChangeText={handleChange}
         onSubmitEditing={onSubmitEditing}
         onFocus={onFocus}
         onBlur={onBlur}
         placeholder={placeholder}
         placeholderTextColor={searchPlaceholderColor}
-        editable={editable}
-        autoFocus={autoFocus}
-        keyboardType={keyboardType}
-        returnKeyType={returnKeyType}
-        accessibilityLabel={accessibilityLabel}
         style={[
           styles.searchInput,
           {
             color: searchTextColor,
           },
-          searchInputStyle,
+          inputStyle,
         ]}
+        returnKeyType={searchProps.returnKeyType || "search"}
       />
 
-      {searchActions.map((action, index) => (
-        <HeaderAction
-          key={action.key || `${action.icon}-${index}`}
-          action={action}
-          color={action.color || actionColor}
-          size={action.size || actionSize}
-          badgeStyle={action.badgeStyle || badgeStyle}
-          badgeTextStyle={action.badgeTextStyle || badgeTextStyle}
-          buttonStyle={[styles.searchAction, searchActionStyle, action.style]}
-        />
-      ))}
+      <SearchActions
+        actions={actions}
+        color={actionColor}
+        size={actionSize}
+        gap={actionsGap}
+        actionStyle={actionStyle}
+        containerStyle={actionsContainerStyle}
+      />
     </View>
   );
-};
+}
 
-/*
-|--------------------------------------------------------------------------
-| Tabs
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+   TABS
+========================================================= */
 
-const HeaderTabs = ({
+function HeaderTabs({
   tabs = [],
-
   activeTab,
   defaultActiveTab,
-
   onTabChange,
 
   tabStyle,
@@ -365,532 +324,382 @@ const HeaderTabs = ({
 
   indicatorStyle,
 
-  color,
-  activeColor,
+  tabColor,
+  activeTabColor,
 
   scrollable = false,
-}) => {
+
+  containerStyle,
+}) {
   const [internalActiveTab, setInternalActiveTab] = useState(
-    defaultActiveTab ?? tabs?.[0]?.key ?? tabs?.[0]?.value,
+    defaultActiveTab || (tabs.length > 0 ? tabs[0]?.key || tabs[0]?.id : null),
   );
 
   const selectedTab = activeTab !== undefined ? activeTab : internalActiveTab;
 
+  if (!tabs || tabs.length === 0) {
+    return null;
+  }
+
   const handleTabPress = (tab) => {
-    const key = tab.key ?? tab.value ?? tab.label;
+    const key = tab.key || tab.id;
 
     if (activeTab === undefined) {
       setInternalActiveTab(key);
     }
 
-    onTabChange?.(tab, key);
+    if (onTabChange) {
+      onTabChange(key, tab);
+    }
   };
 
   return (
-    <View style={[styles.tabsContainer, scrollable && styles.tabsScrollable]}>
+    <View
+      style={[
+        styles.tabsContainer,
+        scrollable && styles.tabsScrollable,
+        containerStyle,
+      ]}
+    >
       {tabs.map((tab, index) => {
-        const key = tab.key ?? tab.value ?? tab.label ?? index;
-
+        const key = tab.key || tab.id || index;
         const isActive = selectedTab === key;
 
         return (
           <Pressable
             key={key}
             onPress={() => handleTabPress(tab)}
+            style={[
+              styles.tab,
+              tabStyle,
+              isActive && activeTabStyle,
+              tab.style,
+            ]}
             accessibilityRole="tab"
             accessibilityState={{
               selected: isActive,
             }}
-            style={[styles.tab, tabStyle, isActive && activeTabStyle]}
           >
             <Text
-              numberOfLines={1}
               style={[
                 styles.tabText,
                 {
-                  color: isActive ? activeColor : color,
+                  color: isActive ? activeTabColor : tabColor,
                 },
-
                 tabTextStyle,
-
                 isActive && activeTabTextStyle,
+                tab.textStyle,
               ]}
             >
-              {tab.label}
+              {tab.label || tab.title}
             </Text>
 
-            {isActive ? (
+            {isActive && (
               <View
                 style={[
                   styles.tabIndicator,
-                  {
-                    backgroundColor: activeColor,
-                  },
                   indicatorStyle,
+                  tab.indicatorStyle,
                 ]}
               />
-            ) : null}
+            )}
           </Pressable>
         );
       })}
     </View>
   );
-};
+}
 
-/*
-|--------------------------------------------------------------------------
-| Animation
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+   BACKGROUND
+========================================================= */
 
-const AnimatedHeader = ({
-  children,
-
-  animation = "fade",
-
-  animationDuration = DEFAULT_ANIMATION_DURATION,
-
-  animationDelay = 0,
-
-  slideDistance = DEFAULT_SLIDE_DISTANCE,
-
-  scaleFrom = DEFAULT_SCALE_FROM,
-
-  springConfig,
-
-  onAnimationStart,
-  onAnimationComplete,
-
-  style,
-}) => {
-  const initial = useMemo(() => {
-    switch (animation) {
-      case "fade":
-      case "fadeIn":
-        return {
-          opacity: 0,
-          scale: 1,
-          x: 0,
-          y: 0,
-        };
-
-      case "scale":
-        return {
-          opacity: 1,
-          scale: scaleFrom,
-          x: 0,
-          y: 0,
-        };
-
-      case "fadeScale":
-        return {
-          opacity: 0,
-          scale: scaleFrom,
-          x: 0,
-          y: 0,
-        };
-
-      case "slide":
-      case "slideFade":
-        return {
-          opacity: 0,
-          scale: 1,
-          x: 0,
-          y: slideDistance,
-        };
-
-      case "slideUp":
-        return {
-          opacity: 1,
-          scale: 1,
-          x: 0,
-          y: slideDistance,
-        };
-
-      case "slideDown":
-        return {
-          opacity: 1,
-          scale: 1,
-          x: 0,
-          y: -slideDistance,
-        };
-
-      case "slideLeft":
-        return {
-          opacity: 1,
-          scale: 1,
-          x: slideDistance,
-          y: 0,
-        };
-
-      case "slideRight":
-        return {
-          opacity: 1,
-          scale: 1,
-          x: -slideDistance,
-          y: 0,
-        };
-
-      case "spring":
-        return {
-          opacity: 0,
-          scale: scaleFrom,
-          x: 0,
-          y: 0,
-        };
-
-      default:
-        return {
-          opacity: 1,
-          scale: 1,
-          x: 0,
-          y: 0,
-        };
-    }
-  }, [animation, slideDistance, scaleFrom]);
-
-  const opacity = useSharedValue(initial.opacity);
-
-  const scale = useSharedValue(initial.scale);
-
-  const translateX = useSharedValue(initial.x);
-
-  const translateY = useSharedValue(initial.y);
-
-  useEffect(() => {
-    if (animation === "none") {
-      return;
-    }
-
-    opacity.value = initial.opacity;
-    scale.value = initial.scale;
-    translateX.value = initial.x;
-    translateY.value = initial.y;
-
-    if (onAnimationStart) {
-      runOnJS(onAnimationStart)();
-    }
-
-    const timingConfig = {
-      duration: animationDuration,
-      easing: Easing.out(Easing.cubic),
-    };
-
-    const complete = (finished) => {
-      if (finished && onAnimationComplete) {
-        runOnJS(onAnimationComplete)();
-      }
-    };
-
-    if (animation === "spring") {
-      opacity.value = withDelay(
-        animationDelay,
-        withTiming(1, timingConfig, complete),
-      );
-
-      scale.value = withDelay(
-        animationDelay,
-        withSpring(1, {
-          damping: springConfig?.damping ?? 16,
-
-          stiffness: springConfig?.stiffness ?? 180,
-
-          mass: springConfig?.mass ?? 0.8,
-
-          overshootClamping: springConfig?.overshootClamping ?? false,
-        }),
-      );
-
-      translateX.value = withDelay(
-        animationDelay,
-        withSpring(0, {
-          damping: springConfig?.damping ?? 16,
-
-          stiffness: springConfig?.stiffness ?? 180,
-
-          mass: springConfig?.mass ?? 0.8,
-        }),
-      );
-
-      translateY.value = withDelay(
-        animationDelay,
-        withSpring(0, {
-          damping: springConfig?.damping ?? 16,
-
-          stiffness: springConfig?.stiffness ?? 180,
-
-          mass: springConfig?.mass ?? 0.8,
-        }),
-      );
-
-      return;
-    }
-
-    opacity.value = withDelay(
-      animationDelay,
-      withTiming(1, timingConfig, complete),
-    );
-
-    scale.value = withDelay(animationDelay, withTiming(1, timingConfig));
-
-    translateX.value = withDelay(animationDelay, withTiming(0, timingConfig));
-
-    translateY.value = withDelay(animationDelay, withTiming(0, timingConfig));
-  }, [
-    animation,
-    animationDuration,
-    animationDelay,
-    initial,
-    springConfig,
-    onAnimationStart,
-    onAnimationComplete,
-    opacity,
-    scale,
-    translateX,
-    translateY,
-  ]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    if (animation === "none") {
-      return {};
-    }
-
-    return {
-      opacity: opacity.value,
-
-      transform: [
-        {
-          translateX: translateX.value,
-        },
-        {
-          translateY: translateY.value,
-        },
-        {
-          scale: scale.value,
-        },
-      ],
-    };
-  });
-
-  return (
-    <Animated.View style={[styles.animatedContainer, style, animatedStyle]}>
-      {children}
-    </Animated.View>
-  );
-};
-
-/*
-|--------------------------------------------------------------------------
-| Background
-|--------------------------------------------------------------------------
-*/
-
-const HeaderBackground = ({
+function HeaderBackground({
   background,
-  themeColors,
-
+  backgroundStyle,
   overlayColor,
-  overlayOpacity = 0,
-
+  overlayOpacity,
   children,
-
-  style,
-}) => {
-  const config = background || {
-    type: "theme",
-  };
-
-  const type = config.type || "theme";
-
-  /*
-   * Theme
-   */
-  if (type === "theme") {
+}) {
+  if (!background || background.type === "theme") {
     return (
-      <View
-        style={[
-          styles.background,
-          {
-            backgroundColor: themeColors.background,
-          },
-          style,
-        ]}
-      >
-        {children}
-      </View>
-    );
-  }
-
-  /*
-   * Color
-   */
-  if (type === "color") {
-    return (
-      <View
-        style={[
-          styles.background,
-          {
-            backgroundColor: config.color || themeColors.background,
-          },
-          style,
-        ]}
-      >
-        {children}
-      </View>
-    );
-  }
-
-  /*
-   * Gradient
-   */
-  if (type === "gradient") {
-    return (
-      <LinearGradient
-        colors={config.colors || [themeColors.primary, themeColors.background]}
-        start={
-          config.start || {
-            x: 0,
-            y: 0,
-          }
-        }
-        end={
-          config.end || {
-            x: 1,
-            y: 1,
-          }
-        }
-        locations={config.locations}
-        style={[styles.background, style]}
-      >
-        {overlayOpacity > 0 ? (
+      <View style={[StyleSheet.absoluteFillObject, backgroundStyle]}>
+        {overlayOpacity > 0 && (
           <View
             pointerEvents="none"
             style={[
-              styles.overlay,
+              StyleSheet.absoluteFillObject,
               {
-                backgroundColor: overlayColor || "#000000",
-
+                backgroundColor: overlayColor,
                 opacity: overlayOpacity,
               },
             ]}
           />
-        ) : null}
+        )}
+
+        {children}
+      </View>
+    );
+  }
+
+  if (background.type === "color") {
+    return (
+      <View
+        style={[
+          StyleSheet.absoluteFillObject,
+          {
+            backgroundColor: background.color,
+          },
+          backgroundStyle,
+        ]}
+      >
+        {overlayOpacity > 0 && (
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFillObject,
+              {
+                backgroundColor: overlayColor,
+                opacity: overlayOpacity,
+              },
+            ]}
+          />
+        )}
+
+        {children}
+      </View>
+    );
+  }
+
+  if (background.type === "gradient") {
+    return (
+      <LinearGradient
+        colors={background.colors || []}
+        start={background.start || { x: 0, y: 0 }}
+        end={background.end || { x: 1, y: 1 }}
+        style={[StyleSheet.absoluteFillObject, backgroundStyle]}
+      >
+        {overlayOpacity > 0 && (
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFillObject,
+              {
+                backgroundColor: overlayColor,
+                opacity: overlayOpacity,
+              },
+            ]}
+          />
+        )}
 
         {children}
       </LinearGradient>
     );
   }
 
-  /*
-   * Image
-   */
-  if (type === "image") {
+  if (background.type === "image") {
     return (
       <ImageBackground
-        source={config.source}
-        resizeMode={config.resizeMode || "cover"}
-        imageStyle={config.imageStyle}
-        style={[styles.background, style]}
+        source={background.source}
+        resizeMode={background.resizeMode || "cover"}
+        style={[StyleSheet.absoluteFillObject, backgroundStyle]}
       >
-        {overlayOpacity > 0 ? (
+        {overlayOpacity > 0 && (
           <View
             pointerEvents="none"
             style={[
-              styles.overlay,
+              StyleSheet.absoluteFillObject,
               {
-                backgroundColor: overlayColor || "#000000",
-
+                backgroundColor: overlayColor,
                 opacity: overlayOpacity,
               },
             ]}
           />
-        ) : null}
+        )}
 
         {children}
       </ImageBackground>
     );
   }
 
-  /*
-   * Blur
-   */
-  if (type === "blur") {
+  if (background.type === "blur") {
     return (
-      <View
-        style={[
-          styles.background,
-          {
-            backgroundColor: config.backgroundColor || themeColors.background,
-          },
-          style,
-        ]}
+      <BlurView
+        intensity={background.intensity || 70}
+        tint={background.tint || "default"}
+        style={[StyleSheet.absoluteFillObject, backgroundStyle]}
       >
-        <BlurView
-          intensity={config.intensity ?? 70}
-          tint={config.tint || "default"}
-          style={styles.blur}
-        />
+        {overlayOpacity > 0 && (
+          <View
+            pointerEvents="none"
+            style={[
+              StyleSheet.absoluteFillObject,
+              {
+                backgroundColor: overlayColor,
+                opacity: overlayOpacity,
+              },
+            ]}
+          />
+        )}
 
         {children}
-      </View>
+      </BlurView>
     );
   }
 
-  /*
-   * Fallback
-   */
   return (
-    <View
-      style={[
-        styles.background,
-        {
-          backgroundColor: themeColors.background,
-        },
-        style,
-      ]}
-    >
+    <View style={[StyleSheet.absoluteFillObject, backgroundStyle]}>
       {children}
     </View>
   );
-};
+}
 
-/*
-|--------------------------------------------------------------------------
-| UIHeader
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+   ANIMATION
+========================================================= */
 
-const UIHeader = ({
-  /*
-   * Back
-   */
+function getEnteringAnimation({
+  animation,
+  duration,
+  delay,
+  slideDistance,
+  scaleFrom,
+}) {
+  if (!animation || animation === "none") {
+    return undefined;
+  }
+
+  const config = {
+    duration,
+    delay,
+  };
+
+  switch (animation) {
+    case "fade":
+      return FadeIn.duration(duration).delay(delay);
+
+    case "fadeScale":
+      return FadeInZoom.duration(duration).delay(delay);
+
+    case "slide":
+    case "slideUp":
+      return SlideInUp.duration(duration).delay(delay);
+
+    case "slideDown":
+      return SlideInDown.duration(duration).delay(delay);
+
+    case "slideLeft":
+      return SlideInLeft.duration(duration).delay(delay);
+
+    case "slideRight":
+      return SlideInRight.duration(duration).delay(delay);
+
+    case "spring":
+      return ZoomIn.springify().damping(14).stiffness(150).delay(delay);
+
+    default:
+      return FadeIn.duration(duration).delay(delay);
+  }
+}
+
+/* =========================================================
+   ANIMATED HEADER
+========================================================= */
+
+function AnimatedHeader({
+  reanimated,
+  animation,
+  animationDuration,
+  animationDelay,
+  slideDistance,
+  scaleFrom,
+
+  onAnimationStart,
+  onAnimationComplete,
+
+  children,
+  style,
+}) {
+  const [animationStarted, setAnimationStarted] = useState(false);
+
+  useEffect(() => {
+    if (reanimated && animation !== "none") {
+      setAnimationStarted(false);
+
+      const timer = setTimeout(() => {
+        setAnimationStarted(true);
+
+        if (onAnimationStart) {
+          onAnimationStart();
+        }
+      }, animationDelay || 0);
+
+      return () => clearTimeout(timer);
+    }
+  }, [reanimated, animation, animationDelay, onAnimationStart]);
+
+  if (!reanimated) {
+    return <View style={style}>{children}</View>;
+  }
+
+  const entering = getEnteringAnimation({
+    animation,
+    duration: animationDuration,
+    delay: animationDelay,
+    slideDistance,
+    scaleFrom,
+  });
+
+  return (
+    <Animated.View
+      entering={entering}
+      style={style}
+      onLayout={() => {
+        if (animationStarted && onAnimationComplete) {
+          onAnimationComplete();
+        }
+      }}
+    >
+      {children}
+    </Animated.View>
+  );
+}
+
+/* =========================================================
+   UI HEADER
+========================================================= */
+
+export default function UIHeader({
+  /* -----------------------------------------
+     LEFT
+  ----------------------------------------- */
+
   showBack = false,
   onBackPress,
 
-  backIcon = "chevron-back",
-  backIconSize = 27,
+  backIcon = "arrow-back",
+  backIconSize = 24,
   backIconColor,
 
-  /*
-   * Custom left
-   */
   leftContent,
 
-  /*
-   * Location
-   */
   location,
   showLocation = false,
 
-  locationIcon = "location",
+  locationIcon = "location-outline",
   locationIconSize = 22,
   locationIconColor,
 
   onLocationPress,
 
-  /*
-   * Center
-   */
+  leftWidth,
+  leftFlex,
+  leftStyle,
+
+  /* -----------------------------------------
+     CENTER
+  ----------------------------------------- */
+
   title,
   subtitle,
 
@@ -900,22 +709,33 @@ const UIHeader = ({
   titleStyle,
   subtitleStyle,
 
-  /*
-   * Right actions
-   */
+  centerWidth,
+  centerFlex,
+  centerStyle,
+
+  /* -----------------------------------------
+     RIGHT
+  ----------------------------------------- */
+
   rightActions = [],
 
   rightActionColor,
   rightActionSize = 24,
 
-  actionStyle,
+  rightActionsGap = 8,
 
+  actionStyle,
   badgeStyle,
   badgeTextStyle,
 
-  /*
-   * Search
-   */
+  rightWidth,
+  rightFlex,
+  rightStyle,
+
+  /* -----------------------------------------
+     SEARCH
+  ----------------------------------------- */
+
   showSearch = false,
 
   searchValue,
@@ -928,35 +748,38 @@ const UIHeader = ({
 
   searchPlaceholder = "Search...",
 
-  searchActions = [],
-
   searchIcon = "search-outline",
-  searchIconSize = 22,
-
+  searchIconSize = 21,
   searchIconColor,
+
   searchTextColor,
   searchPlaceholderColor,
 
   searchBackgroundColor,
   searchBorderColor,
   searchBorderWidth = 0,
-  searchRadius = 14,
+  searchRadius = 12,
+
+  searchActions = [],
+  searchActionsGap = 8,
+
+  searchActionColor,
+  searchActionSize = 22,
+
+  onSearchPress,
 
   searchContainerStyle,
   searchInputStyle,
   searchActionStyle,
-
-  searchActionColor,
-  searchActionSize = 21,
-
-  onSearchPress,
+  searchActionsStyle,
 
   searchProps,
 
-  /*
-   * Tabs
-   */
-  tabs,
+  /* -----------------------------------------
+     TABS
+  ----------------------------------------- */
+
+  tabs = [],
   showTabs = false,
 
   activeTab,
@@ -977,698 +800,803 @@ const UIHeader = ({
 
   tabsScrollable = false,
 
-  /*
-   * Background
-   */
+  tabsContainerStyle,
+
+  /* -----------------------------------------
+     BACKGROUND
+  ----------------------------------------- */
+
   background = {
     type: "theme",
   },
 
   backgroundStyle,
 
-  overlayColor,
+  overlayColor = "#000000",
   overlayOpacity = 0,
 
-  /*
-   * Dimensions
-   */
-  height = DEFAULT_HEIGHT,
+  /* -----------------------------------------
+     HEADER GEOMETRY
+  ----------------------------------------- */
 
-  horizontalPadding = 16,
+  height,
 
-  searchSpacing = 10,
+  minHeight,
+  maxHeight,
 
-  tabsSpacing = 8,
+  padding,
+  paddingHorizontal = 16,
+  paddingVertical,
 
-  /*
-   * Safe Area
-   *
-   * Recommended:
-   *
-   * <UILayout>
-   *   <UIHeader />
-   * </UILayout>
-   *
-   * In that case safeArea=false prevents
-   * double top inset.
-   *
-   * For standalone UIHeader:
-   *
-   * <UIHeader safeArea />
-   */
+  paddingTop = 0,
+  paddingBottom = 0,
+  paddingLeft,
+  paddingRight,
+
+  margin,
+  marginHorizontal = 0,
+  marginVertical = 0,
+
+  marginTop = 0,
+  marginBottom = 0,
+  marginLeft,
+  marginRight,
+
+  headerRowHeight,
+
+  headerRowGap = 0,
+
+  searchSpacing = 12,
+  searchMarginTop,
+  searchMarginBottom = 0,
+
+  tabsSpacing = 12,
+  tabsMarginTop,
+  tabsMarginBottom = 0,
+
+  /* -----------------------------------------
+     SAFE AREA
+  ----------------------------------------- */
+
   safeArea = false,
 
   safeAreaEdges = ["top"],
 
-  /*
-   * Reanimated
-   */
+  /* -----------------------------------------
+     ANIMATION
+  ----------------------------------------- */
+
   reanimated = false,
 
-  animation = "fade",
+  animation = "none",
 
-  animationDuration = DEFAULT_ANIMATION_DURATION,
-
+  animationDuration = 350,
   animationDelay = 0,
 
-  slideDistance = DEFAULT_SLIDE_DISTANCE,
-
-  scaleFrom = DEFAULT_SCALE_FROM,
-
-  springConfig,
+  slideDistance = 20,
+  scaleFrom = 0.95,
 
   onAnimationStart,
   onAnimationComplete,
 
-  /*
-   * Styles
-   */
+  /* -----------------------------------------
+     ROOT
+  ----------------------------------------- */
+
   style,
+  headerRowStyle,
 
   contentStyle,
 
-  /*
-   * Accessibility
-   */
-  accessible,
+  accessible = true,
   accessibilityLabel,
 
-  /*
-   * Misc
-   */
   testID,
+
   onLayout,
 
   children,
-}) => {
-  /*
-   * Global UIProvider theme.
-   *
-   * UIHeader ONLY reads it.
-   */
+}) {
+  /* =====================================================
+     THEME
+  ===================================================== */
+
   const themeContext = useUITheme();
 
-  const theme = themeContext?.theme || themeContext || {};
+  const theme =
+    themeContext?.theme || themeContext?.activeTheme || themeContext;
 
-  const themeColors = getThemeColors(theme);
+  const colors = themeContext?.colors || theme?.colors || {};
 
-  /*
-   * Resolve colors.
-   */
-  const resolvedTitleColor = titleColor || themeColors.text;
+  const isDark = themeContext?.isDark ?? false;
 
-  const resolvedSubtitleColor = subtitleColor || themeColors.secondaryText;
+  /* =====================================================
+     THEME COLORS
+  ===================================================== */
 
-  const resolvedBackColor = backIconColor || themeColors.text;
+  const themeBackground =
+    colors?.background?.primary ||
+    colors?.background ||
+    (isDark ? "#111111" : "#FFFFFF");
 
-  const resolvedLocationColor = locationIconColor || themeColors.text;
+  const themeText =
+    colors?.text?.primary || colors?.text || (isDark ? "#FFFFFF" : "#111111");
 
-  const resolvedRightColor = rightActionColor || themeColors.text;
+  const themeSecondaryText =
+    colors?.text?.secondary || (isDark ? "#AAAAAA" : "#666666");
 
-  const resolvedSearchBackground = searchBackgroundColor || themeColors.surface;
+  const themeBorder =
+    colors?.border?.primary ||
+    colors?.border ||
+    (isDark ? "#333333" : "#E5E5E5");
 
-  const resolvedSearchText = searchTextColor || themeColors.text;
+  const themeSurface =
+    colors?.surface?.primary ||
+    colors?.surface ||
+    (isDark ? "#222222" : "#F5F5F5");
 
-  const resolvedSearchPlaceholder =
-    searchPlaceholderColor || themeColors.secondaryText;
+  const resolvedBackground = useMemo(() => {
+    if (background && background.type === "theme") {
+      return {
+        type: "color",
+        color: themeBackground,
+      };
+    }
 
-  const resolvedSearchIcon = searchIconColor || themeColors.secondaryText;
+    return background;
+  }, [background, themeBackground]);
 
-  const resolvedSearchAction = searchActionColor || themeColors.text;
+  /* =====================================================
+     RESOLVED COLORS
+  ===================================================== */
 
-  const resolvedTabColor = tabColor || themeColors.secondaryText;
+  const resolvedBackColor = backIconColor || themeText;
 
-  const resolvedActiveTabColor = activeTabColor || themeColors.primary;
+  const resolvedLocationColor = locationIconColor || themeText;
 
-  /*
-   * Feature checks.
-   */
-  const hasLocation = showLocation || Boolean(location);
+  const resolvedTitleColor = titleColor || themeText;
 
-  const hasSearch = showSearch === true;
+  const resolvedSubtitleColor = subtitleColor || themeSecondaryText;
 
-  const hasTabs = showTabs === true && Array.isArray(tabs) && tabs.length > 0;
+  const resolvedRightActionColor = rightActionColor || themeText;
 
-  /*
-   * Header row.
-   */
-  const headerRow = (
-    <View
-      style={[
-        styles.headerRow,
-        {
-          minHeight: height,
-          paddingHorizontal: horizontalPadding,
-        },
-        contentStyle,
-      ]}
-    >
-      {/* LEFT */}
+  const resolvedSearchIconColor = searchIconColor || themeSecondaryText;
 
-      <View style={styles.leftSection}>
-        {leftContent ? (
-          leftContent
-        ) : showBack ? (
-          <Pressable
-            onPress={onBackPress}
-            disabled={!onBackPress}
-            hitSlop={10}
-            accessibilityRole="button"
-            accessibilityLabel="Go back"
-            style={({ pressed }) => [
-              styles.iconButton,
-              pressed && styles.actionPressed,
-            ]}
-          >
+  const resolvedSearchTextColor = searchTextColor || themeText;
+
+  const resolvedSearchPlaceholderColor =
+    searchPlaceholderColor || themeSecondaryText;
+
+  const resolvedSearchBackground = searchBackgroundColor || themeSurface;
+
+  const resolvedSearchBorder = searchBorderColor || themeBorder;
+
+  const resolvedSearchActionColor = searchActionColor || themeText;
+
+  const resolvedTabColor = tabColor || themeSecondaryText;
+
+  const resolvedActiveTabColor = activeTabColor || themeText;
+
+  /* =====================================================
+     GEOMETRY
+  ===================================================== */
+
+  const resolvedPaddingLeft = paddingLeft ?? paddingHorizontal;
+
+  const resolvedPaddingRight = paddingRight ?? paddingHorizontal;
+
+  const resolvedPaddingTop = paddingTop ?? paddingVertical ?? 0;
+
+  const resolvedPaddingBottom = paddingBottom ?? paddingVertical ?? 0;
+
+  const resolvedMarginLeft = marginLeft ?? marginHorizontal;
+
+  const resolvedMarginRight = marginRight ?? marginHorizontal;
+
+  const resolvedMarginTop = marginTop ?? marginVertical;
+
+  const resolvedMarginBottom = marginBottom ?? marginVertical;
+
+  /* =====================================================
+     ROOT STYLE
+  ===================================================== */
+
+  const rootStyle = [
+    styles.root,
+
+    {
+      backgroundColor: "transparent",
+
+      ...(height !== undefined && {
+        height,
+      }),
+
+      ...(minHeight !== undefined && {
+        minHeight,
+      }),
+
+      ...(maxHeight !== undefined && {
+        maxHeight,
+      }),
+
+      ...(padding !== undefined && {
+        padding,
+      }),
+
+      ...(paddingLeft !== undefined && {
+        paddingLeft,
+      }),
+
+      ...(paddingRight !== undefined && {
+        paddingRight,
+      }),
+
+      ...(paddingTop !== undefined && {
+        paddingTop,
+      }),
+
+      ...(paddingBottom !== undefined && {
+        paddingBottom,
+      }),
+
+      ...(paddingHorizontal !== undefined && {
+        paddingLeft: resolvedPaddingLeft,
+        paddingRight: resolvedPaddingRight,
+      }),
+
+      ...(paddingVertical !== undefined && {
+        paddingTop: resolvedPaddingTop,
+        paddingBottom: resolvedPaddingBottom,
+      }),
+
+      ...(margin !== undefined && {
+        margin,
+      }),
+
+      marginLeft: resolvedMarginLeft,
+      marginRight: resolvedMarginRight,
+      marginTop: resolvedMarginTop,
+      marginBottom: resolvedMarginBottom,
+    },
+
+    style,
+  ];
+
+  /* =====================================================
+     HEADER ROW
+  ===================================================== */
+
+  const rowStyle = [
+    styles.headerRow,
+
+    headerRowHeight !== undefined && {
+      height: headerRowHeight,
+    },
+
+    headerRowGap !== undefined && {
+      columnGap: 0,
+    },
+
+    {
+      paddingLeft: resolvedPaddingLeft,
+      paddingRight: resolvedPaddingRight,
+    },
+
+    headerRowStyle,
+    contentStyle,
+  ];
+
+  /* =====================================================
+     LEFT STYLE
+  ===================================================== */
+
+  const resolvedLeftStyle = [
+    styles.leftSection,
+
+    leftWidth !== undefined && {
+      width: leftWidth,
+      flexGrow: 0,
+      flexShrink: 0,
+    },
+
+    leftFlex !== undefined && {
+      flex: leftFlex,
+    },
+
+    leftStyle,
+  ];
+
+  /* =====================================================
+     CENTER STYLE
+  ===================================================== */
+
+  const resolvedCenterStyle = [
+    styles.centerSection,
+
+    centerWidth !== undefined && {
+      width: centerWidth,
+      flexGrow: 0,
+      flexShrink: 0,
+    },
+
+    centerFlex !== undefined && {
+      flex: centerFlex,
+    },
+
+    centerStyle,
+  ];
+
+  /* =====================================================
+     RIGHT STYLE
+  ===================================================== */
+
+  const resolvedRightStyle = [
+    styles.rightSection,
+
+    rightWidth !== undefined && {
+      width: rightWidth,
+      flexGrow: 0,
+      flexShrink: 0,
+    },
+
+    rightFlex !== undefined && {
+      flex: rightFlex,
+    },
+
+    rightStyle,
+  ];
+
+  /* =====================================================
+     HEADER CONTENT
+  ===================================================== */
+
+  const headerContent = (
+    <>
+      {/* ================================================
+          HEADER ROW
+      ================================================ */}
+
+      <View style={rowStyle}>
+        {/* --------------------------------------------
+            LEFT
+        -------------------------------------------- */}
+
+        <View style={resolvedLeftStyle}>
+          {leftContent}
+
+          {!leftContent && showBack && (
             <HeaderIcon
               icon={backIcon}
               size={backIconSize}
               color={resolvedBackColor}
+              onPress={onBackPress}
+              accessibilityLabel="Go back"
             />
-          </Pressable>
-        ) : hasLocation ? (
-          <Pressable
-            onPress={onLocationPress}
-            disabled={!onLocationPress}
-            accessibilityRole={onLocationPress ? "button" : undefined}
-            style={styles.locationContainer}
-          >
-            <HeaderIcon
-              icon={locationIcon}
-              size={locationIconSize}
-              color={resolvedLocationColor}
-            />
+          )}
 
-            <View style={styles.locationText}>
-              {location?.city || location?.title ? (
-                <View style={styles.locationTitleRow}>
-                  <Text
-                    numberOfLines={1}
-                    style={[
-                      styles.locationTitle,
-                      {
-                        color: resolvedTitleColor,
-                      },
-                      location?.titleStyle,
-                    ]}
-                  >
-                    {location.city || location.title}
-                  </Text>
+          {!leftContent && !showBack && showLocation && (
+            <Pressable
+              onPress={onLocationPress}
+              disabled={!onLocationPress}
+              style={styles.locationContainer}
+              accessibilityRole={onLocationPress ? "button" : undefined}
+            >
+              <Ionicons
+                name={locationIcon}
+                size={locationIconSize}
+                color={resolvedLocationColor}
+              />
 
-                  {location?.showChevron !== false ? (
-                    <Ionicons
-                      name="chevron-down"
-                      size={15}
-                      color={resolvedSubtitleColor}
-                    />
-                  ) : null}
-                </View>
-              ) : null}
-
-              {location?.address ? (
+              {location ? (
                 <Text
                   numberOfLines={1}
                   style={[
-                    styles.locationAddress,
+                    styles.locationText,
                     {
-                      color: resolvedSubtitleColor,
+                      color: resolvedTitleColor,
                     },
-                    location?.addressStyle,
                   ]}
                 >
-                  {location.address}
+                  {location}
                 </Text>
               ) : null}
-            </View>
-          </Pressable>
-        ) : null}
-      </View>
+            </Pressable>
+          )}
+        </View>
 
-      {/* CENTER */}
+        {/* --------------------------------------------
+            CENTER
+        -------------------------------------------- */}
 
-      <View pointerEvents="box-none" style={styles.centerSection}>
-        {title ? (
-          <Text
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            style={[
-              styles.title,
-              {
-                color: resolvedTitleColor,
-              },
-              titleStyle,
-            ]}
-          >
-            {title}
-          </Text>
-        ) : null}
+        <View style={resolvedCenterStyle}>
+          {title ? (
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.title,
+                {
+                  color: resolvedTitleColor,
+                },
+                titleStyle,
+              ]}
+            >
+              {title}
+            </Text>
+          ) : null}
 
-        {subtitle ? (
-          <Text
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            style={[
-              styles.subtitle,
-              {
-                color: resolvedSubtitleColor,
-              },
-              subtitleStyle,
-            ]}
-          >
-            {subtitle}
-          </Text>
-        ) : null}
-      </View>
+          {subtitle ? (
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.subtitle,
+                {
+                  color: resolvedSubtitleColor,
+                },
+                subtitleStyle,
+              ]}
+            >
+              {subtitle}
+            </Text>
+          ) : null}
+        </View>
 
-      {/* RIGHT */}
+        {/* --------------------------------------------
+            RIGHT
+        -------------------------------------------- */}
 
-      <View style={styles.rightSection}>
-        {rightActions.map((action, index) => (
-          <HeaderAction
-            key={action.key || `${action.icon}-${index}`}
-            action={action}
-            color={action.color || resolvedRightColor}
-            size={action.size || rightActionSize}
-            badgeStyle={action.badgeStyle || badgeStyle}
-            badgeTextStyle={action.badgeTextStyle || badgeTextStyle}
-            buttonStyle={[actionStyle, action.style]}
+        <View style={resolvedRightStyle}>
+          <HeaderActions
+            actions={rightActions}
+            color={resolvedRightActionColor}
+            size={rightActionSize}
+            gap={rightActionsGap}
+            actionStyle={actionStyle}
+            badgeStyle={badgeStyle}
+            badgeTextStyle={badgeTextStyle}
           />
-        ))}
+        </View>
       </View>
-    </View>
-  );
 
-  /*
-   * Search.
-   */
-  const searchContent = hasSearch ? (
-    <View
-      style={[
-        styles.searchWrapper,
-        {
-          paddingHorizontal: horizontalPadding,
+      {/* ================================================
+          SEARCH
+      ================================================ */}
 
-          marginTop: searchSpacing,
-        },
-      ]}
-    >
-      <HeaderSearch
-        value={searchValue}
-        defaultValue={searchDefaultValue}
-        onChangeText={onSearchChange}
-        onSubmitEditing={onSearchSubmit}
-        onFocus={onSearchFocus}
-        onBlur={onSearchBlur}
-        placeholder={searchPlaceholder}
-        searchActions={searchActions}
-        searchIcon={searchIcon}
-        searchIconSize={searchIconSize}
-        searchIconColor={resolvedSearchIcon}
-        searchTextColor={resolvedSearchText}
-        searchPlaceholderColor={resolvedSearchPlaceholder}
-        searchBackgroundColor={resolvedSearchBackground}
-        searchBorderColor={searchBorderColor || themeColors.border}
-        searchBorderWidth={searchBorderWidth}
-        searchRadius={searchRadius}
-        searchContainerStyle={searchContainerStyle}
-        searchInputStyle={searchInputStyle}
-        searchActionStyle={searchActionStyle}
-        actionColor={resolvedSearchAction}
-        actionSize={searchActionSize}
-        badgeStyle={badgeStyle}
-        badgeTextStyle={badgeTextStyle}
-        onSearchPress={onSearchPress}
-        {...searchProps}
-      />
-    </View>
-  ) : null;
+      {showSearch && (
+        <View
+          style={[
+            {
+              marginTop: searchMarginTop ?? searchSpacing,
 
-  /*
-   * Tabs.
-   */
-  const tabsContent = hasTabs ? (
-    <View
-      style={[
-        styles.tabsWrapper,
-        {
-          marginTop: tabsSpacing,
+              marginBottom: searchMarginBottom,
+            },
+          ]}
+        >
+          <HeaderSearch
+            value={searchValue}
+            defaultValue={searchDefaultValue}
+            onChangeText={onSearchChange}
+            onSubmitEditing={onSearchSubmit}
+            onFocus={onSearchFocus}
+            onBlur={onSearchBlur}
+            placeholder={searchPlaceholder}
+            searchIcon={searchIcon}
+            searchIconSize={searchIconSize}
+            searchIconColor={resolvedSearchIconColor}
+            searchTextColor={resolvedSearchTextColor}
+            searchPlaceholderColor={resolvedSearchPlaceholderColor}
+            backgroundColor={resolvedSearchBackground}
+            borderColor={resolvedSearchBorder}
+            borderWidth={searchBorderWidth}
+            radius={searchRadius}
+            actions={searchActions}
+            actionsGap={searchActionsGap}
+            actionColor={resolvedSearchActionColor}
+            actionSize={searchActionSize}
+            onSearchPress={onSearchPress}
+            containerStyle={searchContainerStyle}
+            inputStyle={searchInputStyle}
+            actionStyle={searchActionStyle}
+            actionsContainerStyle={searchActionsStyle}
+            searchProps={searchProps}
+          />
+        </View>
+      )}
 
-          paddingHorizontal: horizontalPadding,
-        },
-      ]}
-    >
-      <HeaderTabs
-        tabs={tabs}
-        activeTab={activeTab}
-        defaultActiveTab={defaultActiveTab}
-        onTabChange={onTabChange}
-        tabStyle={tabStyle}
-        activeTabStyle={activeTabStyle}
-        tabTextStyle={tabTextStyle}
-        activeTabTextStyle={activeTabTextStyle}
-        indicatorStyle={indicatorStyle}
-        color={resolvedTabColor}
-        activeColor={resolvedActiveTabColor}
-        scrollable={tabsScrollable}
-      />
-    </View>
-  ) : null;
+      {/* ================================================
+          TABS
+      ================================================ */}
 
-  /*
-   * Header body.
-   *
-   * IMPORTANT:
-   * No flex: 1 here.
-   */
-  const headerBody = (
-    <View style={styles.headerBody}>
-      {headerRow}
+      {showTabs && tabs.length > 0 && (
+        <View
+          style={[
+            {
+              marginTop: tabsMarginTop ?? tabsSpacing,
 
-      {searchContent}
-
-      {tabsContent}
+              marginBottom: tabsMarginBottom,
+            },
+          ]}
+        >
+          <HeaderTabs
+            tabs={tabs}
+            activeTab={activeTab}
+            defaultActiveTab={defaultActiveTab}
+            onTabChange={onTabChange}
+            tabStyle={tabStyle}
+            activeTabStyle={activeTabStyle}
+            tabTextStyle={tabTextStyle}
+            activeTabTextStyle={activeTabTextStyle}
+            indicatorStyle={indicatorStyle}
+            tabColor={resolvedTabColor}
+            activeTabColor={resolvedActiveTabColor}
+            scrollable={tabsScrollable}
+            containerStyle={tabsContainerStyle}
+          />
+        </View>
+      )}
 
       {children}
-    </View>
+    </>
   );
 
-  /*
-   * Optional animation.
-   */
-  const content = reanimated ? (
+  /* =====================================================
+     BACKGROUND
+  ===================================================== */
+
+  const backgroundLayer = (
+    <HeaderBackground
+      background={resolvedBackground}
+      backgroundStyle={backgroundStyle}
+      overlayColor={overlayColor}
+      overlayOpacity={overlayOpacity}
+    >
+      {null}
+    </HeaderBackground>
+  );
+
+  /* =====================================================
+     MAIN HEADER
+  ===================================================== */
+
+  const header = (
     <AnimatedHeader
-      animation={resolveAnimationType(animation)}
+      reanimated={reanimated}
+      animation={animation}
       animationDuration={animationDuration}
       animationDelay={animationDelay}
       slideDistance={slideDistance}
       scaleFrom={scaleFrom}
-      springConfig={springConfig}
       onAnimationStart={onAnimationStart}
       onAnimationComplete={onAnimationComplete}
+      style={rootStyle}
     >
-      {headerBody}
-    </AnimatedHeader>
-  ) : (
-    headerBody
-  );
+      <View style={styles.backgroundLayer} pointerEvents="none">
+        <HeaderBackground
+          background={resolvedBackground}
+          backgroundStyle={backgroundStyle}
+          overlayColor={overlayColor}
+          overlayOpacity={overlayOpacity}
+        />
+      </View>
 
-  /*
-   * Background.
-   *
-   * IMPORTANT:
-   * Background does NOT use flex: 1.
-   */
-  const backgroundContent = (
-    <HeaderBackground
-      background={background}
-      themeColors={themeColors}
-      overlayColor={overlayColor}
-      overlayOpacity={overlayOpacity}
-      style={backgroundStyle}
-    >
-      {content}
-    </HeaderBackground>
-  );
-
-  /*
-   * Standalone safe area.
-   *
-   * When UILayout already provides safe area,
-   * leave safeArea={false}.
-   */
-  if (safeArea) {
-    return (
-      <SafeAreaView
-        edges={safeAreaEdges}
-        style={[styles.root, style]}
-        testID={testID}
-        onLayout={onLayout}
+      <View
+        style={styles.contentLayer}
         accessible={accessible}
         accessibilityLabel={accessibilityLabel}
+        testID={testID}
+        onLayout={onLayout}
       >
-        {backgroundContent}
+        {headerContent}
+      </View>
+    </AnimatedHeader>
+  );
+
+  /* =====================================================
+     SAFE AREA
+  ===================================================== */
+
+  if (safeArea) {
+    return (
+      <SafeAreaView edges={safeAreaEdges} style={styles.safeArea}>
+        {header}
       </SafeAreaView>
     );
   }
 
-  return (
-    <View
-      style={[styles.root, style]}
-      testID={testID}
-      onLayout={onLayout}
-      accessible={accessible}
-      accessibilityLabel={accessibilityLabel}
-    >
-      {backgroundContent}
-    </View>
-  );
-};
+  return header;
+}
 
-/*
-|--------------------------------------------------------------------------
-| Animation resolver
-|--------------------------------------------------------------------------
-*/
-
-const resolveAnimationType = (animation) => {
-  if (!animation) {
-    return "fade";
-  }
-
-  if (typeof animation === "string") {
-    return animation;
-  }
-
-  return animation.type || "fade";
-};
-
-/*
-|--------------------------------------------------------------------------
-| Styles
-|--------------------------------------------------------------------------
-*/
+/* =========================================================
+   STYLES
+========================================================= */
 
 const styles = StyleSheet.create({
-  /*
-   * IMPORTANT:
-   * UIHeader must NOT have flex: 1.
-   */
+  safeArea: {
+    width: "100%",
+  },
+
   root: {
     width: "100%",
+    position: "relative",
+    overflow: "hidden",
   },
 
-  background: {
-    width: "100%",
-  },
-
-  headerBody: {
-    width: "100%",
-  },
-
-  animatedContainer: {
-    width: "100%",
-  },
-
-  overlay: {
+  backgroundLayer: {
     ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
 
-  blur: {
-    ...StyleSheet.absoluteFillObject,
+  contentLayer: {
+    width: "100%",
+    position: "relative",
+    zIndex: 1,
   },
 
-  /*
-   * Header row
-   */
   headerRow: {
     width: "100%",
+    minHeight: 56,
+
     flexDirection: "row",
     alignItems: "center",
+
+    justifyContent: "space-between",
   },
 
   leftSection: {
-    flex: 1,
     minWidth: 0,
+
     flexDirection: "row",
     alignItems: "center",
+
     justifyContent: "flex-start",
+
+    flexShrink: 1,
   },
 
   centerSection: {
-    flex: 1.4,
     minWidth: 0,
+
+    flexDirection: "column",
     alignItems: "center",
     justifyContent: "center",
+
+    flex: 1,
+
     paddingHorizontal: 8,
   },
 
   rightSection: {
-    flex: 1,
     minWidth: 0,
+
     flexDirection: "row",
     alignItems: "center",
+
     justifyContent: "flex-end",
+
+    flexShrink: 0,
   },
 
-  /*
-   * Buttons
-   */
-  iconButton: {
-    width: 42,
-    height: 42,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: 21,
-  },
-
-  actionButton: {
-    minWidth: 40,
-    minHeight: 40,
-    paddingHorizontal: 5,
-    alignItems: "center",
-    justifyContent: "center",
-    position: "relative",
-    borderRadius: 20,
-    flexDirection: "row",
-    marginLeft: 2,
-  },
-
-  actionPressed: {
-    opacity: 0.55,
-  },
-
-  actionDisabled: {
-    opacity: 0.4,
-  },
-
-  actionLabel: {
-    marginLeft: 5,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-
-  /*
-   * Badge
-   */
-  badge: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    minWidth: 17,
-    height: 17,
-    paddingHorizontal: 4,
-    borderRadius: 9,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#EF4444",
-    borderWidth: 1.5,
-    borderColor: "#FFFFFF",
-  },
-
-  badgeText: {
-    color: "#FFFFFF",
-    fontSize: 9,
-    lineHeight: 11,
-    fontWeight: "700",
-  },
-
-  /*
-   * Title
-   */
   title: {
     fontSize: 18,
-    lineHeight: 23,
-    fontWeight: "700",
+    fontWeight: "600",
     textAlign: "center",
   },
 
   subtitle: {
     marginTop: 2,
     fontSize: 12,
-    lineHeight: 16,
     textAlign: "center",
   },
 
-  /*
-   * Location
-   */
-  locationContainer: {
-    maxWidth: "100%",
+  iconButton: {
+    width: 40,
+    height: 40,
+
+    alignItems: "center",
+    justifyContent: "center",
+
+    borderRadius: 20,
+  },
+
+  pressed: {
+    opacity: 0.6,
+  },
+
+  actionsRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "flex-end",
   },
 
-  locationText: {
-    minWidth: 0,
-    marginLeft: 7,
-  },
+  actionWrapper: {
+    position: "relative",
 
-  locationTitleRow: {
-    flexDirection: "row",
     alignItems: "center",
-    maxWidth: "100%",
+    justifyContent: "center",
   },
 
-  locationTitle: {
-    maxWidth: 150,
-    fontSize: 16,
-    lineHeight: 20,
+  badge: {
+    position: "absolute",
+
+    top: -2,
+    right: -2,
+
+    minWidth: 16,
+    height: 16,
+
+    paddingHorizontal: 4,
+
+    borderRadius: 8,
+
+    alignItems: "center",
+    justifyContent: "center",
+
+    backgroundColor: "#EF4444",
+  },
+
+  badgeText: {
+    color: "#FFFFFF",
+    fontSize: 9,
     fontWeight: "700",
   },
 
-  locationAddress: {
-    maxWidth: 170,
-    marginTop: 1,
-    fontSize: 11,
-    lineHeight: 15,
+  locationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+
+    maxWidth: "100%",
   },
 
-  /*
-   * Search
-   */
-  searchWrapper: {
-    width: "100%",
+  locationText: {
+    marginLeft: 6,
+
+    fontSize: 14,
+    fontWeight: "500",
+
+    flexShrink: 1,
   },
 
   searchContainer: {
     width: "100%",
+
+    minHeight: 46,
+
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 5,
+
+    paddingLeft: 10,
+    paddingRight: 6,
   },
 
-  searchIconButton: {
-    width: 38,
-    height: 38,
+  searchIconContainer: {
+    width: 36,
+    height: 40,
+
     alignItems: "center",
     justifyContent: "center",
   },
 
   searchInput: {
     flex: 1,
+
     minWidth: 0,
-    height: "100%",
-    paddingHorizontal: 5,
+
     paddingVertical: 0,
-    fontSize: 14,
+    paddingHorizontal: 4,
+
+    fontSize: 15,
   },
 
-  searchAction: {
-    minWidth: 38,
-    minHeight: 38,
-  },
-
-  /*
-   * Tabs
-   */
-  tabsWrapper: {
-    width: "100%",
+  searchActionsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "flex-end",
   },
 
   tabsContainer: {
     width: "100%",
+
     flexDirection: "row",
-    alignItems: "stretch",
+    alignItems: "center",
   },
 
   tabsScrollable: {
@@ -1677,25 +1605,30 @@ const styles = StyleSheet.create({
 
   tab: {
     minHeight: 42,
+
     paddingHorizontal: 14,
+
     alignItems: "center",
     justifyContent: "center",
+
     position: "relative",
   },
 
   tabText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: "500",
   },
 
   tabIndicator: {
     position: "absolute",
-    left: 8,
-    right: 8,
+
     bottom: 0,
+
+    left: 10,
+    right: 10,
+
     height: 2,
-    borderRadius: 1,
+
+    borderRadius: 2,
   },
 });
-
-export default UIHeader;
