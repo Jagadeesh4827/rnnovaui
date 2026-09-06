@@ -1,256 +1,98 @@
-import React, { useMemo } from "react";
-import {
-  Animated,
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  View,
-} from "react-native";
-import {
-  SafeAreaView,
-  useSafeAreaInsets,
-} from "react-native-safe-area-context";
-
-import { useUITheme } from "../../../theme";
-import { useRNNovaAnimation } from "../../../animations";
-import {
-  flattenStyle,
-  mergeTransforms,
-  separateTransform,
-} from "../../../utils";
-
-const ALL_EDGES = ["top", "right", "bottom", "left"];
-
-const normalizeEdges = (edges) => {
-  if (!edges) return ALL_EDGES;
-
-  if (edges === "all") return ALL_EDGES;
-  if (edges === "vertical") return ["top", "bottom"];
-  if (edges === "horizontal") return ["left", "right"];
-
-  if (typeof edges === "string") return [edges];
-
-  if (Array.isArray(edges)) return edges;
-
-  return ALL_EDGES;
-};
-
-const getColor = (value, theme) => {
-  if (!value) return undefined;
-
-  if (typeof value !== "string") return value;
-
-  /*
-   * Direct colors are always respected.
-   *
-   * Examples:
-   * "red"
-   * "#FF0000"
-   * "rgb(255,0,0)"
-   */
-  if (
-    value.startsWith("#") ||
-    value.startsWith("rgb") ||
-    value.startsWith("rgba") ||
-    value.startsWith("hsl") ||
-    value.startsWith("hsla")
-  ) {
-    return value;
-  }
-
-  /*
-   * Theme color support.
-   *
-   * Examples:
-   * "background"
-   * "surface"
-   * "primary"
-   * "card"
-   */
-  const colors = theme?.colors || {};
-
-  return colors[value] || value;
-};
-
-const resolveBarStyle = (style, fallback = "dark") => {
-  if (style === "light") return "light-content";
-  if (style === "dark") return "dark-content";
-
-  return fallback === "light" ? "light-content" : "dark-content";
-};
+import React from "react";
+import { View, StyleSheet, useColorScheme } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 const UILayout = ({
   children,
 
-  /* Safe area */
-  edges = "all",
-
-  /* Theme/background */
-  background,
+  // Colors
   backgroundColor,
+  lightBackgroundColor,
+  darkBackgroundColor,
 
-  /* System bars */
-  statusBarColor,
-  statusBarStyle = "dark",
+  // Safe area
+  edges = ["top", "bottom", "left", "right"],
 
-  navigationBarColor,
-  navigationBarStyle = "dark",
-
-  /* Layout */
+  // Layout
   flex = 1,
-  centered = false,
-  responsive = true,
 
-  /* Keyboard */
-  keyboardAvoidingView = false,
-  keyboardVerticalOffset = 0,
-  keyboardBehavior,
-
-  /* Styles */
+  // Styles
   style,
   containerStyle,
   contentStyle,
 
-  /* Animation */
-  animationStyle = "none",
-  animationDuration,
-  animationDelay,
-  animationDistance,
-  animationEnabled = true,
+  // Content
+  centered = false,
 
-  /* Native props */
-  pointerEvents,
-  testID,
-  accessible,
-  accessibilityLabel,
-
-  ...rest
+  // Future-compatible prop
+  keyboardAvoiding = false,
 }) => {
-  const theme = useUITheme();
-  const insets = useSafeAreaInsets();
+  const colorScheme = useColorScheme();
 
-  const resolvedEdges = useMemo(() => normalizeEdges(edges), [edges]);
+  let resolvedBackgroundColor = backgroundColor;
 
-  const resolvedBackgroundColor = getColor(
-    backgroundColor || background,
-    theme,
-  );
-
-  const resolvedStatusBarColor = getColor(
-    statusBarColor || resolvedBackgroundColor,
-    theme,
-  );
-
-  const resolvedNavigationBarColor = getColor(
-    navigationBarColor || resolvedBackgroundColor,
-    theme,
-  );
-
-  const { progress, animatedStyle, animationTransform } = useRNNovaAnimation({
-    animationStyle,
-    duration: animationDuration,
-    delay: animationDelay,
-    distance: animationDistance,
-    enabled: animationEnabled,
-  });
-
-  const baseContentStyle = {
-    flex,
-    ...(centered && {
-      alignItems: "center",
-      justifyContent: "center",
-    }),
-  };
-
-  const responsiveStyle = responsive
-    ? {
-        width: "100%",
-        minHeight: 0,
-      }
-    : {};
-
-  const safeAreaStyle = [
-    styles.safeArea,
-    {
-      flex,
-      backgroundColor: resolvedBackgroundColor,
-    },
-    responsiveStyle,
-    style,
-    containerStyle,
-  ];
-
-  const contentBaseStyle = [styles.content, baseContentStyle, contentStyle];
-
-  const separated = separateTransform(flattenStyle(contentBaseStyle));
-
-  const finalContentStyle = [
-    separated.style,
-    animatedStyle,
-    {
-      transform: mergeTransforms(separated.transform, animationTransform),
-    },
-  ];
-
-  const renderContent = (
-    <Animated.View
-      pointerEvents={pointerEvents}
-      testID={testID}
-      accessible={accessible}
-      accessibilityLabel={accessibilityLabel}
-      style={finalContentStyle}
-    >
-      {children}
-    </Animated.View>
-  );
-
-  const wrappedContent = keyboardAvoidingView ? (
-    <KeyboardAvoidingView
-      style={styles.keyboard}
-      behavior={
-        keyboardBehavior || (Platform.OS === "ios" ? "padding" : "height")
-      }
-      keyboardVerticalOffset={keyboardVerticalOffset}
-    >
-      {renderContent}
-    </KeyboardAvoidingView>
-  ) : (
-    renderContent
-  );
+  if (!resolvedBackgroundColor) {
+    if (colorScheme === "dark") {
+      resolvedBackgroundColor = darkBackgroundColor || "#000000";
+    } else {
+      resolvedBackgroundColor = lightBackgroundColor || "#FFFFFF";
+    }
+  }
 
   return (
     <View
       style={[
-        styles.systemBarContainer,
+        styles.container,
         {
           flex,
-          backgroundColor: resolvedNavigationBarColor,
+          backgroundColor: resolvedBackgroundColor,
         },
+        containerStyle,
       ]}
-      {...rest}
     >
-      <SafeAreaView edges={resolvedEdges} style={safeAreaStyle}>
-        {wrappedContent}
+      <SafeAreaView
+        edges={edges}
+        style={[
+          styles.safeArea,
+          {
+            backgroundColor: resolvedBackgroundColor,
+          },
+          style,
+        ]}
+      >
+        <View
+          style={[
+            styles.content,
+            {
+              flex,
+            },
+            centered && styles.centered,
+            contentStyle,
+          ]}
+        >
+          {children}
+        </View>
       </SafeAreaView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  systemBarContainer: {
-    width: "100%",
+  container: {
+    flex: 1,
   },
 
   safeArea: {
-    width: "100%",
-  },
-
-  keyboard: {
     flex: 1,
   },
 
   content: {
-    width: "100%",
+    flex: 1,
+  },
+
+  centered: {
+    alignItems: "center",
+    justifyContent: "center",
   },
 });
 
