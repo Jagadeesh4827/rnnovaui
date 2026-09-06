@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 
 import {
   ImageBackground,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -19,6 +20,7 @@ import { BlurView } from "expo-blur";
 
 import Animated, {
   Easing,
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withDelay,
@@ -36,7 +38,6 @@ import { useTheme } from "../../../theme";
 
 const DEFAULT_HEIGHT = 64;
 const DEFAULT_SEARCH_HEIGHT = 46;
-const DEFAULT_RADIUS = 14;
 
 const DEFAULT_ANIMATION_DURATION = 400;
 const DEFAULT_SLIDE_DISTANCE = 24;
@@ -44,13 +45,14 @@ const DEFAULT_SCALE_FROM = 0.96;
 
 /*
 |--------------------------------------------------------------------------
-| Theme helpers
+| Theme
 |--------------------------------------------------------------------------
 */
 
 const getThemeValue = (theme, paths, fallback) => {
   for (const path of paths) {
     const parts = path.split(".");
+
     let value = theme;
 
     for (const part of parts) {
@@ -65,59 +67,49 @@ const getThemeValue = (theme, paths, fallback) => {
   return fallback;
 };
 
-const getThemeColors = (theme) => {
-  return {
-    background: getThemeValue(
-      theme,
-      [
-        "colors.background.primary",
-        "colors.background",
-        "colors.surface.primary",
-      ],
-      "#FFFFFF",
-    ),
+const getThemeColors = (theme) => ({
+  background: getThemeValue(
+    theme,
+    [
+      "colors.background.primary",
+      "colors.background",
+      "colors.surface.primary",
+    ],
+    "#FFFFFF",
+  ),
 
-    surface: getThemeValue(
-      theme,
-      [
-        "colors.surface.primary",
-        "colors.surface",
-        "colors.background.secondary",
-      ],
-      "#F5F5F5",
-    ),
+  surface: getThemeValue(
+    theme,
+    ["colors.surface.primary", "colors.surface", "colors.background.secondary"],
+    "#F5F5F5",
+  ),
 
-    text: getThemeValue(
-      theme,
-      ["colors.text.primary", "colors.text"],
-      "#111111",
-    ),
+  text: getThemeValue(theme, ["colors.text.primary", "colors.text"], "#111111"),
 
-    secondaryText: getThemeValue(
-      theme,
-      ["colors.text.secondary", "colors.text.muted", "colors.muted"],
-      "#6B7280",
-    ),
+  secondaryText: getThemeValue(
+    theme,
+    ["colors.text.secondary", "colors.text.muted", "colors.muted"],
+    "#6B7280",
+  ),
 
-    border: getThemeValue(
-      theme,
-      ["colors.border.primary", "colors.border"],
-      "#E5E7EB",
-    ),
+  border: getThemeValue(
+    theme,
+    ["colors.border.primary", "colors.border"],
+    "#E5E7EB",
+  ),
 
-    primary: getThemeValue(
-      theme,
-      ["colors.primary", "colors.brand.primary"],
-      "#2563EB",
-    ),
+  primary: getThemeValue(
+    theme,
+    ["colors.primary", "colors.brand.primary"],
+    "#2563EB",
+  ),
 
-    white: getThemeValue(theme, ["colors.white"], "#FFFFFF"),
-  };
-};
+  white: getThemeValue(theme, ["colors.white"], "#FFFFFF"),
+});
 
 /*
 |--------------------------------------------------------------------------
-| Icon renderer
+| Icon
 |--------------------------------------------------------------------------
 */
 
@@ -146,7 +138,7 @@ const HeaderIcon = ({ icon, size = 24, color, style }) => {
 
 /*
 |--------------------------------------------------------------------------
-| Action Button
+| Action
 |--------------------------------------------------------------------------
 */
 
@@ -182,7 +174,9 @@ const HeaderAction = ({
       style={({ pressed }) => [
         styles.actionButton,
         buttonStyle,
+
         pressed && !disabled && styles.actionPressed,
+
         disabled && styles.actionDisabled,
       ]}
     >
@@ -190,13 +184,13 @@ const HeaderAction = ({
 
       {label ? (
         <Text
+          numberOfLines={1}
           style={[
             styles.actionLabel,
             {
               color,
             },
           ]}
-          numberOfLines={1}
         >
           {label}
         </Text>
@@ -204,7 +198,7 @@ const HeaderAction = ({
 
       {badge !== undefined && badge !== null && badge !== false ? (
         <View style={[styles.badge, badgeStyle]}>
-          <Text style={[styles.badgeText, badgeTextStyle]} numberOfLines={1}>
+          <Text numberOfLines={1} style={[styles.badgeText, badgeTextStyle]}>
             {badge}
           </Text>
         </View>
@@ -221,7 +215,8 @@ const HeaderAction = ({
 
 const HeaderSearch = ({
   value,
-  defaultValue,
+  defaultValue = "",
+
   onChangeText,
   onSubmitEditing,
   onFocus,
@@ -230,45 +225,33 @@ const HeaderSearch = ({
   placeholder = "Search...",
 
   editable = true,
-
   autoFocus = false,
 
   keyboardType = "default",
-
   returnKeyType = "search",
 
   searchActions = [],
 
   searchIcon = "search-outline",
-
   searchIconSize = 22,
-
   searchIconColor,
 
   searchTextColor,
-
   searchPlaceholderColor,
 
   searchBackgroundColor,
-
   searchBorderColor,
-
   searchBorderWidth = 0,
-
   searchRadius = 14,
 
-  searchInputStyle,
-
   searchContainerStyle,
-
+  searchInputStyle,
   searchActionStyle,
 
   actionColor,
-
   actionSize = 21,
 
   badgeStyle,
-
   badgeTextStyle,
 
   onSearchPress,
@@ -277,7 +260,7 @@ const HeaderSearch = ({
 
   ...rest
 }) => {
-  const [internalValue, setInternalValue] = useState(defaultValue || "");
+  const [internalValue, setInternalValue] = useState(defaultValue);
 
   const inputValue = value !== undefined ? value : internalValue;
 
@@ -295,11 +278,16 @@ const HeaderSearch = ({
         styles.searchContainer,
         {
           height: DEFAULT_SEARCH_HEIGHT,
+
           backgroundColor: searchBackgroundColor,
+
           borderColor: searchBorderColor,
+
           borderWidth: searchBorderWidth,
+
           borderRadius: searchRadius,
         },
+
         searchContainerStyle,
       ]}
     >
@@ -307,6 +295,7 @@ const HeaderSearch = ({
         onPress={onSearchPress}
         disabled={!onSearchPress}
         accessibilityRole={onSearchPress ? "button" : undefined}
+        accessibilityLabel={onSearchPress ? "Search" : undefined}
         style={styles.searchIconButton}
       >
         <HeaderIcon
@@ -339,15 +328,15 @@ const HeaderSearch = ({
         ]}
       />
 
-      {searchActions?.map((action, index) => (
+      {searchActions.map((action, index) => (
         <HeaderAction
           key={action.key || `${action.icon}-${index}`}
           action={action}
-          color={actionColor}
-          size={actionSize}
-          badgeStyle={badgeStyle}
-          badgeTextStyle={badgeTextStyle}
-          buttonStyle={[styles.searchAction, searchActionStyle]}
+          color={action.color || actionColor}
+          size={action.size || actionSize}
+          badgeStyle={action.badgeStyle || badgeStyle}
+          badgeTextStyle={action.badgeTextStyle || badgeTextStyle}
+          buttonStyle={[styles.searchAction, searchActionStyle, action.style]}
         />
       ))}
     </View>
@@ -362,8 +351,10 @@ const HeaderSearch = ({
 
 const HeaderTabs = ({
   tabs = [],
+
   activeTab,
   defaultActiveTab,
+
   onTabChange,
 
   tabStyle,
@@ -395,60 +386,60 @@ const HeaderTabs = ({
     onTabChange?.(tab, key);
   };
 
-  const content = tabs.map((tab, index) => {
-    const key = tab.key ?? tab.value ?? tab.label ?? index;
-
-    const isActive = selectedTab === key;
-
-    return (
-      <Pressable
-        key={key}
-        onPress={() => handleTabPress(tab)}
-        accessibilityRole="tab"
-        accessibilityState={{
-          selected: isActive,
-        }}
-        style={[styles.tab, tabStyle, isActive && activeTabStyle]}
-      >
-        <Text
-          style={[
-            styles.tabText,
-            {
-              color: isActive ? activeColor : color,
-            },
-            tabTextStyle,
-            isActive && activeTabTextStyle,
-          ]}
-          numberOfLines={1}
-        >
-          {tab.label}
-        </Text>
-
-        {isActive ? (
-          <View
-            style={[
-              styles.tabIndicator,
-              {
-                backgroundColor: activeColor,
-              },
-              indicatorStyle,
-            ]}
-          />
-        ) : null}
-      </Pressable>
-    );
-  });
-
   return (
     <View style={[styles.tabsContainer, scrollable && styles.tabsScrollable]}>
-      {content}
+      {tabs.map((tab, index) => {
+        const key = tab.key ?? tab.value ?? tab.label ?? index;
+
+        const isActive = selectedTab === key;
+
+        return (
+          <Pressable
+            key={key}
+            onPress={() => handleTabPress(tab)}
+            accessibilityRole="tab"
+            accessibilityState={{
+              selected: isActive,
+            }}
+            style={[styles.tab, tabStyle, isActive && activeTabStyle]}
+          >
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.tabText,
+                {
+                  color: isActive ? activeColor : color,
+                },
+
+                tabTextStyle,
+
+                isActive && activeTabTextStyle,
+              ]}
+            >
+              {tab.label}
+            </Text>
+
+            {isActive ? (
+              <View
+                style={[
+                  styles.tabIndicator,
+                  {
+                    backgroundColor: activeColor,
+                  },
+                  indicatorStyle,
+                ]}
+              />
+            ) : null}
+          </Pressable>
+        );
+      })}
     </View>
   );
 };
 
 /*
 |--------------------------------------------------------------------------
-| Animated Header
+| Animation
 |--------------------------------------------------------------------------
 */
 
@@ -471,10 +462,8 @@ const AnimatedHeader = ({
   onAnimationComplete,
 
   style,
-
-  ...rest
 }) => {
-  const getInitial = () => {
+  const initial = useMemo(() => {
     switch (animation) {
       case "fade":
       case "fadeIn":
@@ -502,10 +491,17 @@ const AnimatedHeader = ({
         };
 
       case "slide":
-      case "slideUp":
       case "slideFade":
         return {
-          opacity: animation === "slideUp" ? 1 : 0,
+          opacity: 0,
+          scale: 1,
+          x: 0,
+          y: slideDistance,
+        };
+
+      case "slideUp":
+        return {
+          opacity: 1,
           scale: 1,
           x: 0,
           y: slideDistance,
@@ -551,9 +547,7 @@ const AnimatedHeader = ({
           y: 0,
         };
     }
-  };
-
-  const initial = useMemo(getInitial, [animation, slideDistance, scaleFrom]);
+  }, [animation, slideDistance, scaleFrom]);
 
   const opacity = useSharedValue(initial.opacity);
 
@@ -573,49 +567,58 @@ const AnimatedHeader = ({
     translateX.value = initial.x;
     translateY.value = initial.y;
 
-    onAnimationStart?.();
-
-    const delay = animationDelay;
+    if (onAnimationStart) {
+      runOnJS(onAnimationStart)();
+    }
 
     const timingConfig = {
       duration: animationDuration,
       easing: Easing.out(Easing.cubic),
     };
 
+    const complete = (finished) => {
+      if (finished && onAnimationComplete) {
+        runOnJS(onAnimationComplete)();
+      }
+    };
+
     if (animation === "spring") {
       opacity.value = withDelay(
-        delay,
-        withTiming(1, timingConfig, (finished) => {
-          if (finished) {
-            onAnimationComplete?.();
-          }
-        }),
+        animationDelay,
+        withTiming(1, timingConfig, complete),
       );
 
       scale.value = withDelay(
-        delay,
+        animationDelay,
         withSpring(1, {
           damping: springConfig?.damping ?? 16,
+
           stiffness: springConfig?.stiffness ?? 180,
+
           mass: springConfig?.mass ?? 0.8,
+
           overshootClamping: springConfig?.overshootClamping ?? false,
         }),
       );
 
       translateX.value = withDelay(
-        delay,
+        animationDelay,
         withSpring(0, {
           damping: springConfig?.damping ?? 16,
+
           stiffness: springConfig?.stiffness ?? 180,
+
           mass: springConfig?.mass ?? 0.8,
         }),
       );
 
       translateY.value = withDelay(
-        delay,
+        animationDelay,
         withSpring(0, {
           damping: springConfig?.damping ?? 16,
+
           stiffness: springConfig?.stiffness ?? 180,
+
           mass: springConfig?.mass ?? 0.8,
         }),
       );
@@ -624,19 +627,15 @@ const AnimatedHeader = ({
     }
 
     opacity.value = withDelay(
-      delay,
-      withTiming(1, timingConfig, (finished) => {
-        if (finished) {
-          onAnimationComplete?.();
-        }
-      }),
+      animationDelay,
+      withTiming(1, timingConfig, complete),
     );
 
-    scale.value = withDelay(delay, withTiming(1, timingConfig));
+    scale.value = withDelay(animationDelay, withTiming(1, timingConfig));
 
-    translateX.value = withDelay(delay, withTiming(0, timingConfig));
+    translateX.value = withDelay(animationDelay, withTiming(0, timingConfig));
 
-    translateY.value = withDelay(delay, withTiming(0, timingConfig));
+    translateY.value = withDelay(animationDelay, withTiming(0, timingConfig));
   }, [
     animation,
     animationDuration,
@@ -674,10 +673,7 @@ const AnimatedHeader = ({
   });
 
   return (
-    <Animated.View
-      {...rest}
-      style={[styles.animatedContainer, style, animatedStyle]}
-    >
+    <Animated.View style={[styles.animatedContainer, style, animatedStyle]}>
       {children}
     </Animated.View>
   );
@@ -691,13 +687,12 @@ const AnimatedHeader = ({
 
 const HeaderBackground = ({
   background,
-
-  children,
-
   themeColors,
 
   overlayColor,
   overlayOpacity = 0,
+
+  children,
 
   style,
 }) => {
@@ -727,7 +722,7 @@ const HeaderBackground = ({
   }
 
   /*
-   * Solid color
+   * Color
    */
   if (type === "color") {
     return (
@@ -771,9 +766,10 @@ const HeaderBackground = ({
           <View
             pointerEvents="none"
             style={[
-              styles.backgroundOverlay,
+              styles.overlay,
               {
                 backgroundColor: overlayColor || "#000000",
+
                 opacity: overlayOpacity,
               },
             ]}
@@ -793,16 +789,17 @@ const HeaderBackground = ({
       <ImageBackground
         source={config.source}
         resizeMode={config.resizeMode || "cover"}
-        imageStyle={[styles.backgroundImage, config.imageStyle]}
+        imageStyle={config.imageStyle}
         style={[styles.background, style]}
       >
         {overlayOpacity > 0 ? (
           <View
             pointerEvents="none"
             style={[
-              styles.backgroundOverlay,
+              styles.overlay,
               {
                 backgroundColor: overlayColor || "#000000",
+
                 opacity: overlayOpacity,
               },
             ]}
@@ -815,7 +812,7 @@ const HeaderBackground = ({
   }
 
   /*
-   * Blur / Glass
+   * Blur
    */
   if (type === "blur") {
     return (
@@ -865,14 +862,18 @@ const HeaderBackground = ({
 
 const UIHeader = ({
   /*
-   * Left
+   * Back
    */
   showBack = false,
   onBackPress,
+
   backIcon = "chevron-back",
   backIconSize = 27,
   backIconColor,
 
+  /*
+   * Custom left
+   */
   leftContent,
 
   /*
@@ -880,6 +881,7 @@ const UIHeader = ({
    */
   location,
   showLocation = false,
+
   locationIcon = "location",
   locationIconSize = 22,
   locationIconColor,
@@ -964,8 +966,10 @@ const UIHeader = ({
 
   tabStyle,
   activeTabStyle,
+
   tabTextStyle,
   activeTabTextStyle,
+
   indicatorStyle,
 
   tabColor,
@@ -986,20 +990,35 @@ const UIHeader = ({
   overlayOpacity = 0,
 
   /*
-   * Layout
+   * Dimensions
    */
   height = DEFAULT_HEIGHT,
 
-  searchSpacing = 10,
-
   horizontalPadding = 16,
 
-  headerSpacing = 8,
+  searchSpacing = 10,
+
+  tabsSpacing = 8,
 
   /*
-   * Safe area
+   * Safe Area
+   *
+   * Recommended:
+   *
+   * <UILayout>
+   *   <UIHeader />
+   * </UILayout>
+   *
+   * In that case safeArea=false prevents
+   * double top inset.
+   *
+   * For standalone UIHeader:
+   *
+   * <UIHeader safeArea />
    */
-  edges = ["top"],
+  safeArea = false,
+
+  safeAreaEdges = ["top"],
 
   /*
    * Reanimated
@@ -1022,51 +1041,39 @@ const UIHeader = ({
   onAnimationComplete,
 
   /*
-   * General
+   * Styles
    */
   style,
+
   contentStyle,
 
-  testID,
-  onLayout,
-
+  /*
+   * Accessibility
+   */
   accessible,
   accessibilityLabel,
 
-  children,
+  /*
+   * Misc
+   */
+  testID,
+  onLayout,
 
-  ...rest
+  children,
 }) => {
   /*
-   * Existing global UIProvider theme.
+   * Global UIProvider theme.
    *
-   * UIHeader DOES NOT have a mode prop.
-   *
-   * UIProvider controls the theme.
+   * UIHeader ONLY reads it.
    */
-  const themeContext = useTheme?.();
+  const themeContext = useTheme();
 
   const theme = themeContext?.theme || themeContext || {};
 
   const themeColors = getThemeColors(theme);
 
   /*
-   * Location visibility
-   */
-  const hasLocation = showLocation || Boolean(location);
-
-  /*
-   * Search visibility
-   */
-  const hasSearch = showSearch === true;
-
-  /*
-   * Tabs visibility
-   */
-  const hasTabs = showTabs && Array.isArray(tabs) && tabs.length > 0;
-
-  /*
-   * Colors
+   * Resolve colors.
    */
   const resolvedTitleColor = titleColor || themeColors.text;
 
@@ -1087,244 +1094,266 @@ const UIHeader = ({
 
   const resolvedSearchIcon = searchIconColor || themeColors.secondaryText;
 
-  const resolvedSearchActionColor = searchActionColor || themeColors.text;
+  const resolvedSearchAction = searchActionColor || themeColors.text;
 
   const resolvedTabColor = tabColor || themeColors.secondaryText;
 
   const resolvedActiveTabColor = activeTabColor || themeColors.primary;
 
   /*
-   * Header content
+   * Feature checks.
    */
-  const headerContent = (
-    <>
-      <View
-        style={[
-          styles.headerRow,
-          {
-            minHeight: height,
-            paddingHorizontal: horizontalPadding,
-          },
-          contentStyle,
-        ]}
-      >
-        {/* LEFT */}
-        <View
-          style={[
-            styles.leftSection,
-            {
-              flex: hasLocation && !showBack && !leftContent ? 1 : 1,
-            },
-          ]}
-        >
-          {leftContent ? (
-            leftContent
-          ) : showBack ? (
-            <Pressable
-              onPress={onBackPress}
-              disabled={!onBackPress}
-              hitSlop={10}
-              accessibilityRole="button"
-              accessibilityLabel="Go back"
-              style={({ pressed }) => [
-                styles.iconButton,
-                pressed && styles.actionPressed,
-              ]}
-            >
-              <HeaderIcon
-                icon={backIcon}
-                size={backIconSize}
-                color={resolvedBackColor}
-              />
-            </Pressable>
-          ) : hasLocation ? (
-            <Pressable
-              onPress={onLocationPress}
-              disabled={!onLocationPress}
-              accessibilityRole={onLocationPress ? "button" : undefined}
-              style={styles.locationContainer}
-            >
-              <HeaderIcon
-                icon={locationIcon}
-                size={locationIconSize}
-                color={resolvedLocationColor}
-              />
+  const hasLocation = showLocation || Boolean(location);
 
-              <View style={styles.locationText}>
-                {location?.city || location?.title ? (
-                  <View style={styles.locationTitleRow}>
-                    <Text
-                      style={[
-                        styles.locationTitle,
-                        {
-                          color: resolvedTitleColor,
-                        },
-                        location?.titleStyle,
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {location.city || location.title}
-                    </Text>
+  const hasSearch = showSearch === true;
 
-                    {location?.showChevron !== false ? (
-                      <Ionicons
-                        name="chevron-down"
-                        size={15}
-                        color={resolvedSubtitleColor}
-                      />
-                    ) : null}
-                  </View>
-                ) : null}
+  const hasTabs = showTabs === true && Array.isArray(tabs) && tabs.length > 0;
 
-                {location?.address ? (
-                  <Text
-                    style={[
-                      styles.locationAddress,
-                      {
-                        color: resolvedSubtitleColor,
-                      },
-                      location?.addressStyle,
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {location.address}
-                  </Text>
-                ) : null}
-              </View>
-            </Pressable>
-          ) : null}
-        </View>
+  /*
+   * Header row.
+   */
+  const headerRow = (
+    <View
+      style={[
+        styles.headerRow,
+        {
+          minHeight: height,
+          paddingHorizontal: horizontalPadding,
+        },
+        contentStyle,
+      ]}
+    >
+      {/* LEFT */}
 
-        {/* CENTER */}
-        <View pointerEvents="box-none" style={styles.centerSection}>
-          {title ? (
-            <Text
-              style={[
-                styles.title,
-                {
-                  color: resolvedTitleColor,
-                },
-                titleStyle,
-              ]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {title}
-            </Text>
-          ) : null}
-
-          {subtitle ? (
-            <Text
-              style={[
-                styles.subtitle,
-                {
-                  color: resolvedSubtitleColor,
-                },
-                subtitleStyle,
-              ]}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-            >
-              {subtitle}
-            </Text>
-          ) : null}
-        </View>
-
-        {/* RIGHT */}
-        <View style={styles.rightSection}>
-          {rightActions.map((action, index) => (
-            <HeaderAction
-              key={action.key || `${action.icon}-${index}`}
-              action={action}
-              color={action.color || resolvedRightColor}
-              size={action.size || rightActionSize}
-              badgeStyle={action.badgeStyle || badgeStyle}
-              badgeTextStyle={action.badgeTextStyle || badgeTextStyle}
-              buttonStyle={[actionStyle, action.style]}
+      <View style={styles.leftSection}>
+        {leftContent ? (
+          leftContent
+        ) : showBack ? (
+          <Pressable
+            onPress={onBackPress}
+            disabled={!onBackPress}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            style={({ pressed }) => [
+              styles.iconButton,
+              pressed && styles.actionPressed,
+            ]}
+          >
+            <HeaderIcon
+              icon={backIcon}
+              size={backIconSize}
+              color={resolvedBackColor}
             />
-          ))}
-        </View>
+          </Pressable>
+        ) : hasLocation ? (
+          <Pressable
+            onPress={onLocationPress}
+            disabled={!onLocationPress}
+            accessibilityRole={onLocationPress ? "button" : undefined}
+            style={styles.locationContainer}
+          >
+            <HeaderIcon
+              icon={locationIcon}
+              size={locationIconSize}
+              color={resolvedLocationColor}
+            />
+
+            <View style={styles.locationText}>
+              {location?.city || location?.title ? (
+                <View style={styles.locationTitleRow}>
+                  <Text
+                    numberOfLines={1}
+                    style={[
+                      styles.locationTitle,
+                      {
+                        color: resolvedTitleColor,
+                      },
+                      location?.titleStyle,
+                    ]}
+                  >
+                    {location.city || location.title}
+                  </Text>
+
+                  {location?.showChevron !== false ? (
+                    <Ionicons
+                      name="chevron-down"
+                      size={15}
+                      color={resolvedSubtitleColor}
+                    />
+                  ) : null}
+                </View>
+              ) : null}
+
+              {location?.address ? (
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.locationAddress,
+                    {
+                      color: resolvedSubtitleColor,
+                    },
+                    location?.addressStyle,
+                  ]}
+                >
+                  {location.address}
+                </Text>
+              ) : null}
+            </View>
+          </Pressable>
+        ) : null}
       </View>
 
-      {/* SEARCH */}
-      {hasSearch ? (
-        <View
-          style={[
-            styles.searchWrapper,
-            {
-              paddingHorizontal: horizontalPadding,
-              marginTop: searchSpacing,
-            },
-          ]}
-        >
-          <HeaderSearch
-            value={searchValue}
-            defaultValue={searchDefaultValue}
-            onChangeText={onSearchChange}
-            onSubmitEditing={onSearchSubmit}
-            onFocus={onSearchFocus}
-            onBlur={onSearchBlur}
-            placeholder={searchPlaceholder}
-            searchActions={searchActions}
-            searchIcon={searchIcon}
-            searchIconSize={searchIconSize}
-            searchIconColor={resolvedSearchIcon}
-            searchTextColor={resolvedSearchText}
-            searchPlaceholderColor={resolvedSearchPlaceholder}
-            searchBackgroundColor={resolvedSearchBackground}
-            searchBorderColor={searchBorderColor || themeColors.border}
-            searchBorderWidth={searchBorderWidth}
-            searchRadius={searchRadius}
-            searchContainerStyle={searchContainerStyle}
-            searchInputStyle={searchInputStyle}
-            searchActionStyle={searchActionStyle}
-            actionColor={resolvedSearchActionColor}
-            actionSize={searchActionSize}
-            badgeStyle={badgeStyle}
-            badgeTextStyle={badgeTextStyle}
-            onSearchPress={onSearchPress}
-            {...searchProps}
-          />
-        </View>
-      ) : null}
+      {/* CENTER */}
 
-      {/* TABS */}
-      {hasTabs ? (
-        <View
-          style={[
-            styles.tabsWrapper,
-            {
-              marginTop: headerSpacing,
-              paddingHorizontal: horizontalPadding,
-            },
-          ]}
-        >
-          <HeaderTabs
-            tabs={tabs}
-            activeTab={activeTab}
-            defaultActiveTab={defaultActiveTab}
-            onTabChange={onTabChange}
-            tabStyle={tabStyle}
-            activeTabStyle={activeTabStyle}
-            tabTextStyle={tabTextStyle}
-            activeTabTextStyle={activeTabTextStyle}
-            indicatorStyle={indicatorStyle}
-            color={resolvedTabColor}
-            activeColor={resolvedActiveTabColor}
-            scrollable={tabsScrollable}
-          />
-        </View>
-      ) : null}
+      <View pointerEvents="box-none" style={styles.centerSection}>
+        {title ? (
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[
+              styles.title,
+              {
+                color: resolvedTitleColor,
+              },
+              titleStyle,
+            ]}
+          >
+            {title}
+          </Text>
+        ) : null}
 
-      {children}
-    </>
+        {subtitle ? (
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[
+              styles.subtitle,
+              {
+                color: resolvedSubtitleColor,
+              },
+              subtitleStyle,
+            ]}
+          >
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+
+      {/* RIGHT */}
+
+      <View style={styles.rightSection}>
+        {rightActions.map((action, index) => (
+          <HeaderAction
+            key={action.key || `${action.icon}-${index}`}
+            action={action}
+            color={action.color || resolvedRightColor}
+            size={action.size || rightActionSize}
+            badgeStyle={action.badgeStyle || badgeStyle}
+            badgeTextStyle={action.badgeTextStyle || badgeTextStyle}
+            buttonStyle={[actionStyle, action.style]}
+          />
+        ))}
+      </View>
+    </View>
   );
 
   /*
-   * Animated or normal rendering.
+   * Search.
+   */
+  const searchContent = hasSearch ? (
+    <View
+      style={[
+        styles.searchWrapper,
+        {
+          paddingHorizontal: horizontalPadding,
+
+          marginTop: searchSpacing,
+        },
+      ]}
+    >
+      <HeaderSearch
+        value={searchValue}
+        defaultValue={searchDefaultValue}
+        onChangeText={onSearchChange}
+        onSubmitEditing={onSearchSubmit}
+        onFocus={onSearchFocus}
+        onBlur={onSearchBlur}
+        placeholder={searchPlaceholder}
+        searchActions={searchActions}
+        searchIcon={searchIcon}
+        searchIconSize={searchIconSize}
+        searchIconColor={resolvedSearchIcon}
+        searchTextColor={resolvedSearchText}
+        searchPlaceholderColor={resolvedSearchPlaceholder}
+        searchBackgroundColor={resolvedSearchBackground}
+        searchBorderColor={searchBorderColor || themeColors.border}
+        searchBorderWidth={searchBorderWidth}
+        searchRadius={searchRadius}
+        searchContainerStyle={searchContainerStyle}
+        searchInputStyle={searchInputStyle}
+        searchActionStyle={searchActionStyle}
+        actionColor={resolvedSearchAction}
+        actionSize={searchActionSize}
+        badgeStyle={badgeStyle}
+        badgeTextStyle={badgeTextStyle}
+        onSearchPress={onSearchPress}
+        {...searchProps}
+      />
+    </View>
+  ) : null;
+
+  /*
+   * Tabs.
+   */
+  const tabsContent = hasTabs ? (
+    <View
+      style={[
+        styles.tabsWrapper,
+        {
+          marginTop: tabsSpacing,
+
+          paddingHorizontal: horizontalPadding,
+        },
+      ]}
+    >
+      <HeaderTabs
+        tabs={tabs}
+        activeTab={activeTab}
+        defaultActiveTab={defaultActiveTab}
+        onTabChange={onTabChange}
+        tabStyle={tabStyle}
+        activeTabStyle={activeTabStyle}
+        tabTextStyle={tabTextStyle}
+        activeTabTextStyle={activeTabTextStyle}
+        indicatorStyle={indicatorStyle}
+        color={resolvedTabColor}
+        activeColor={resolvedActiveTabColor}
+        scrollable={tabsScrollable}
+      />
+    </View>
+  ) : null;
+
+  /*
+   * Header body.
    *
-   * The animation component is conditionally mounted,
-   * so the normal path does not use Reanimated styles.
+   * IMPORTANT:
+   * No flex: 1 here.
+   */
+  const headerBody = (
+    <View style={styles.headerBody}>
+      {headerRow}
+
+      {searchContent}
+
+      {tabsContent}
+
+      {children}
+    </View>
+  );
+
+  /*
+   * Optional animation.
    */
   const content = reanimated ? (
     <AnimatedHeader
@@ -1336,40 +1365,68 @@ const UIHeader = ({
       springConfig={springConfig}
       onAnimationStart={onAnimationStart}
       onAnimationComplete={onAnimationComplete}
-      style={styles.flex}
     >
-      {headerContent}
+      {headerBody}
     </AnimatedHeader>
   ) : (
-    <View style={styles.flex}>{headerContent}</View>
+    headerBody
   );
 
+  /*
+   * Background.
+   *
+   * IMPORTANT:
+   * Background does NOT use flex: 1.
+   */
+  const backgroundContent = (
+    <HeaderBackground
+      background={background}
+      themeColors={themeColors}
+      overlayColor={overlayColor}
+      overlayOpacity={overlayOpacity}
+      style={backgroundStyle}
+    >
+      {content}
+    </HeaderBackground>
+  );
+
+  /*
+   * Standalone safe area.
+   *
+   * When UILayout already provides safe area,
+   * leave safeArea={false}.
+   */
+  if (safeArea) {
+    return (
+      <SafeAreaView
+        edges={safeAreaEdges}
+        style={[styles.root, style]}
+        testID={testID}
+        onLayout={onLayout}
+        accessible={accessible}
+        accessibilityLabel={accessibilityLabel}
+      >
+        {backgroundContent}
+      </SafeAreaView>
+    );
+  }
+
   return (
-    <SafeAreaView
-      {...rest}
-      edges={edges}
+    <View
+      style={[styles.root, style]}
       testID={testID}
       onLayout={onLayout}
       accessible={accessible}
       accessibilityLabel={accessibilityLabel}
-      style={[styles.root, style]}
     >
-      <HeaderBackground
-        background={background}
-        themeColors={themeColors}
-        overlayColor={overlayColor}
-        overlayOpacity={overlayOpacity}
-        style={backgroundStyle}
-      >
-        {content}
-      </HeaderBackground>
-    </SafeAreaView>
+      {backgroundContent}
+    </View>
   );
 };
 
 /*
 |--------------------------------------------------------------------------
-| Animation helper
+| Animation resolver
 |--------------------------------------------------------------------------
 */
 
@@ -1392,24 +1449,27 @@ const resolveAnimationType = (animation) => {
 */
 
 const styles = StyleSheet.create({
+  /*
+   * IMPORTANT:
+   * UIHeader must NOT have flex: 1.
+   */
   root: {
     width: "100%",
   },
 
-  flex: {
-    flex: 1,
-  },
-
   background: {
     width: "100%",
-    flex: 1,
   },
 
-  backgroundImage: {
+  headerBody: {
     width: "100%",
   },
 
-  backgroundOverlay: {
+  animatedContainer: {
+    width: "100%",
+  },
+
+  overlay: {
     ...StyleSheet.absoluteFillObject,
   },
 
@@ -1417,15 +1477,13 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
 
-  animatedContainer: {
-    flex: 1,
-  },
-
+  /*
+   * Header row
+   */
   headerRow: {
     width: "100%",
     flexDirection: "row",
     alignItems: "center",
-    position: "relative",
   },
 
   leftSection: {
@@ -1450,9 +1508,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: 4,
   },
 
+  /*
+   * Buttons
+   */
   iconButton: {
     width: 42,
     height: 42,
@@ -1470,6 +1530,7 @@ const styles = StyleSheet.create({
     position: "relative",
     borderRadius: 20,
     flexDirection: "row",
+    marginLeft: 2,
   },
 
   actionPressed: {
@@ -1486,6 +1547,9 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  /*
+   * Badge
+   */
   badge: {
     position: "absolute",
     top: 0,
@@ -1508,6 +1572,9 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
+  /*
+   * Title
+   */
   title: {
     fontSize: 18,
     lineHeight: 23,
@@ -1522,6 +1589,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
+  /*
+   * Location
+   */
   locationContainer: {
     maxWidth: "100%",
     flexDirection: "row",
@@ -1553,6 +1623,9 @@ const styles = StyleSheet.create({
     lineHeight: 15,
   },
 
+  /*
+   * Search
+   */
   searchWrapper: {
     width: "100%",
   },
@@ -1585,6 +1658,9 @@ const styles = StyleSheet.create({
     minHeight: 38,
   },
 
+  /*
+   * Tabs
+   */
   tabsWrapper: {
     width: "100%",
   },
