@@ -32,20 +32,22 @@ import { useUITheme } from "../../../theme";
 function HeaderIcon({
   icon,
   size = 24,
-  color,
+  color = "#000000",
   onPress,
   disabled = false,
   style,
   accessibilityLabel,
 }) {
-  if (!icon) return null;
+  if (!icon) {
+    return null;
+  }
 
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled || !onPress}
       accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel}
+      accessibilityLabel={accessibilityLabel || icon}
       style={({ pressed }) => [
         styles.iconButton,
         pressed && onPress && styles.pressed,
@@ -65,22 +67,27 @@ function HeaderAction({
   action,
   color,
   size,
+  paddingHorizontal = 0,
   actionStyle,
-  actionPaddingHorizontal = 0,
   badgeStyle,
   badgeTextStyle,
 }) {
-  if (!action) return null;
+  if (!action) {
+    return null;
+  }
+
+  const resolvedPadding = action.paddingHorizontal ?? paddingHorizontal;
 
   return (
     <View
       style={[
-        styles.actionWrapper,
-        {
-          paddingLeft: action.paddingHorizontal ?? actionPaddingHorizontal,
+        styles.actionItem,
 
-          paddingRight: action.paddingHorizontal ?? actionPaddingHorizontal,
+        {
+          paddingLeft: resolvedPadding,
+          paddingRight: resolvedPadding,
         },
+
         action.containerStyle,
       ]}
     >
@@ -110,18 +117,16 @@ function HeaderAction({
 }
 
 /* =========================================================
-   RIGHT ACTIONS
+   HEADER RIGHT ACTIONS
 ========================================================= */
 
 function HeaderActions({
   actions = [],
-
   color,
   size = 24,
 
   gap = 0,
-
-  actionPaddingHorizontal = 0,
+  paddingHorizontal = 0,
 
   actionStyle,
   actionContainerStyle,
@@ -129,14 +134,14 @@ function HeaderActions({
   badgeStyle,
   badgeTextStyle,
 
-  containerStyle,
+  style,
 }) {
   if (!actions.length) {
     return null;
   }
 
   return (
-    <View style={[styles.actionsRow, containerStyle]}>
+    <View style={[styles.actionsRow, style]}>
       {actions.map((action, index) => (
         <View
           key={action.key || action.id || `${action.icon}-${index}`}
@@ -144,64 +149,20 @@ function HeaderActions({
             index > 0 && {
               marginLeft: gap,
             },
-            actionContainerStyle,
           ]}
         >
           <HeaderAction
             action={action}
             color={color}
             size={size}
+            paddingHorizontal={paddingHorizontal}
             actionStyle={actionStyle}
-            actionPaddingHorizontal={actionPaddingHorizontal}
             badgeStyle={badgeStyle}
             badgeTextStyle={badgeTextStyle}
+            actionContainerStyle={actionContainerStyle}
           />
         </View>
       ))}
-    </View>
-  );
-}
-
-/* =========================================================
-   SEARCH ACTION
-========================================================= */
-
-function SearchAction({
-  action,
-  color,
-  size,
-
-  actionPaddingHorizontal = 0,
-
-  actionStyle,
-}) {
-  if (!action) return null;
-
-  return (
-    <View
-      style={[
-        styles.searchActionWrapper,
-
-        {
-          paddingLeft: action.paddingHorizontal ?? actionPaddingHorizontal,
-
-          paddingRight: action.paddingHorizontal ?? actionPaddingHorizontal,
-        },
-
-        action.containerStyle,
-      ]}
-    >
-      <HeaderIcon
-        icon={action.icon}
-        size={action.size || size}
-        color={action.color || color}
-        onPress={action.onPress}
-        disabled={action.disabled}
-        style={[actionStyle, action.style]}
-        accessibilityLabel={
-          action.accessibilityLabel || action.label || action.icon
-        }
-      />
     </View>
   );
 }
@@ -212,51 +173,70 @@ function SearchAction({
 
 function SearchActions({
   actions = [],
-
   color,
   size = 22,
 
   gap = 0,
-
-  actionPaddingHorizontal = 0,
+  paddingHorizontal = 0,
 
   actionStyle,
   actionContainerStyle,
 
-  containerStyle,
+  style,
 }) {
   if (!actions.length) {
     return null;
   }
 
   return (
-    <View style={[styles.searchActionsRow, containerStyle]}>
-      {actions.map((action, index) => (
-        <View
-          key={action.key || action.id || `${action.icon}-${index}`}
-          style={[
-            index > 0 && {
-              marginLeft: gap,
-            },
+    <View style={[styles.searchActionsRow, style]}>
+      {actions.map((action, index) => {
+        const resolvedPadding = action.paddingHorizontal ?? paddingHorizontal;
 
-            actionContainerStyle,
-          ]}
-        >
-          <SearchAction
-            action={action}
-            color={color}
-            size={size}
-            actionPaddingHorizontal={actionPaddingHorizontal}
-            actionStyle={actionStyle}
-          />
-        </View>
-      ))}
+        return (
+          <View
+            key={action.key || action.id || `${action.icon}-${index}`}
+            style={[
+              index > 0 && {
+                marginLeft: gap,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.searchActionItem,
+
+                {
+                  paddingLeft: resolvedPadding,
+
+                  paddingRight: resolvedPadding,
+                },
+
+                actionContainerStyle,
+                action.containerStyle,
+              ]}
+            >
+              <HeaderIcon
+                icon={action.icon}
+                size={action.size || size}
+                color={action.color || color}
+                onPress={action.onPress}
+                disabled={action.disabled}
+                style={[actionStyle, action.style]}
+                accessibilityLabel={
+                  action.accessibilityLabel || action.label || action.icon
+                }
+              />
+            </View>
+          </View>
+        );
+      })}
     </View>
   );
 }
 
 /* =========================================================
-   SEARCH
+   SEARCH BAR
 ========================================================= */
 
 function HeaderSearch({
@@ -272,31 +252,32 @@ function HeaderSearch({
 
   searchIcon = "search-outline",
   searchIconSize = 21,
-  searchIconColor,
+  searchIconColor = "#666666",
 
-  searchTextColor,
-  searchPlaceholderColor,
+  searchTextColor = "#111111",
+  searchPlaceholderColor = "#777777",
 
-  backgroundColor,
-  borderColor,
+  backgroundColor = "#F5F5F5",
+  borderColor = "transparent",
   borderWidth = 0,
   radius = 12,
 
-  actions = [],
-  actionsGap = 0,
-  actionPaddingHorizontal = 0,
+  searchActions = [],
 
-  actionColor,
-  actionSize = 22,
+  searchActionsGap = 0,
+  searchActionPaddingHorizontal = 0,
+
+  searchActionColor = "#111111",
+  searchActionSize = 22,
 
   onSearchPress,
 
   containerStyle,
   inputStyle,
 
-  actionStyle,
-  actionsContainerStyle,
-  actionContainerStyle,
+  searchActionStyle,
+  searchActionsStyle,
+  searchActionContainerStyle,
 
   searchProps = {},
 }) {
@@ -306,18 +287,20 @@ function HeaderSearch({
 
   const currentValue = isControlled ? value : internalValue;
 
-  const handleChange = (text) => {
+  const handleChangeText = (text) => {
     if (!isControlled) {
       setInternalValue(text);
     }
 
-    onChangeText?.(text);
+    if (onChangeText) {
+      onChangeText(text);
+    }
   };
 
   return (
     <View
       style={[
-        styles.searchContainer,
+        styles.searchBar,
 
         {
           backgroundColor,
@@ -332,9 +315,9 @@ function HeaderSearch({
       {/* SEARCH ICON */}
 
       <Pressable
-        disabled={!onSearchPress}
         onPress={onSearchPress}
-        style={styles.searchIconContainer}
+        disabled={!onSearchPress}
+        style={styles.searchIconButton}
       >
         <Ionicons
           name={searchIcon}
@@ -343,12 +326,12 @@ function HeaderSearch({
         />
       </Pressable>
 
-      {/* INPUT */}
+      {/* SEARCH INPUT */}
 
       <TextInput
         {...searchProps}
         value={currentValue}
-        onChangeText={handleChange}
+        onChangeText={handleChangeText}
         onSubmitEditing={onSubmitEditing}
         onFocus={onFocus}
         onBlur={onBlur}
@@ -361,20 +344,19 @@ function HeaderSearch({
           },
           inputStyle,
         ]}
-        returnKeyType={searchProps.returnKeyType || "search"}
       />
 
-      {/* RIGHT SEARCH ACTIONS */}
+      {/* SEARCH RIGHT ACTIONS */}
 
       <SearchActions
-        actions={actions}
-        color={actionColor}
-        size={actionSize}
-        gap={actionsGap}
-        actionPaddingHorizontal={actionPaddingHorizontal}
-        actionStyle={actionStyle}
-        containerStyle={actionsContainerStyle}
-        actionContainerStyle={actionContainerStyle}
+        actions={searchActions}
+        color={searchActionColor}
+        size={searchActionSize}
+        gap={searchActionsGap}
+        paddingHorizontal={searchActionPaddingHorizontal}
+        actionStyle={searchActionStyle}
+        style={searchActionsStyle}
+        actionContainerStyle={searchActionContainerStyle}
       />
     </View>
   );
@@ -400,15 +382,15 @@ function HeaderTabs({
 
   indicatorStyle,
 
-  tabColor,
-  activeTabColor,
+  tabColor = "#777777",
+  activeTabColor = "#111111",
 
   scrollable = false,
 
   containerStyle,
 }) {
   const [internalActiveTab, setInternalActiveTab] = useState(
-    defaultActiveTab || (tabs.length ? tabs[0]?.key || tabs[0]?.id : null),
+    defaultActiveTab || tabs[0]?.key || tabs[0]?.id || null,
   );
 
   const selectedTab = activeTab !== undefined ? activeTab : internalActiveTab;
@@ -424,16 +406,14 @@ function HeaderTabs({
       setInternalActiveTab(key);
     }
 
-    onTabChange?.(key, tab);
+    if (onTabChange) {
+      onTabChange(key, tab);
+    }
   };
 
   return (
     <View
-      style={[
-        styles.tabsContainer,
-        scrollable && styles.tabsScrollable,
-        containerStyle,
-      ]}
+      style={[styles.tabs, scrollable && styles.tabsScrollable, containerStyle]}
     >
       {tabs.map((tab, index) => {
         const key = tab.key || tab.id || index;
@@ -459,11 +439,15 @@ function HeaderTabs({
               numberOfLines={1}
               style={[
                 styles.tabText,
+
                 {
                   color: isActive ? activeTabColor : tabColor,
                 },
+
                 tabTextStyle,
+
                 isActive && activeTabTextStyle,
+
                 tab.textStyle,
               ]}
             >
@@ -502,8 +486,10 @@ function HeaderBackground({
         pointerEvents="none"
         style={[
           StyleSheet.absoluteFillObject,
+
           {
             backgroundColor: overlayColor,
+
             opacity: overlayOpacity,
           },
         ]}
@@ -523,9 +509,11 @@ function HeaderBackground({
       <View
         style={[
           StyleSheet.absoluteFillObject,
+
           {
             backgroundColor: background.color,
           },
+
           backgroundStyle,
         ]}
       >
@@ -621,11 +609,9 @@ function getEnteringAnimation({ animation, duration, delay }) {
 
 function AnimatedHeader({
   enabled,
-
   animation,
   duration,
   delay,
-
   children,
   style,
 }) {
@@ -633,14 +619,15 @@ function AnimatedHeader({
     return <View style={style}>{children}</View>;
   }
 
-  const entering = getEnteringAnimation({
-    animation,
-    duration,
-    delay,
-  });
-
   return (
-    <Animated.View entering={entering} style={style}>
+    <Animated.View
+      entering={getEnteringAnimation({
+        animation,
+        duration,
+        delay,
+      })}
+      style={style}
+    >
       {children}
     </Animated.View>
   );
@@ -705,6 +692,10 @@ export default function UIHeader({
 
   rightActionsGap = 0,
 
+  /*
+    Horizontal padding for EVERY individual
+    right-side action.
+  */
   rightActionPaddingHorizontal = 0,
 
   rightActionsStyle,
@@ -751,6 +742,10 @@ export default function UIHeader({
 
   searchActionsGap = 0,
 
+  /*
+    Horizontal padding for EVERY individual
+    search right-side action.
+  */
   searchActionPaddingHorizontal = 0,
 
   searchActionsStyle,
@@ -812,7 +807,6 @@ export default function UIHeader({
   ===================================================== */
 
   height,
-
   minHeight,
   maxHeight,
 
@@ -898,6 +892,10 @@ export default function UIHeader({
 
   const isDark = themeContext?.isDark ?? false;
 
+  /* =====================================================
+     THEME COLORS
+  ===================================================== */
+
   const themeBackground =
     colors?.background?.primary ||
     colors?.background ||
@@ -931,7 +929,7 @@ export default function UIHeader({
   }, [background, themeBackground]);
 
   /* =====================================================
-     COLORS
+     RESOLVED COLORS
   ===================================================== */
 
   const resolvedBackColor = backIconColor || themeText;
@@ -986,7 +984,7 @@ export default function UIHeader({
   const resolvedMarginBottom = marginBottom ?? marginVertical;
 
   /* =====================================================
-     ROOT
+     ROOT STYLE
   ===================================================== */
 
   const rootStyle = [
@@ -1030,20 +1028,16 @@ export default function UIHeader({
   ];
 
   /* =====================================================
-     ROW
+     HEADER ROW STYLE
   ===================================================== */
 
   const rowStyle = [
     styles.headerRow,
 
     headerRowHeight !== undefined && {
+      minHeight: headerRowHeight,
+
       height: headerRowHeight,
-    },
-
-    {
-      paddingLeft: resolvedPaddingLeft,
-
-      paddingRight: resolvedPaddingRight,
     },
 
     headerRowStyle,
@@ -1051,7 +1045,7 @@ export default function UIHeader({
   ];
 
   /* =====================================================
-     LEFT
+     LEFT STYLE
   ===================================================== */
 
   const resolvedLeftStyle = [
@@ -1071,7 +1065,7 @@ export default function UIHeader({
   ];
 
   /* =====================================================
-     CENTER
+     CENTER STYLE
   ===================================================== */
 
   const resolvedCenterStyle = [
@@ -1091,7 +1085,7 @@ export default function UIHeader({
   ];
 
   /* =====================================================
-     RIGHT
+     RIGHT STYLE
   ===================================================== */
 
   const resolvedRightStyle = [
@@ -1111,17 +1105,25 @@ export default function UIHeader({
   ];
 
   /* =====================================================
-     CONTENT
+     HEADER CONTENT
   ===================================================== */
 
   const content = (
-    <>
+    <View
+      style={styles.innerContent}
+      accessible={accessible}
+      accessibilityLabel={accessibilityLabel}
+      testID={testID}
+      onLayout={onLayout}
+    >
       {/* =================================================
           HEADER ROW
       ================================================= */}
 
       <View style={rowStyle}>
-        {/* LEFT */}
+        {/* ==============================================
+            LEFT
+        ============================================== */}
 
         <View style={resolvedLeftStyle}>
           {leftContent}
@@ -1141,6 +1143,7 @@ export default function UIHeader({
               onPress={onLocationPress}
               disabled={!onLocationPress}
               style={styles.locationContainer}
+              accessibilityRole={onLocationPress ? "button" : undefined}
             >
               <Ionicons
                 name={locationIcon}
@@ -1165,7 +1168,9 @@ export default function UIHeader({
           )}
         </View>
 
-        {/* CENTER */}
+        {/* ==============================================
+            CENTER
+        ============================================== */}
 
         <View style={resolvedCenterStyle}>
           {title ? (
@@ -1199,7 +1204,9 @@ export default function UIHeader({
           ) : null}
         </View>
 
-        {/* RIGHT */}
+        {/* ==============================================
+            RIGHT
+        ============================================== */}
 
         <View style={resolvedRightStyle}>
           <HeaderActions
@@ -1207,8 +1214,8 @@ export default function UIHeader({
             color={resolvedRightColor}
             size={rightActionSize}
             gap={rightActionsGap}
-            actionPaddingHorizontal={rightActionPaddingHorizontal}
-            containerStyle={rightActionsStyle}
+            paddingHorizontal={rightActionPaddingHorizontal}
+            style={rightActionsStyle}
             actionContainerStyle={rightActionContainerStyle}
             actionStyle={actionStyle}
             badgeStyle={badgeStyle}
@@ -1221,9 +1228,11 @@ export default function UIHeader({
           SEARCH
       ================================================= */}
 
-      {showSearch && (
+      {showSearch === true && (
         <View
           style={[
+            styles.searchSection,
+
             {
               marginTop: searchMarginTop ?? searchSpacing,
 
@@ -1248,17 +1257,17 @@ export default function UIHeader({
             borderColor={resolvedSearchBorder}
             borderWidth={searchBorderWidth}
             radius={searchRadius}
-            actions={searchActions}
-            actionsGap={searchActionsGap}
-            actionPaddingHorizontal={searchActionPaddingHorizontal}
-            actionColor={resolvedSearchActionColor}
-            actionSize={searchActionSize}
+            searchActions={searchActions}
+            searchActionsGap={searchActionsGap}
+            searchActionPaddingHorizontal={searchActionPaddingHorizontal}
+            searchActionColor={resolvedSearchActionColor}
+            searchActionSize={searchActionSize}
             onSearchPress={onSearchPress}
             containerStyle={searchContainerStyle}
             inputStyle={searchInputStyle}
-            actionStyle={searchActionStyle}
-            actionsContainerStyle={searchActionsStyle}
-            actionContainerStyle={searchActionContainerStyle}
+            searchActionStyle={searchActionStyle}
+            searchActionsStyle={searchActionsStyle}
+            searchActionContainerStyle={searchActionContainerStyle}
             searchProps={searchProps}
           />
         </View>
@@ -1271,6 +1280,8 @@ export default function UIHeader({
       {showTabs && tabs.length > 0 && (
         <View
           style={[
+            styles.tabsSection,
+
             {
               marginTop: tabsMarginTop ?? tabsSpacing,
 
@@ -1297,7 +1308,7 @@ export default function UIHeader({
       )}
 
       {children}
-    </>
+    </View>
   );
 
   /* =====================================================
@@ -1325,15 +1336,7 @@ export default function UIHeader({
 
       {/* CONTENT */}
 
-      <View
-        style={styles.contentLayer}
-        accessible={accessible}
-        accessibilityLabel={accessibilityLabel}
-        testID={testID}
-        onLayout={onLayout}
-      >
-        {content}
-      </View>
+      {content}
     </AnimatedHeader>
   );
 
@@ -1363,20 +1366,29 @@ const styles = StyleSheet.create({
 
   root: {
     width: "100%",
+
     position: "relative",
+
     overflow: "hidden",
   },
 
   backgroundLayer: {
     ...StyleSheet.absoluteFillObject,
+
     zIndex: 0,
   },
 
-  contentLayer: {
+  innerContent: {
     width: "100%",
+
     position: "relative",
+
     zIndex: 1,
   },
+
+  /* =====================================================
+     HEADER ROW
+  ===================================================== */
 
   headerRow: {
     width: "100%",
@@ -1390,6 +1402,10 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
+  /* =====================================================
+     LEFT
+  ===================================================== */
+
   leftSection: {
     minWidth: 0,
 
@@ -1401,6 +1417,10 @@ const styles = StyleSheet.create({
 
     flexShrink: 1,
   },
+
+  /* =====================================================
+     CENTER
+  ===================================================== */
 
   centerSection: {
     minWidth: 0,
@@ -1414,6 +1434,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
+  /* =====================================================
+     RIGHT
+  ===================================================== */
+
   rightSection: {
     minWidth: 0,
 
@@ -1426,15 +1450,23 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
 
+  /* =====================================================
+     TITLE
+  ===================================================== */
+
   title: {
     fontSize: 18,
+
     fontWeight: "600",
+
     textAlign: "center",
   },
 
   subtitle: {
     marginTop: 2,
+
     fontSize: 12,
+
     textAlign: "center",
   },
 
@@ -1444,9 +1476,11 @@ const styles = StyleSheet.create({
 
   iconButton: {
     width: 40,
+
     height: 40,
 
     alignItems: "center",
+
     justifyContent: "center",
 
     borderRadius: 20,
@@ -1468,28 +1502,10 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
   },
 
-  actionWrapper: {
+  actionItem: {
     position: "relative",
 
-    alignItems: "center",
-
-    justifyContent: "center",
-  },
-
-  /* =====================================================
-     SEARCH ACTIONS
-  ===================================================== */
-
-  searchActionsRow: {
     flexDirection: "row",
-
-    alignItems: "center",
-
-    justifyContent: "flex-end",
-  },
-
-  searchActionWrapper: {
-    position: "relative",
 
     alignItems: "center",
 
@@ -1504,9 +1520,11 @@ const styles = StyleSheet.create({
     position: "absolute",
 
     top: -2,
+
     right: -2,
 
     minWidth: 16,
+
     height: 16,
 
     paddingHorizontal: 4,
@@ -1514,6 +1532,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
 
     alignItems: "center",
+
     justifyContent: "center",
 
     backgroundColor: "#EF4444",
@@ -1550,26 +1569,35 @@ const styles = StyleSheet.create({
   },
 
   /* =====================================================
-     SEARCH
+     SEARCH SECTION
   ===================================================== */
 
-  searchContainer: {
+  searchSection: {
+    width: "100%",
+  },
+
+  /* =====================================================
+     SEARCH BAR
+  ===================================================== */
+
+  searchBar: {
     width: "100%",
 
-    minHeight: 46,
+    minHeight: 48,
 
     flexDirection: "row",
 
     alignItems: "center",
 
-    paddingLeft: 10,
+    paddingLeft: 8,
 
-    paddingRight: 6,
+    paddingRight: 4,
   },
 
-  searchIconContainer: {
-    width: 36,
-    height: 40,
+  searchIconButton: {
+    width: 40,
+
+    height: 42,
 
     alignItems: "center",
 
@@ -1581,18 +1609,48 @@ const styles = StyleSheet.create({
 
     minWidth: 0,
 
+    height: 44,
+
+    paddingHorizontal: 6,
+
     paddingVertical: 0,
 
-    paddingHorizontal: 4,
-
     fontSize: 15,
+  },
+
+  /* =====================================================
+     SEARCH RIGHT ACTIONS
+  ===================================================== */
+
+  searchActionsRow: {
+    flexDirection: "row",
+
+    alignItems: "center",
+
+    justifyContent: "flex-end",
+
+    flexShrink: 0,
+  },
+
+  searchActionItem: {
+    position: "relative",
+
+    flexDirection: "row",
+
+    alignItems: "center",
+
+    justifyContent: "center",
   },
 
   /* =====================================================
      TABS
   ===================================================== */
 
-  tabsContainer: {
+  tabsSection: {
+    width: "100%",
+  },
+
+  tabs: {
     width: "100%",
 
     flexDirection: "row",
@@ -1628,6 +1686,7 @@ const styles = StyleSheet.create({
     bottom: 0,
 
     left: 10,
+
     right: 10,
 
     height: 2,
