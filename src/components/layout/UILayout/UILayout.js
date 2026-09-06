@@ -1,8 +1,6 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
-
 import { SafeAreaView } from "react-native-safe-area-context";
-
 import Animated, {
   Easing,
   useAnimatedStyle,
@@ -12,39 +10,14 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-/**
- * UILayout
- *
- * Root/screen layout wrapper for rnnovaui.
- *
- * Features:
- * - Safe area support
- * - Theme-aware background
- * - Optional Reanimated animations
- * - Fade
- * - Fade + scale
- * - Slide
- * - Slide directions
- * - Spring
- * - Keyboard avoidance
- * - Custom styles
- * - Accessibility support
- *
- * Reanimated is only used when:
- *
- *   reanimated={true}
- *
- * Otherwise the component renders normally.
- */
+import { useTheme } from "../../../theme";
 
 const DEFAULT_DURATION = 400;
 const DEFAULT_SLIDE_DISTANCE = 24;
 const DEFAULT_SCALE_FROM = 0.96;
 
 const resolveAnimationType = (animation) => {
-  if (!animation) {
-    return "fade";
-  }
+  if (!animation) return "fade";
 
   if (typeof animation === "string") {
     return animation;
@@ -53,7 +26,7 @@ const resolveAnimationType = (animation) => {
   return animation.type || "fade";
 };
 
-const getInitialValues = ({ animation, slideDistance, scaleFrom }) => {
+const getInitialValues = (animation, slideDistance, scaleFrom) => {
   switch (animation) {
     case "fade":
     case "fadeIn":
@@ -82,8 +55,9 @@ const getInitialValues = ({ animation, slideDistance, scaleFrom }) => {
 
     case "slide":
     case "slideUp":
+    case "slideFade":
       return {
-        opacity: animation === "slide" ? 0 : 1,
+        opacity: animation === "slideUp" ? 1 : 0,
         scale: 1,
         translateX: 0,
         translateY: slideDistance,
@@ -113,14 +87,6 @@ const getInitialValues = ({ animation, slideDistance, scaleFrom }) => {
         translateY: 0,
       };
 
-    case "slideFade":
-      return {
-        opacity: 0,
-        scale: 1,
-        translateX: 0,
-        translateY: slideDistance,
-      };
-
     case "spring":
       return {
         opacity: 0,
@@ -139,57 +105,18 @@ const getInitialValues = ({ animation, slideDistance, scaleFrom }) => {
   }
 };
 
-const getAnimationTarget = (animation) => {
-  switch (animation) {
-    case "fade":
-    case "fadeIn":
-    case "scale":
-    case "fadeScale":
-    case "slide":
-    case "slideUp":
-    case "slideDown":
-    case "slideLeft":
-    case "slideRight":
-    case "slideFade":
-    case "spring":
-      return {
-        opacity: 1,
-        scale: 1,
-        translateX: 0,
-        translateY: 0,
-      };
-
-    default:
-      return {
-        opacity: 1,
-        scale: 1,
-        translateX: 0,
-        translateY: 0,
-      };
-  }
-};
-
-const UILayoutAnimated = ({
+const AnimatedLayout = ({
   children,
-
-  animation = "fade",
-
-  animationDuration = DEFAULT_DURATION,
-  animationDelay = 0,
-
-  slideDistance = DEFAULT_SLIDE_DISTANCE,
-  scaleFrom = DEFAULT_SCALE_FROM,
-
+  animation,
+  animationDuration,
+  animationDelay,
+  slideDistance,
+  scaleFrom,
   springConfig,
-
   onAnimationStart,
   onAnimationComplete,
-
   style,
 
-  /*
-   * Accessibility stays on normal View.
-   */
   accessible,
   accessibilityLabel,
   accessibilityHint,
@@ -205,15 +132,10 @@ const UILayoutAnimated = ({
 
   ...rest
 }) => {
-  const animationType = resolveAnimationType(animation);
-
-  const initial = getInitialValues({
-    animation: animationType,
-    slideDistance,
-    scaleFrom,
-  });
-
-  const target = getAnimationTarget(animationType);
+  const initial = useMemo(
+    () => getInitialValues(animation, slideDistance, scaleFrom),
+    [animation, slideDistance, scaleFrom],
+  );
 
   const opacity = useSharedValue(initial.opacity);
   const scale = useSharedValue(initial.scale);
@@ -221,37 +143,36 @@ const UILayoutAnimated = ({
   const translateY = useSharedValue(initial.translateY);
 
   useEffect(() => {
-    if (animationType === "none") {
+    if (animation === "none") {
       return;
     }
 
+    opacity.value = initial.opacity;
+    scale.value = initial.scale;
+    translateX.value = initial.translateX;
+    translateY.value = initial.translateY;
+
     onAnimationStart?.();
 
-    const timingConfig = {
+    const timing = {
       duration: animationDuration,
       easing: Easing.out(Easing.cubic),
     };
 
-    const runTiming = (sharedValue, value) => {
-      sharedValue.value = withDelay(
-        animationDelay,
-        withTiming(value, timingConfig),
-      );
+    const delay = animationDelay;
+
+    const complete = (finished) => {
+      if (finished) {
+        onAnimationComplete?.();
+      }
     };
 
-    if (animationType === "spring") {
-      opacity.value = withDelay(
-        animationDelay,
-        withTiming(target.opacity, timingConfig, (finished) => {
-          if (finished) {
-            onAnimationComplete?.();
-          }
-        }),
-      );
+    if (animation === "spring") {
+      opacity.value = withDelay(delay, withTiming(1, timing, complete));
 
       scale.value = withDelay(
-        animationDelay,
-        withSpring(target.scale, {
+        delay,
+        withSpring(1, {
           damping: springConfig?.damping ?? 16,
           stiffness: springConfig?.stiffness ?? 180,
           mass: springConfig?.mass ?? 0.8,
@@ -260,8 +181,8 @@ const UILayoutAnimated = ({
       );
 
       translateX.value = withDelay(
-        animationDelay,
-        withSpring(target.translateX, {
+        delay,
+        withSpring(0, {
           damping: springConfig?.damping ?? 16,
           stiffness: springConfig?.stiffness ?? 180,
           mass: springConfig?.mass ?? 0.8,
@@ -270,8 +191,8 @@ const UILayoutAnimated = ({
       );
 
       translateY.value = withDelay(
-        animationDelay,
-        withSpring(target.translateY, {
+        delay,
+        withSpring(0, {
           damping: springConfig?.damping ?? 16,
           stiffness: springConfig?.stiffness ?? 180,
           mass: springConfig?.mass ?? 0.8,
@@ -282,24 +203,18 @@ const UILayoutAnimated = ({
       return;
     }
 
-    runTiming(opacity, target.opacity);
-    runTiming(scale, target.scale);
-    runTiming(translateX, target.translateX);
+    opacity.value = withDelay(delay, withTiming(1, timing, complete));
 
-    translateY.value = withDelay(
-      animationDelay,
-      withTiming(target.translateY, timingConfig, (finished) => {
-        if (finished) {
-          onAnimationComplete?.();
-        }
-      }),
-    );
+    scale.value = withDelay(delay, withTiming(1, timing));
+
+    translateX.value = withDelay(delay, withTiming(0, timing));
+
+    translateY.value = withDelay(delay, withTiming(0, timing));
   }, [
-    animationType,
+    animation,
     animationDuration,
     animationDelay,
-    slideDistance,
-    scaleFrom,
+    initial,
     springConfig,
     onAnimationStart,
     onAnimationComplete,
@@ -307,20 +222,15 @@ const UILayoutAnimated = ({
     scale,
     translateX,
     translateY,
-    target.opacity,
-    target.scale,
-    target.translateX,
-    target.translateY,
   ]);
 
   const animatedStyle = useAnimatedStyle(() => {
-    if (animationType === "none") {
+    if (animation === "none") {
       return {};
     }
 
     return {
       opacity: opacity.value,
-
       transform: [
         {
           translateX: translateX.value,
@@ -343,6 +253,7 @@ const UILayoutAnimated = ({
       style={[styles.flex, style, animatedStyle]}
     >
       <View
+        style={styles.flex}
         accessible={accessible}
         accessibilityLabel={accessibilityLabel}
         accessibilityHint={accessibilityHint}
@@ -352,7 +263,6 @@ const UILayoutAnimated = ({
         accessibilityLiveRegion={accessibilityLiveRegion}
         accessibilityViewIsModal={accessibilityViewIsModal}
         importantForAccessibility={importantForAccessibility}
-        style={styles.flex}
       >
         {children}
       </View>
@@ -362,6 +272,18 @@ const UILayoutAnimated = ({
 
 const UILayout = ({
   children,
+
+  /*
+   * Theme
+   *
+   * Uses the existing rnnovaui theme system.
+   *
+   * mode:
+   * - "light"
+   * - "dark"
+   * - "system"
+   */
+  mode,
 
   /*
    * Safe area
@@ -374,7 +296,10 @@ const UILayout = ({
   flex = 1,
 
   /*
-   * Theme/background
+   * Background
+   *
+   * Explicit backgroundColor overrides
+   * the theme background.
    */
   backgroundColor,
 
@@ -387,34 +312,25 @@ const UILayout = ({
    * Keyboard
    */
   keyboardAvoiding = false,
-
   keyboardBehavior,
-
   keyboardVerticalOffset = 0,
 
   /*
    * Reanimated
    */
   reanimated = false,
-
   animation = "fade",
-
   animationDuration = DEFAULT_DURATION,
-
   animationDelay = 0,
-
   slideDistance = DEFAULT_SLIDE_DISTANCE,
-
   scaleFrom = DEFAULT_SCALE_FROM,
-
   springConfig,
 
   onAnimationStart,
-
   onAnimationComplete,
 
   /*
-   * Root style
+   * Style
    */
   style,
 
@@ -436,18 +352,45 @@ const UILayout = ({
 
   ...rest
 }) => {
+  const themeContext = useTheme();
+
+  const { theme, mode: currentMode, isDark, setTheme } = themeContext;
+
+  /*
+   * If mode is supplied, synchronize it
+   * with the existing global theme system.
+   *
+   * No separate theme state is created here.
+   */
+  useEffect(() => {
+    if (mode && mode !== "system" && mode !== currentMode) {
+      setTheme?.(mode);
+    }
+  }, [mode, currentMode, setTheme]);
+
+  const activeMode = mode || currentMode;
+
+  const themeBackground =
+    theme?.colors?.background?.primary ??
+    theme?.colors?.background ??
+    theme?.colors?.backgroundColor;
+
+  const resolvedBackgroundColor = backgroundColor || themeBackground;
+
   const rootStyle = [
     styles.root,
     {
       flex,
-      backgroundColor,
+      backgroundColor: resolvedBackgroundColor,
     },
     style,
   ];
 
+  const animationType = resolveAnimationType(animation);
+
   const content = reanimated ? (
-    <UILayoutAnimated
-      animation={animation}
+    <AnimatedLayout
+      animation={animationType}
       animationDuration={animationDuration}
       animationDelay={animationDelay}
       slideDistance={slideDistance}
@@ -470,13 +413,13 @@ const UILayout = ({
       {...rest}
     >
       {children}
-    </UILayoutAnimated>
+    </AnimatedLayout>
   ) : (
     <View
       {...rest}
+      style={[styles.flex, contentContainerStyle]}
       testID={testID}
       onLayout={onLayout}
-      style={[styles.flex, contentContainerStyle]}
       accessible={accessible}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
@@ -495,7 +438,7 @@ const UILayout = ({
     <KeyboardAvoidingView
       style={styles.flex}
       behavior={
-        keyboardBehavior || (Platform.OS === "ios" ? "padding" : undefined)
+        keyboardBehavior || (Platform.OS === "ios" ? "padding" : "height")
       }
       keyboardVerticalOffset={keyboardVerticalOffset}
     >
