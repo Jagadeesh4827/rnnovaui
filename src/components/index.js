@@ -117,3 +117,8 @@ export {
   UIAccordionIcon,
 } from "./Accordion";
 export { UITabs, UITabsList, UITabsTrigger, UITabsContent } from "./Tabs";
+export {
+  UIAspectRatio,
+  UIAspectRatioPresets,
+  UIAspectRatioAnimations,
+} from "./AspectRatio";

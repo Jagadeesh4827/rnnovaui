@@ -129,4 +129,7 @@ export {
   UITabsList,
   UITabsTrigger,
   UITabsContent,
+  UIAspectRatio,
+  UIAspectRatioPresets,
+  UIAspectRatioAnimations,
 } from "./components";
