@@ -124,3 +124,4 @@ export {
 } from "./AspectRatio";
 export { default as UILayout } from "./layout/UILayout";
 export { default as UIHeader } from "./layout/UIHeader";
+export { default as UIBannerCarousel } from "./UIBannerCarousel";

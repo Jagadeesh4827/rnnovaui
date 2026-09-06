@@ -134,4 +134,5 @@ export {
   UIAspectRatioAnimations,
   UILayout,
   UIHeader,
+  UIBannerCarousel,
 } from "./components";
