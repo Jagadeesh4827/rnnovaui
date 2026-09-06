@@ -129,4 +129,5 @@ export {
   UITabsList,
   UITabsTrigger,
   UITabsContent,
+  UILayout,
 } from "./components";
