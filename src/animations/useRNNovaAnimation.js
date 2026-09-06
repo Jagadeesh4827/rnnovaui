@@ -1,164 +1,331 @@
-import { useEffect, useRef } from "react";
-
-import { Animated, Easing } from "react-native";
+import { useEffect } from "react";
 
 import {
-  DEFAULT_ANIMATION_STYLE,
-  DEFAULT_ANIMATION_DURATION,
-  DEFAULT_ANIMATION_DELAY,
-  DEFAULT_ANIMATION_DISTANCE,
-  DEFAULT_ANIMATION_ENABLED,
-  LOOP_ANIMATION_STYLES,
-  SPRING_ANIMATION_STYLES,
-} from "../constants";
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  withSpring,
+  withRepeat,
+  withSequence,
+  withDelay,
+  Easing,
+} from "react-native-reanimated";
 
-import { getRNNovaAnimationStyle } from "./presets";
-
-import {
-  getAnimationEasing,
-  getSpringConfig,
-  createLoop,
-  stopAnimation,
-} from "./helpers";
-
-export default function useRNNovaAnimation({
-  animationStyle = DEFAULT_ANIMATION_STYLE,
-
-  duration = DEFAULT_ANIMATION_DURATION,
-
-  delay = DEFAULT_ANIMATION_DELAY,
-
-  distance = DEFAULT_ANIMATION_DISTANCE,
-
-  enabled = DEFAULT_ANIMATION_ENABLED,
-} = {}) {
-  const progress = useRef(
-    new Animated.Value(animationStyle === "none" ? 1 : 0),
-  ).current;
-
-  const loopValue = useRef(new Animated.Value(0)).current;
-
-  const animationRef = useRef(null);
+const useRNNovaAnimation = ({
+  animated = false,
+  animationStyle = "none",
+  duration = 500,
+  delay = 0,
+  iterationCount = 1,
+}) => {
+  const progress = useSharedValue(0);
 
   useEffect(() => {
-    stopAnimation(animationRef.current);
-
-    if (!enabled || animationStyle === "none") {
-      progress.setValue(1);
-      loopValue.setValue(0);
-
-      return undefined;
+    if (!animated || animationStyle === "none") {
+      progress.value = 0;
+      return;
     }
 
-    progress.setValue(0);
-    loopValue.setValue(0);
+    progress.value = 0;
 
-    /*
-     * Continuous animations
-     */
-    if (LOOP_ANIMATION_STYLES.includes(animationStyle)) {
-      progress.setValue(1);
+    const repeatCount =
+      iterationCount === "infinite"
+        ? -1
+        : Math.max(1, Number(iterationCount) || 1);
 
-      const halfDuration = Math.max(duration / 2, 180);
+    switch (animationStyle) {
+      case "fadeIn":
+        progress.value = withDelay(
+          delay,
+          withTiming(1, {
+            duration,
+          }),
+        );
+        break;
 
-      const sequence = Animated.sequence([
-        Animated.delay(delay),
+      case "fadeOut":
+        progress.value = withDelay(
+          delay,
+          withTiming(1, {
+            duration,
+          }),
+        );
+        break;
 
-        Animated.timing(loopValue, {
-          toValue: 1,
-          duration: halfDuration,
+      case "bounce":
+        progress.value = withDelay(
+          delay,
+          withRepeat(
+            withSequence(
+              withSpring(1, {
+                damping: 8,
+                stiffness: 180,
+              }),
+              withSpring(0, {
+                damping: 10,
+                stiffness: 180,
+              }),
+            ),
+            repeatCount,
+            false,
+          ),
+        );
+        break;
 
-          easing: Easing.inOut(Easing.ease),
+      case "elastic":
+        progress.value = withDelay(
+          delay,
+          withRepeat(
+            withSequence(
+              withSpring(1, {
+                damping: 4,
+                stiffness: 150,
+              }),
+              withSpring(0, {
+                damping: 6,
+                stiffness: 120,
+              }),
+            ),
+            repeatCount,
+            false,
+          ),
+        );
+        break;
 
-          useNativeDriver: true,
-        }),
+      case "spring":
+        progress.value = withDelay(
+          delay,
+          withSpring(1, {
+            damping: 10,
+            stiffness: 160,
+          }),
+        );
+        break;
 
-        Animated.timing(loopValue, {
-          toValue: 0,
-          duration: halfDuration,
+      case "pulse":
+        progress.value = withDelay(
+          delay,
+          withRepeat(
+            withSequence(
+              withTiming(1, {
+                duration: duration / 2,
+              }),
+              withTiming(0, {
+                duration: duration / 2,
+              }),
+            ),
+            repeatCount,
+            false,
+          ),
+        );
+        break;
 
-          easing: Easing.inOut(Easing.ease),
+      case "shake":
+        progress.value = withDelay(
+          delay,
+          withRepeat(
+            withSequence(
+              withTiming(1, {
+                duration: 60,
+              }),
+              withTiming(-1, {
+                duration: 120,
+              }),
+              withTiming(0, {
+                duration: 60,
+              }),
+            ),
+            repeatCount,
+            false,
+          ),
+        );
+        break;
 
-          useNativeDriver: true,
-        }),
-      ]);
+      case "zoomIn":
+        progress.value = withDelay(
+          delay,
+          withTiming(1, {
+            duration,
+            easing: Easing.out(Easing.ease),
+          }),
+        );
+        break;
 
-      const animation = createLoop(sequence);
+      case "zoomOut":
+        progress.value = withDelay(
+          delay,
+          withTiming(1, {
+            duration,
+            easing: Easing.out(Easing.ease),
+          }),
+        );
+        break;
 
-      animationRef.current = animation;
+      case "slideIn":
+        progress.value = withDelay(
+          delay,
+          withTiming(1, {
+            duration,
+            easing: Easing.out(Easing.ease),
+          }),
+        );
+        break;
 
-      animation.start();
+      case "slideOut":
+        progress.value = withDelay(
+          delay,
+          withTiming(1, {
+            duration,
+            easing: Easing.out(Easing.ease),
+          }),
+        );
+        break;
 
-      return () => {
-        stopAnimation(animation);
-      };
+      case "pop":
+        progress.value = withDelay(
+          delay,
+          withSequence(
+            withSpring(1.15, {
+              damping: 8,
+              stiffness: 200,
+            }),
+            withSpring(1, {
+              damping: 10,
+              stiffness: 180,
+            }),
+          ),
+        );
+        break;
+
+      default:
+        progress.value = 0;
+    }
+  }, [animated, animationStyle, duration, delay, iterationCount, progress]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    if (!animated || animationStyle === "none") {
+      return {};
     }
 
-    /*
-     * Spring animations
-     */
-    if (SPRING_ANIMATION_STYLES.includes(animationStyle)) {
-      const animation = Animated.sequence([
-        Animated.delay(delay),
+    switch (animationStyle) {
+      case "fadeIn":
+        return {
+          opacity: progress.value,
+        };
 
-        Animated.spring(progress, {
-          toValue: 1,
+      case "fadeOut":
+        return {
+          opacity: 1 - progress.value,
+        };
 
-          useNativeDriver: true,
+      case "bounce":
+        return {
+          transform: [
+            {
+              scale: 1 + progress.value * 0.08,
+            },
+          ],
+        };
 
-          ...getSpringConfig(animationStyle),
-        }),
-      ]);
+      case "elastic":
+        return {
+          transform: [
+            {
+              scale: 1 + progress.value * 0.12,
+            },
+          ],
+        };
 
-      animationRef.current = animation;
+      case "spring":
+        return {
+          transform: [
+            {
+              scale: 0.9 + progress.value * 0.1,
+            },
+          ],
+        };
 
-      animation.start();
+      case "pulse":
+        return {
+          transform: [
+            {
+              scale: 1 + progress.value * 0.05,
+            },
+          ],
+          opacity: 1 - progress.value * 0.15,
+        };
 
-      return () => {
-        stopAnimation(animation);
-      };
+      case "shake":
+        return {
+          transform: [
+            {
+              translateX: progress.value * 8,
+            },
+          ],
+        };
+
+      case "zoomIn":
+        return {
+          opacity: progress.value,
+
+          transform: [
+            {
+              scale: 0.85 + progress.value * 0.15,
+            },
+          ],
+        };
+
+      case "zoomOut":
+        return {
+          opacity: 1 - progress.value,
+
+          transform: [
+            {
+              scale: 1 + progress.value * 0.15,
+            },
+          ],
+        };
+
+      case "slideIn":
+        return {
+          opacity: progress.value,
+
+          transform: [
+            {
+              translateY: (1 - progress.value) * 30,
+            },
+          ],
+        };
+
+      case "slideOut":
+        return {
+          opacity: 1 - progress.value,
+
+          transform: [
+            {
+              translateY: progress.value * 30,
+            },
+          ],
+        };
+
+      case "pop":
+        return {
+          transform: [
+            {
+              scale: progress.value === 0 ? 1 : progress.value,
+            },
+          ],
+        };
+
+      default:
+        return {};
     }
-
-    /*
-     * Standard timing animation
-     */
-    const animation = Animated.sequence([
-      Animated.delay(delay),
-
-      Animated.timing(progress, {
-        toValue: 1,
-
-        duration,
-
-        easing: getAnimationEasing(animationStyle),
-
-        useNativeDriver: true,
-      }),
-    ]);
-
-    animationRef.current = animation;
-
-    animation.start();
-
-    return () => {
-      stopAnimation(animation);
-    };
-  }, [animationStyle, duration, delay, enabled, progress, loopValue]);
-
-  const animatedStyle = getRNNovaAnimationStyle({
-    animationStyle,
-    progress,
-    loopValue,
-    distance,
   });
 
   return {
-    progress,
-
-    loopValue,
-
     animatedStyle,
-
-    animationTransform: animatedStyle.transform || [],
+    progress,
   };
-}
+};
+
+export default useRNNovaAnimation;

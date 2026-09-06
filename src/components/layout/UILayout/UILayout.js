@@ -1,31 +1,65 @@
 import React from "react";
+
 import { View, StyleSheet, useColorScheme } from "react-native";
+
 import { SafeAreaView } from "react-native-safe-area-context";
+
+import Animated from "react-native-reanimated";
+
+import { useRNNovaAnimation } from "../../../animations";
+
+const AnimatedView = Animated.createAnimatedComponent(View);
 
 const UILayout = ({
   children,
 
+  // -------------------------
   // Colors
+  // -------------------------
+
   backgroundColor,
   lightBackgroundColor,
   darkBackgroundColor,
 
-  // Safe area
+  // -------------------------
+  // Safe Area
+  // -------------------------
+
   edges = ["top", "bottom", "left", "right"],
 
+  // -------------------------
   // Layout
+  // -------------------------
+
   flex = 1,
 
+  // -------------------------
   // Styles
+  // -------------------------
+
   style,
   containerStyle,
   contentStyle,
 
+  // -------------------------
   // Content
+  // -------------------------
+
   centered = false,
 
-  // Future-compatible prop
-  keyboardAvoiding = false,
+  // -------------------------
+  // Animation
+  // -------------------------
+
+  animated = false,
+
+  animationStyle = "none",
+
+  duration = 500,
+
+  delay = 0,
+
+  iterationCount = 1,
 }) => {
   const colorScheme = useColorScheme();
 
@@ -39,14 +73,26 @@ const UILayout = ({
     }
   }
 
+  const { animatedStyle } = useRNNovaAnimation({
+    animated,
+    animationStyle,
+    duration,
+    delay,
+    iterationCount,
+  });
+
+  const ContentView = animated ? AnimatedView : View;
+
   return (
     <View
       style={[
         styles.container,
+
         {
           flex,
           backgroundColor: resolvedBackgroundColor,
         },
+
         containerStyle,
       ]}
     >
@@ -54,24 +100,31 @@ const UILayout = ({
         edges={edges}
         style={[
           styles.safeArea,
+
           {
             backgroundColor: resolvedBackgroundColor,
           },
+
           style,
         ]}
       >
-        <View
+        <ContentView
           style={[
             styles.content,
+
             {
               flex,
             },
+
             centered && styles.centered,
+
             contentStyle,
+
+            animatedStyle,
           ]}
         >
           {children}
-        </View>
+        </ContentView>
       </SafeAreaView>
     </View>
   );

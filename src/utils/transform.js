@@ -1,8 +1,5 @@
 import { flattenStyle } from "./style";
 
-/*
- * Separates transform from a style object.
- */
 export function separateTransform(style) {
   const flattenedStyle = flattenStyle(style);
 
@@ -10,26 +7,17 @@ export function separateTransform(style) {
 
   return {
     style: restStyle,
-
     transform: Array.isArray(transform) ? transform : [],
   };
 }
 
-/*
- * Combines animation transforms
- * and developer transforms.
- */
 export function mergeTransforms(animationTransform = [], customTransform = []) {
   return [
     ...normalizeTransform(animationTransform),
-
     ...normalizeTransform(customTransform),
   ];
 }
 
-/*
- * Ensures transform is always an array.
- */
 export function normalizeTransform(transform) {
   if (!transform) {
     return [];
@@ -42,9 +30,6 @@ export function normalizeTransform(transform) {
   return [transform];
 }
 
-/*
- * Checks whether a transform exists.
- */
 export function hasTransform(transform) {
   return normalizeTransform(transform).length > 0;
 }
