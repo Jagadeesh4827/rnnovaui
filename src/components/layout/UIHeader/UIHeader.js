@@ -28,7 +28,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { useTheme } from "../../../theme";
+import { useUITheme } from "../../../theme";
 
 /*
 |--------------------------------------------------------------------------
@@ -1066,7 +1066,7 @@ const UIHeader = ({
    *
    * UIHeader ONLY reads it.
    */
-  const themeContext = useTheme();
+  const themeContext = useUITheme();
 
   const theme = themeContext?.theme || themeContext || {};
 
