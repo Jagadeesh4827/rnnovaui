@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -15,21 +15,12 @@ import { BlurView } from "expo-blur";
 
 import Animated, {
   FadeIn,
-  FadeInDown,
-  FadeInUp,
-  FadeInLeft,
-  FadeInRight,
   FadeInZoom,
   SlideInDown,
-  SlideInUp,
   SlideInLeft,
   SlideInRight,
+  SlideInUp,
   ZoomIn,
-  withSpring,
-  useAnimatedStyle,
-  useSharedValue,
-  withTiming,
-  runOnJS,
 } from "react-native-reanimated";
 
 import { useUITheme } from "../../../theme";
@@ -75,13 +66,24 @@ function HeaderAction({
   color,
   size,
   actionStyle,
+  actionPaddingHorizontal = 0,
   badgeStyle,
   badgeTextStyle,
 }) {
   if (!action) return null;
 
   return (
-    <View style={styles.actionWrapper}>
+    <View
+      style={[
+        styles.actionWrapper,
+        {
+          paddingLeft: action.paddingHorizontal ?? actionPaddingHorizontal,
+
+          paddingRight: action.paddingHorizontal ?? actionPaddingHorizontal,
+        },
+        action.containerStyle,
+      ]}
+    >
       <HeaderIcon
         icon={action.icon}
         size={action.size || size}
@@ -108,20 +110,28 @@ function HeaderAction({
 }
 
 /* =========================================================
-   HEADER ACTIONS
+   RIGHT ACTIONS
 ========================================================= */
 
 function HeaderActions({
   actions = [],
+
   color,
   size = 24,
-  gap = 8,
+
+  gap = 0,
+
+  actionPaddingHorizontal = 0,
+
   actionStyle,
+  actionContainerStyle,
+
   badgeStyle,
   badgeTextStyle,
+
   containerStyle,
 }) {
-  if (!actions || actions.length === 0) {
+  if (!actions.length) {
     return null;
   }
 
@@ -134,6 +144,7 @@ function HeaderActions({
             index > 0 && {
               marginLeft: gap,
             },
+            actionContainerStyle,
           ]}
         >
           <HeaderAction
@@ -141,6 +152,7 @@ function HeaderActions({
             color={color}
             size={size}
             actionStyle={actionStyle}
+            actionPaddingHorizontal={actionPaddingHorizontal}
             badgeStyle={badgeStyle}
             badgeTextStyle={badgeTextStyle}
           />
@@ -151,18 +163,69 @@ function HeaderActions({
 }
 
 /* =========================================================
+   SEARCH ACTION
+========================================================= */
+
+function SearchAction({
+  action,
+  color,
+  size,
+
+  actionPaddingHorizontal = 0,
+
+  actionStyle,
+}) {
+  if (!action) return null;
+
+  return (
+    <View
+      style={[
+        styles.searchActionWrapper,
+
+        {
+          paddingLeft: action.paddingHorizontal ?? actionPaddingHorizontal,
+
+          paddingRight: action.paddingHorizontal ?? actionPaddingHorizontal,
+        },
+
+        action.containerStyle,
+      ]}
+    >
+      <HeaderIcon
+        icon={action.icon}
+        size={action.size || size}
+        color={action.color || color}
+        onPress={action.onPress}
+        disabled={action.disabled}
+        style={[actionStyle, action.style]}
+        accessibilityLabel={
+          action.accessibilityLabel || action.label || action.icon
+        }
+      />
+    </View>
+  );
+}
+
+/* =========================================================
    SEARCH ACTIONS
 ========================================================= */
 
 function SearchActions({
   actions = [],
+
   color,
   size = 22,
-  gap = 8,
+
+  gap = 0,
+
+  actionPaddingHorizontal = 0,
+
   actionStyle,
+  actionContainerStyle,
+
   containerStyle,
 }) {
-  if (!actions || actions.length === 0) {
+  if (!actions.length) {
     return null;
   }
 
@@ -175,18 +238,16 @@ function SearchActions({
             index > 0 && {
               marginLeft: gap,
             },
+
+            actionContainerStyle,
           ]}
         >
-          <HeaderIcon
-            icon={action.icon}
-            size={action.size || size}
-            color={action.color || color}
-            onPress={action.onPress}
-            disabled={action.disabled}
-            style={[actionStyle, action.style]}
-            accessibilityLabel={
-              action.accessibilityLabel || action.label || action.icon
-            }
+          <SearchAction
+            action={action}
+            color={color}
+            size={size}
+            actionPaddingHorizontal={actionPaddingHorizontal}
+            actionStyle={actionStyle}
           />
         </View>
       ))}
@@ -201,6 +262,7 @@ function SearchActions({
 function HeaderSearch({
   value,
   defaultValue,
+
   onChangeText,
   onSubmitEditing,
   onFocus,
@@ -221,7 +283,9 @@ function HeaderSearch({
   radius = 12,
 
   actions = [],
-  actionsGap = 8,
+  actionsGap = 0,
+  actionPaddingHorizontal = 0,
+
   actionColor,
   actionSize = 22,
 
@@ -229,8 +293,10 @@ function HeaderSearch({
 
   containerStyle,
   inputStyle,
+
   actionStyle,
   actionsContainerStyle,
+  actionContainerStyle,
 
   searchProps = {},
 }) {
@@ -245,24 +311,26 @@ function HeaderSearch({
       setInternalValue(text);
     }
 
-    if (onChangeText) {
-      onChangeText(text);
-    }
+    onChangeText?.(text);
   };
 
   return (
     <View
       style={[
         styles.searchContainer,
+
         {
           backgroundColor,
           borderColor,
           borderWidth,
           borderRadius: radius,
         },
+
         containerStyle,
       ]}
     >
+      {/* SEARCH ICON */}
+
       <Pressable
         disabled={!onSearchPress}
         onPress={onSearchPress}
@@ -274,6 +342,8 @@ function HeaderSearch({
           color={searchIconColor}
         />
       </Pressable>
+
+      {/* INPUT */}
 
       <TextInput
         {...searchProps}
@@ -294,13 +364,17 @@ function HeaderSearch({
         returnKeyType={searchProps.returnKeyType || "search"}
       />
 
+      {/* RIGHT SEARCH ACTIONS */}
+
       <SearchActions
         actions={actions}
         color={actionColor}
         size={actionSize}
         gap={actionsGap}
+        actionPaddingHorizontal={actionPaddingHorizontal}
         actionStyle={actionStyle}
         containerStyle={actionsContainerStyle}
+        actionContainerStyle={actionContainerStyle}
       />
     </View>
   );
@@ -312,8 +386,10 @@ function HeaderSearch({
 
 function HeaderTabs({
   tabs = [],
+
   activeTab,
   defaultActiveTab,
+
   onTabChange,
 
   tabStyle,
@@ -332,12 +408,12 @@ function HeaderTabs({
   containerStyle,
 }) {
   const [internalActiveTab, setInternalActiveTab] = useState(
-    defaultActiveTab || (tabs.length > 0 ? tabs[0]?.key || tabs[0]?.id : null),
+    defaultActiveTab || (tabs.length ? tabs[0]?.key || tabs[0]?.id : null),
   );
 
   const selectedTab = activeTab !== undefined ? activeTab : internalActiveTab;
 
-  if (!tabs || tabs.length === 0) {
+  if (!tabs.length) {
     return null;
   }
 
@@ -348,9 +424,7 @@ function HeaderTabs({
       setInternalActiveTab(key);
     }
 
-    if (onTabChange) {
-      onTabChange(key, tab);
-    }
+    onTabChange?.(key, tab);
   };
 
   return (
@@ -363,6 +437,7 @@ function HeaderTabs({
     >
       {tabs.map((tab, index) => {
         const key = tab.key || tab.id || index;
+
         const isActive = selectedTab === key;
 
         return (
@@ -381,6 +456,7 @@ function HeaderTabs({
             }}
           >
             <Text
+              numberOfLines={1}
               style={[
                 styles.tabText,
                 {
@@ -419,25 +495,25 @@ function HeaderBackground({
   backgroundStyle,
   overlayColor,
   overlayOpacity,
-  children,
 }) {
+  const overlay =
+    overlayOpacity > 0 ? (
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFillObject,
+          {
+            backgroundColor: overlayColor,
+            opacity: overlayOpacity,
+          },
+        ]}
+      />
+    ) : null;
+
   if (!background || background.type === "theme") {
     return (
       <View style={[StyleSheet.absoluteFillObject, backgroundStyle]}>
-        {overlayOpacity > 0 && (
-          <View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFillObject,
-              {
-                backgroundColor: overlayColor,
-                opacity: overlayOpacity,
-              },
-            ]}
-          />
-        )}
-
-        {children}
+        {overlay}
       </View>
     );
   }
@@ -453,20 +529,7 @@ function HeaderBackground({
           backgroundStyle,
         ]}
       >
-        {overlayOpacity > 0 && (
-          <View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFillObject,
-              {
-                backgroundColor: overlayColor,
-                opacity: overlayOpacity,
-              },
-            ]}
-          />
-        )}
-
-        {children}
+        {overlay}
       </View>
     );
   }
@@ -479,20 +542,7 @@ function HeaderBackground({
         end={background.end || { x: 1, y: 1 }}
         style={[StyleSheet.absoluteFillObject, backgroundStyle]}
       >
-        {overlayOpacity > 0 && (
-          <View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFillObject,
-              {
-                backgroundColor: overlayColor,
-                opacity: overlayOpacity,
-              },
-            ]}
-          />
-        )}
-
-        {children}
+        {overlay}
       </LinearGradient>
     );
   }
@@ -504,20 +554,7 @@ function HeaderBackground({
         resizeMode={background.resizeMode || "cover"}
         style={[StyleSheet.absoluteFillObject, backgroundStyle]}
       >
-        {overlayOpacity > 0 && (
-          <View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFillObject,
-              {
-                backgroundColor: overlayColor,
-                opacity: overlayOpacity,
-              },
-            ]}
-          />
-        )}
-
-        {children}
+        {overlay}
       </ImageBackground>
     );
   }
@@ -529,27 +566,14 @@ function HeaderBackground({
         tint={background.tint || "default"}
         style={[StyleSheet.absoluteFillObject, backgroundStyle]}
       >
-        {overlayOpacity > 0 && (
-          <View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFillObject,
-              {
-                backgroundColor: overlayColor,
-                opacity: overlayOpacity,
-              },
-            ]}
-          />
-        )}
-
-        {children}
+        {overlay}
       </BlurView>
     );
   }
 
   return (
     <View style={[StyleSheet.absoluteFillObject, backgroundStyle]}>
-      {children}
+      {overlay}
     </View>
   );
 }
@@ -558,21 +582,10 @@ function HeaderBackground({
    ANIMATION
 ========================================================= */
 
-function getEnteringAnimation({
-  animation,
-  duration,
-  delay,
-  slideDistance,
-  scaleFrom,
-}) {
+function getEnteringAnimation({ animation, duration, delay }) {
   if (!animation || animation === "none") {
     return undefined;
   }
-
-  const config = {
-    duration,
-    delay,
-  };
 
   switch (animation) {
     case "fade":
@@ -607,59 +620,27 @@ function getEnteringAnimation({
 ========================================================= */
 
 function AnimatedHeader({
-  reanimated,
-  animation,
-  animationDuration,
-  animationDelay,
-  slideDistance,
-  scaleFrom,
+  enabled,
 
-  onAnimationStart,
-  onAnimationComplete,
+  animation,
+  duration,
+  delay,
 
   children,
   style,
 }) {
-  const [animationStarted, setAnimationStarted] = useState(false);
-
-  useEffect(() => {
-    if (reanimated && animation !== "none") {
-      setAnimationStarted(false);
-
-      const timer = setTimeout(() => {
-        setAnimationStarted(true);
-
-        if (onAnimationStart) {
-          onAnimationStart();
-        }
-      }, animationDelay || 0);
-
-      return () => clearTimeout(timer);
-    }
-  }, [reanimated, animation, animationDelay, onAnimationStart]);
-
-  if (!reanimated) {
+  if (!enabled) {
     return <View style={style}>{children}</View>;
   }
 
   const entering = getEnteringAnimation({
     animation,
-    duration: animationDuration,
-    delay: animationDelay,
-    slideDistance,
-    scaleFrom,
+    duration,
+    delay,
   });
 
   return (
-    <Animated.View
-      entering={entering}
-      style={style}
-      onLayout={() => {
-        if (animationStarted && onAnimationComplete) {
-          onAnimationComplete();
-        }
-      }}
-    >
+    <Animated.View entering={entering} style={style}>
       {children}
     </Animated.View>
   );
@@ -670,9 +651,9 @@ function AnimatedHeader({
 ========================================================= */
 
 export default function UIHeader({
-  /* -----------------------------------------
+  /* =====================================================
      LEFT
-  ----------------------------------------- */
+  ===================================================== */
 
   showBack = false,
   onBackPress,
@@ -696,9 +677,9 @@ export default function UIHeader({
   leftFlex,
   leftStyle,
 
-  /* -----------------------------------------
+  /* =====================================================
      CENTER
-  ----------------------------------------- */
+  ===================================================== */
 
   title,
   subtitle,
@@ -713,18 +694,24 @@ export default function UIHeader({
   centerFlex,
   centerStyle,
 
-  /* -----------------------------------------
-     RIGHT
-  ----------------------------------------- */
+  /* =====================================================
+     RIGHT ACTIONS
+  ===================================================== */
 
   rightActions = [],
 
   rightActionColor,
   rightActionSize = 24,
 
-  rightActionsGap = 8,
+  rightActionsGap = 0,
+
+  rightActionPaddingHorizontal = 0,
+
+  rightActionsStyle,
+  rightActionContainerStyle,
 
   actionStyle,
+
   badgeStyle,
   badgeTextStyle,
 
@@ -732,9 +719,9 @@ export default function UIHeader({
   rightFlex,
   rightStyle,
 
-  /* -----------------------------------------
+  /* =====================================================
      SEARCH
-  ----------------------------------------- */
+  ===================================================== */
 
   showSearch = false,
 
@@ -761,7 +748,13 @@ export default function UIHeader({
   searchRadius = 12,
 
   searchActions = [],
-  searchActionsGap = 8,
+
+  searchActionsGap = 0,
+
+  searchActionPaddingHorizontal = 0,
+
+  searchActionsStyle,
+  searchActionContainerStyle,
 
   searchActionColor,
   searchActionSize = 22,
@@ -771,13 +764,12 @@ export default function UIHeader({
   searchContainerStyle,
   searchInputStyle,
   searchActionStyle,
-  searchActionsStyle,
 
-  searchProps,
+  searchProps = {},
 
-  /* -----------------------------------------
+  /* =====================================================
      TABS
-  ----------------------------------------- */
+  ===================================================== */
 
   tabs = [],
   showTabs = false,
@@ -802,9 +794,9 @@ export default function UIHeader({
 
   tabsContainerStyle,
 
-  /* -----------------------------------------
+  /* =====================================================
      BACKGROUND
-  ----------------------------------------- */
+  ===================================================== */
 
   background = {
     type: "theme",
@@ -815,9 +807,9 @@ export default function UIHeader({
   overlayColor = "#000000",
   overlayOpacity = 0,
 
-  /* -----------------------------------------
-     HEADER GEOMETRY
-  ----------------------------------------- */
+  /* =====================================================
+     GEOMETRY
+  ===================================================== */
 
   height,
 
@@ -830,6 +822,7 @@ export default function UIHeader({
 
   paddingTop = 0,
   paddingBottom = 0,
+
   paddingLeft,
   paddingRight,
 
@@ -839,12 +832,11 @@ export default function UIHeader({
 
   marginTop = 0,
   marginBottom = 0,
+
   marginLeft,
   marginRight,
 
   headerRowHeight,
-
-  headerRowGap = 0,
 
   searchSpacing = 12,
   searchMarginTop,
@@ -854,17 +846,17 @@ export default function UIHeader({
   tabsMarginTop,
   tabsMarginBottom = 0,
 
-  /* -----------------------------------------
+  /* =====================================================
      SAFE AREA
-  ----------------------------------------- */
+  ===================================================== */
 
   safeArea = false,
 
   safeAreaEdges = ["top"],
 
-  /* -----------------------------------------
+  /* =====================================================
      ANIMATION
-  ----------------------------------------- */
+  ===================================================== */
 
   reanimated = false,
 
@@ -873,19 +865,15 @@ export default function UIHeader({
   animationDuration = 350,
   animationDelay = 0,
 
-  slideDistance = 20,
-  scaleFrom = 0.95,
-
   onAnimationStart,
   onAnimationComplete,
 
-  /* -----------------------------------------
+  /* =====================================================
      ROOT
-  ----------------------------------------- */
+  ===================================================== */
 
   style,
   headerRowStyle,
-
   contentStyle,
 
   accessible = true,
@@ -910,10 +898,6 @@ export default function UIHeader({
 
   const isDark = themeContext?.isDark ?? false;
 
-  /* =====================================================
-     THEME COLORS
-  ===================================================== */
-
   const themeBackground =
     colors?.background?.primary ||
     colors?.background ||
@@ -936,7 +920,7 @@ export default function UIHeader({
     (isDark ? "#222222" : "#F5F5F5");
 
   const resolvedBackground = useMemo(() => {
-    if (background && background.type === "theme") {
+    if (background?.type === "theme") {
       return {
         type: "color",
         color: themeBackground,
@@ -947,7 +931,7 @@ export default function UIHeader({
   }, [background, themeBackground]);
 
   /* =====================================================
-     RESOLVED COLORS
+     COLORS
   ===================================================== */
 
   const resolvedBackColor = backIconColor || themeText;
@@ -958,7 +942,7 @@ export default function UIHeader({
 
   const resolvedSubtitleColor = subtitleColor || themeSecondaryText;
 
-  const resolvedRightActionColor = rightActionColor || themeText;
+  const resolvedRightColor = rightActionColor || themeText;
 
   const resolvedSearchIconColor = searchIconColor || themeSecondaryText;
 
@@ -978,7 +962,7 @@ export default function UIHeader({
   const resolvedActiveTabColor = activeTabColor || themeText;
 
   /* =====================================================
-     GEOMETRY
+     PADDING
   ===================================================== */
 
   const resolvedPaddingLeft = paddingLeft ?? paddingHorizontal;
@@ -989,6 +973,10 @@ export default function UIHeader({
 
   const resolvedPaddingBottom = paddingBottom ?? paddingVertical ?? 0;
 
+  /* =====================================================
+     MARGIN
+  ===================================================== */
+
   const resolvedMarginLeft = marginLeft ?? marginHorizontal;
 
   const resolvedMarginRight = marginRight ?? marginHorizontal;
@@ -998,64 +986,43 @@ export default function UIHeader({
   const resolvedMarginBottom = marginBottom ?? marginVertical;
 
   /* =====================================================
-     ROOT STYLE
+     ROOT
   ===================================================== */
 
   const rootStyle = [
     styles.root,
 
+    height !== undefined && {
+      height,
+    },
+
+    minHeight !== undefined && {
+      minHeight,
+    },
+
+    maxHeight !== undefined && {
+      maxHeight,
+    },
+
+    padding !== undefined && {
+      padding,
+    },
+
     {
-      backgroundColor: "transparent",
+      paddingLeft: resolvedPaddingLeft,
 
-      ...(height !== undefined && {
-        height,
-      }),
+      paddingRight: resolvedPaddingRight,
 
-      ...(minHeight !== undefined && {
-        minHeight,
-      }),
+      paddingTop: resolvedPaddingTop,
 
-      ...(maxHeight !== undefined && {
-        maxHeight,
-      }),
-
-      ...(padding !== undefined && {
-        padding,
-      }),
-
-      ...(paddingLeft !== undefined && {
-        paddingLeft,
-      }),
-
-      ...(paddingRight !== undefined && {
-        paddingRight,
-      }),
-
-      ...(paddingTop !== undefined && {
-        paddingTop,
-      }),
-
-      ...(paddingBottom !== undefined && {
-        paddingBottom,
-      }),
-
-      ...(paddingHorizontal !== undefined && {
-        paddingLeft: resolvedPaddingLeft,
-        paddingRight: resolvedPaddingRight,
-      }),
-
-      ...(paddingVertical !== undefined && {
-        paddingTop: resolvedPaddingTop,
-        paddingBottom: resolvedPaddingBottom,
-      }),
-
-      ...(margin !== undefined && {
-        margin,
-      }),
+      paddingBottom: resolvedPaddingBottom,
 
       marginLeft: resolvedMarginLeft,
+
       marginRight: resolvedMarginRight,
+
       marginTop: resolvedMarginTop,
+
       marginBottom: resolvedMarginBottom,
     },
 
@@ -1063,7 +1030,7 @@ export default function UIHeader({
   ];
 
   /* =====================================================
-     HEADER ROW
+     ROW
   ===================================================== */
 
   const rowStyle = [
@@ -1073,12 +1040,9 @@ export default function UIHeader({
       height: headerRowHeight,
     },
 
-    headerRowGap !== undefined && {
-      columnGap: 0,
-    },
-
     {
       paddingLeft: resolvedPaddingLeft,
+
       paddingRight: resolvedPaddingRight,
     },
 
@@ -1087,7 +1051,7 @@ export default function UIHeader({
   ];
 
   /* =====================================================
-     LEFT STYLE
+     LEFT
   ===================================================== */
 
   const resolvedLeftStyle = [
@@ -1107,7 +1071,7 @@ export default function UIHeader({
   ];
 
   /* =====================================================
-     CENTER STYLE
+     CENTER
   ===================================================== */
 
   const resolvedCenterStyle = [
@@ -1127,7 +1091,7 @@ export default function UIHeader({
   ];
 
   /* =====================================================
-     RIGHT STYLE
+     RIGHT
   ===================================================== */
 
   const resolvedRightStyle = [
@@ -1147,19 +1111,17 @@ export default function UIHeader({
   ];
 
   /* =====================================================
-     HEADER CONTENT
+     CONTENT
   ===================================================== */
 
-  const headerContent = (
+  const content = (
     <>
-      {/* ================================================
+      {/* =================================================
           HEADER ROW
-      ================================================ */}
+      ================================================= */}
 
       <View style={rowStyle}>
-        {/* --------------------------------------------
-            LEFT
-        -------------------------------------------- */}
+        {/* LEFT */}
 
         <View style={resolvedLeftStyle}>
           {leftContent}
@@ -1179,7 +1141,6 @@ export default function UIHeader({
               onPress={onLocationPress}
               disabled={!onLocationPress}
               style={styles.locationContainer}
-              accessibilityRole={onLocationPress ? "button" : undefined}
             >
               <Ionicons
                 name={locationIcon}
@@ -1204,9 +1165,7 @@ export default function UIHeader({
           )}
         </View>
 
-        {/* --------------------------------------------
-            CENTER
-        -------------------------------------------- */}
+        {/* CENTER */}
 
         <View style={resolvedCenterStyle}>
           {title ? (
@@ -1240,16 +1199,17 @@ export default function UIHeader({
           ) : null}
         </View>
 
-        {/* --------------------------------------------
-            RIGHT
-        -------------------------------------------- */}
+        {/* RIGHT */}
 
         <View style={resolvedRightStyle}>
           <HeaderActions
             actions={rightActions}
-            color={resolvedRightActionColor}
+            color={resolvedRightColor}
             size={rightActionSize}
             gap={rightActionsGap}
+            actionPaddingHorizontal={rightActionPaddingHorizontal}
+            containerStyle={rightActionsStyle}
+            actionContainerStyle={rightActionContainerStyle}
             actionStyle={actionStyle}
             badgeStyle={badgeStyle}
             badgeTextStyle={badgeTextStyle}
@@ -1257,9 +1217,9 @@ export default function UIHeader({
         </View>
       </View>
 
-      {/* ================================================
+      {/* =================================================
           SEARCH
-      ================================================ */}
+      ================================================= */}
 
       {showSearch && (
         <View
@@ -1290,6 +1250,7 @@ export default function UIHeader({
             radius={searchRadius}
             actions={searchActions}
             actionsGap={searchActionsGap}
+            actionPaddingHorizontal={searchActionPaddingHorizontal}
             actionColor={resolvedSearchActionColor}
             actionSize={searchActionSize}
             onSearchPress={onSearchPress}
@@ -1297,14 +1258,15 @@ export default function UIHeader({
             inputStyle={searchInputStyle}
             actionStyle={searchActionStyle}
             actionsContainerStyle={searchActionsStyle}
+            actionContainerStyle={searchActionContainerStyle}
             searchProps={searchProps}
           />
         </View>
       )}
 
-      {/* ================================================
+      {/* =================================================
           TABS
-      ================================================ */}
+      ================================================= */}
 
       {showTabs && tabs.length > 0 && (
         <View
@@ -1339,37 +1301,20 @@ export default function UIHeader({
   );
 
   /* =====================================================
-     BACKGROUND
-  ===================================================== */
-
-  const backgroundLayer = (
-    <HeaderBackground
-      background={resolvedBackground}
-      backgroundStyle={backgroundStyle}
-      overlayColor={overlayColor}
-      overlayOpacity={overlayOpacity}
-    >
-      {null}
-    </HeaderBackground>
-  );
-
-  /* =====================================================
-     MAIN HEADER
+     HEADER
   ===================================================== */
 
   const header = (
     <AnimatedHeader
-      reanimated={reanimated}
+      enabled={reanimated}
       animation={animation}
-      animationDuration={animationDuration}
-      animationDelay={animationDelay}
-      slideDistance={slideDistance}
-      scaleFrom={scaleFrom}
-      onAnimationStart={onAnimationStart}
-      onAnimationComplete={onAnimationComplete}
+      duration={animationDuration}
+      delay={animationDelay}
       style={rootStyle}
     >
-      <View style={styles.backgroundLayer} pointerEvents="none">
+      {/* BACKGROUND */}
+
+      <View pointerEvents="none" style={styles.backgroundLayer}>
         <HeaderBackground
           background={resolvedBackground}
           backgroundStyle={backgroundStyle}
@@ -1378,6 +1323,8 @@ export default function UIHeader({
         />
       </View>
 
+      {/* CONTENT */}
+
       <View
         style={styles.contentLayer}
         accessible={accessible}
@@ -1385,7 +1332,7 @@ export default function UIHeader({
         testID={testID}
         onLayout={onLayout}
       >
-        {headerContent}
+        {content}
       </View>
     </AnimatedHeader>
   );
@@ -1433,9 +1380,11 @@ const styles = StyleSheet.create({
 
   headerRow: {
     width: "100%",
+
     minHeight: 56,
 
     flexDirection: "row",
+
     alignItems: "center",
 
     justifyContent: "space-between",
@@ -1445,6 +1394,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
 
     flexDirection: "row",
+
     alignItems: "center",
 
     justifyContent: "flex-start",
@@ -1455,19 +1405,20 @@ const styles = StyleSheet.create({
   centerSection: {
     minWidth: 0,
 
-    flexDirection: "column",
-    alignItems: "center",
-    justifyContent: "center",
-
     flex: 1,
 
     paddingHorizontal: 8,
+
+    alignItems: "center",
+
+    justifyContent: "center",
   },
 
   rightSection: {
     minWidth: 0,
 
     flexDirection: "row",
+
     alignItems: "center",
 
     justifyContent: "flex-end",
@@ -1487,6 +1438,10 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
+  /* =====================================================
+     ICON
+  ===================================================== */
+
   iconButton: {
     width: 40,
     height: 40,
@@ -1501,9 +1456,15 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
 
+  /* =====================================================
+     RIGHT ACTIONS
+  ===================================================== */
+
   actionsRow: {
     flexDirection: "row",
+
     alignItems: "center",
+
     justifyContent: "flex-end",
   },
 
@@ -1511,8 +1472,33 @@ const styles = StyleSheet.create({
     position: "relative",
 
     alignItems: "center",
+
     justifyContent: "center",
   },
+
+  /* =====================================================
+     SEARCH ACTIONS
+  ===================================================== */
+
+  searchActionsRow: {
+    flexDirection: "row",
+
+    alignItems: "center",
+
+    justifyContent: "flex-end",
+  },
+
+  searchActionWrapper: {
+    position: "relative",
+
+    alignItems: "center",
+
+    justifyContent: "center",
+  },
+
+  /* =====================================================
+     BADGE
+  ===================================================== */
 
   badge: {
     position: "absolute",
@@ -1535,12 +1521,19 @@ const styles = StyleSheet.create({
 
   badgeText: {
     color: "#FFFFFF",
+
     fontSize: 9,
+
     fontWeight: "700",
   },
 
+  /* =====================================================
+     LOCATION
+  ===================================================== */
+
   locationContainer: {
     flexDirection: "row",
+
     alignItems: "center",
 
     maxWidth: "100%",
@@ -1550,10 +1543,15 @@ const styles = StyleSheet.create({
     marginLeft: 6,
 
     fontSize: 14,
+
     fontWeight: "500",
 
     flexShrink: 1,
   },
+
+  /* =====================================================
+     SEARCH
+  ===================================================== */
 
   searchContainer: {
     width: "100%",
@@ -1561,9 +1559,11 @@ const styles = StyleSheet.create({
     minHeight: 46,
 
     flexDirection: "row",
+
     alignItems: "center",
 
     paddingLeft: 10,
+
     paddingRight: 6,
   },
 
@@ -1572,6 +1572,7 @@ const styles = StyleSheet.create({
     height: 40,
 
     alignItems: "center",
+
     justifyContent: "center",
   },
 
@@ -1581,21 +1582,21 @@ const styles = StyleSheet.create({
     minWidth: 0,
 
     paddingVertical: 0,
+
     paddingHorizontal: 4,
 
     fontSize: 15,
   },
 
-  searchActionsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-  },
+  /* =====================================================
+     TABS
+  ===================================================== */
 
   tabsContainer: {
     width: "100%",
 
     flexDirection: "row",
+
     alignItems: "center",
   },
 
@@ -1609,6 +1610,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
 
     alignItems: "center",
+
     justifyContent: "center",
 
     position: "relative",
@@ -1616,6 +1618,7 @@ const styles = StyleSheet.create({
 
   tabText: {
     fontSize: 14,
+
     fontWeight: "500",
   },
 
