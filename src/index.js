@@ -141,4 +141,7 @@ export {
   UIScratch,
   UIScratchThemes,
   UIScratchLabels,
+  UISpinWheel,
+  UISpinWheelVariants,
+  UISpinWheelIcons,
 } from "./components";

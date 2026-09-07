@@ -135,3 +135,8 @@ export {
   UIScratchThemes,
   UIScratchLabels,
 } from "./UIScratch/UIScratch";
+export {
+  default as UISpinWheel,
+  UISpinWheelVariants,
+  UISpinWheelIcons,
+} from "./UISpinWheel/UISpinWheel";
