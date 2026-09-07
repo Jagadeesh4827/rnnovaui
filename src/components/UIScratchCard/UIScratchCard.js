@@ -12,7 +12,7 @@ import { PanResponder, StyleSheet, Text, View, Image } from "react-native";
 import Svg, {
   Defs,
   G,
-  LinearGradient as SvgLinearGradient,
+  LinearGradient,
   Mask,
   Path,
   Rect,
@@ -30,11 +30,6 @@ import Animated, {
 
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
-/*
- * Use the SAME theme hook that your UIProvider already exposes.
- */
-import { useTheme } from "../../theme";
-
 /* =========================================================
    DEFAULTS
 ========================================================= */
@@ -43,7 +38,7 @@ const DEFAULT_WIDTH = 350;
 const DEFAULT_HEIGHT = 220;
 
 /* =========================================================
-   BUILT-IN THEMES
+   BUILT-IN CARD THEMES
 ========================================================= */
 
 const THEMES = {
@@ -284,7 +279,7 @@ const VARIANT_LABELS = {
    THEME ICON
 ========================================================= */
 
-function getThemeIcon(theme, size = 70) {
+function ThemeIcon({ theme, size = 68 }) {
   if (theme.iconType === "ion") {
     return <Ionicons name="airplane" size={size} color={theme.iconColor} />;
   }
@@ -293,7 +288,7 @@ function getThemeIcon(theme, size = 70) {
     return <Feather name="help-circle" size={size} color={theme.iconColor} />;
   }
 
-  const materialIcons = {
+  const icons = {
     gift: "gift",
     trophy: "trophy",
     percent: "percent",
@@ -304,7 +299,7 @@ function getThemeIcon(theme, size = 70) {
 
   return (
     <MaterialCommunityIcons
-      name={materialIcons[theme.icon] || "gift"}
+      name={icons[theme.icon] || "gift"}
       size={size}
       color={theme.iconColor}
     />
@@ -339,10 +334,6 @@ function ScratchSurface({
     (distance) => {
       scratchedDistance.current += distance;
 
-      /*
-       * Estimate scratch coverage from
-       * accumulated gesture distance.
-       */
       const estimated =
         scratchedDistance.current / Math.max(width * height * 0.75, 1);
 
@@ -351,11 +342,15 @@ function ScratchSurface({
       if (nextProgress > progressRef.current) {
         progressRef.current = nextProgress;
 
-        onProgress?.(nextProgress);
+        if (onProgress) {
+          onProgress(nextProgress);
+        }
       }
 
       if (nextProgress >= threshold && !revealed) {
-        onReveal?.();
+        if (onReveal) {
+          onReveal();
+        }
       }
     },
     [height, onProgress, onReveal, threshold, width, revealed],
@@ -445,26 +440,20 @@ function ScratchSurface({
     >
       <Svg width={width} height={height} pointerEvents="none">
         <Defs>
-          <SvgLinearGradient
-            id="scratchSurfaceGradient"
-            x1="0"
-            y1="0"
-            x2="1"
-            y2="1"
-          >
+          <LinearGradient id="scratchGradient" x1="0" y1="0" x2="1" y2="1">
             <Stop offset="0" stopColor={colors[0]} />
 
             <Stop offset="0.5" stopColor={colors[1]} />
 
             <Stop offset="1" stopColor={colors[0]} />
-          </SvgLinearGradient>
+          </LinearGradient>
 
           <Mask id="scratchMask">
             <Rect x="0" y="0" width={width} height={height} fill="white" />
 
             {paths.map((path, index) => (
               <Path
-                key={`path-${index}`}
+                key={`scratch-${index}`}
                 d={path}
                 stroke="black"
                 strokeWidth={38}
@@ -493,17 +482,16 @@ function ScratchSurface({
             y="0"
             width={width}
             height={height}
-            fill="url(#scratchSurfaceGradient)"
+            fill="url(#scratchGradient)"
           />
 
-          {/* Scratch texture */}
           {Array.from({
             length: 15,
           }).map((_, index) => (
             <Path
               key={`texture-a-${index}`}
               d={`M ${-30 + index * 34} ${height}
-                L ${60 + index * 34} 0`}
+              L ${60 + index * 34} 0`}
               stroke="#FFFFFF"
               strokeOpacity={0.18}
               strokeWidth={1}
@@ -516,7 +504,7 @@ function ScratchSurface({
             <Path
               key={`texture-b-${index}`}
               d={`M ${index * 55} 0
-                L ${index * 55 + 85} ${height}`}
+              L ${index * 55 + 85} ${height}`}
               stroke="#6D7783"
               strokeOpacity={0.08}
               strokeWidth={1}
@@ -525,7 +513,6 @@ function ScratchSurface({
         </G>
       </Svg>
 
-      {/* Scratch instruction */}
       <View pointerEvents="none" style={styles.scratchPrompt}>
         <MaterialCommunityIcons
           name="gesture-tap"
@@ -555,62 +542,31 @@ function ScratchSurface({
 const UIScratchCard = forwardRef(
   (
     {
-      /*
-       * Built-in design
-       */
       variant = "classic",
 
-      /*
-       * Dimensions
-       */
       width = DEFAULT_WIDTH,
       height = DEFAULT_HEIGHT,
 
-      /*
-       * Content
-       */
       title,
       subtitle,
       scratchText,
 
-      /*
-       * Reward
-       */
       reward,
       rewardIcon,
 
-      /*
-       * Main illustration
-       */
       icon,
       image,
 
-      /*
-       * Scratch
-       */
       scratchThreshold = 55,
 
-      /*
-       * Reanimated
-       */
       reanimated = true,
 
-      /*
-       * Events
-       */
       onProgress,
       onReveal,
-      onPress,
 
-      /*
-       * Background override
-       */
       backgroundColors,
       backgroundColor,
 
-      /*
-       * Styling
-       */
       borderRadius = 16,
 
       cardStyle,
@@ -622,67 +578,32 @@ const UIScratchCard = forwardRef(
       imageStyle,
       iconContainerStyle,
 
-      /*
-       * Optional custom content
-       */
       children,
 
-      /*
-       * Disable interaction
-       */
       disabled = false,
     },
     ref,
   ) => {
-    /*
-     * Theme from UIProvider.
-     */
-    const { theme } = useTheme();
+    const cardTheme = THEMES[variant] || THEMES.classic;
 
-    const builtInTheme = THEMES[variant] || THEMES.classic;
-
-    /*
-     * Revealed state.
-     */
     const [revealed, setRevealed] = useState(false);
 
-    /*
-     * Reanimated values.
-     */
     const rewardScale = useSharedValue(1);
 
     const progressValue = useSharedValue(0);
 
-    /*
-     * Resolve colors.
-     *
-     * Custom background has priority.
-     */
-    const resolvedBackground = backgroundColors || builtInTheme.background;
+    const resolvedBackground = backgroundColors || cardTheme.background;
 
-    /*
-     * Theme-aware fallback.
-     */
-    const themeText = theme?.colors?.text?.primary || "#111827";
+    const resolvedTitle = title || cardTheme.titleLines;
 
-    /*
-     * Resolve title.
-     */
-    const resolvedTitle = title || builtInTheme.titleLines;
+    const resolvedSubtitle = subtitle || cardTheme.subtitleText;
 
-    /*
-     * Resolve subtitle.
-     */
-    const resolvedSubtitle = subtitle || builtInTheme.subtitleText;
+    const resolvedScratchText = scratchText || cardTheme.scratchText;
 
-    /*
-     * Resolve scratch text.
-     */
-    const resolvedScratchText = scratchText || builtInTheme.scratchText;
+    /* =====================================================
+       REVEAL
+    ===================================================== */
 
-    /*
-     * Reveal.
-     */
     const reveal = useCallback(() => {
       if (revealed) {
         return;
@@ -699,26 +620,29 @@ const UIScratchCard = forwardRef(
         );
       }
 
-      onReveal?.({
-        variant,
-        reward,
-      });
+      if (onReveal) {
+        onReveal({
+          variant,
+          reward,
+        });
+      }
     }, [onReveal, reanimated, revealed, reward, rewardScale, variant]);
 
-    /*
-     * Reset.
-     */
+    /* =====================================================
+       RESET
+    ===================================================== */
+
     const reset = useCallback(() => {
       setRevealed(false);
 
       progressValue.value = 0;
-
       rewardScale.value = 1;
     }, [progressValue, rewardScale]);
 
-    /*
-     * Public ref API.
-     */
+    /* =====================================================
+       REF API
+    ===================================================== */
+
     useImperativeHandle(
       ref,
       () => ({
@@ -729,23 +653,27 @@ const UIScratchCard = forwardRef(
       [reveal, reset, revealed],
     );
 
-    /*
-     * Scratch progress.
-     */
+    /* =====================================================
+       PROGRESS
+    ===================================================== */
+
     const handleProgress = useCallback(
       (progress) => {
         progressValue.value = withTiming(progress, {
           duration: 100,
         });
 
-        onProgress?.(progress);
+        if (onProgress) {
+          onProgress(progress);
+        }
       },
       [onProgress, progressValue],
     );
 
-    /*
-     * Reward animation.
-     */
+    /* =====================================================
+       REWARD ANIMATION
+    ===================================================== */
+
     const rewardAnimatedStyle = useAnimatedStyle(() => ({
       transform: [
         {
@@ -753,17 +681,6 @@ const UIScratchCard = forwardRef(
         },
       ],
     }));
-
-    /*
-     * Press handler.
-     */
-    const handlePress = useCallback(() => {
-      onPress?.({
-        variant,
-        reward,
-        revealed,
-      });
-    }, [onPress, reward, revealed, variant]);
 
     return (
       <View
@@ -781,15 +698,15 @@ const UIScratchCard = forwardRef(
               width,
               height,
               borderRadius,
-              borderColor: builtInTheme.border,
+              borderColor: cardTheme.border,
               backgroundColor: backgroundColor || resolvedBackground[0],
             },
             cardStyle,
           ]}
         >
-          {/* =========================================
+          {/* =============================================
               BACKGROUND
-          ========================================= */}
+          ============================================= */}
 
           <Svg
             pointerEvents="none"
@@ -798,8 +715,8 @@ const UIScratchCard = forwardRef(
             style={StyleSheet.absoluteFill}
           >
             <Defs>
-              <SvgLinearGradient
-                id={`scratchCardGradient-${variant}`}
+              <LinearGradient
+                id={`cardGradient-${variant}`}
                 x1="0"
                 y1="0"
                 x2="1"
@@ -811,7 +728,7 @@ const UIScratchCard = forwardRef(
                   offset="1"
                   stopColor={resolvedBackground[1] || resolvedBackground[0]}
                 />
-              </SvgLinearGradient>
+              </LinearGradient>
             </Defs>
 
             <Rect
@@ -823,21 +740,21 @@ const UIScratchCard = forwardRef(
               fill={
                 backgroundColor
                   ? backgroundColor
-                  : `url(#scratchCardGradient-${variant})`
+                  : `url(#cardGradient-${variant})`
               }
             />
           </Svg>
 
-          {/* =========================================
-              DECORATIVE ELEMENTS
-          ========================================= */}
+          {/* =============================================
+              DECORATIONS
+          ============================================= */}
 
           <View pointerEvents="none" style={styles.decorations}>
             <Text
               style={[
-                styles.decorationStar,
+                styles.star,
                 {
-                  color: builtInTheme.accent,
+                  color: cardTheme.accent,
                 },
               ]}
             >
@@ -846,10 +763,10 @@ const UIScratchCard = forwardRef(
 
             <Text
               style={[
-                styles.decorationStar,
-                styles.decorationStarTwo,
+                styles.star,
+                styles.starTwo,
                 {
-                  color: builtInTheme.accent,
+                  color: cardTheme.accent,
                 },
               ]}
             >
@@ -858,10 +775,10 @@ const UIScratchCard = forwardRef(
 
             <Text
               style={[
-                styles.decorationStar,
-                styles.decorationStarThree,
+                styles.star,
+                styles.starThree,
                 {
-                  color: builtInTheme.accent,
+                  color: cardTheme.accent,
                 },
               ]}
             >
@@ -870,10 +787,10 @@ const UIScratchCard = forwardRef(
 
             <Text
               style={[
-                styles.decorationStar,
-                styles.decorationStarFour,
+                styles.star,
+                styles.starFour,
                 {
-                  color: builtInTheme.accent,
+                  color: cardTheme.accent,
                 },
               ]}
             >
@@ -881,9 +798,9 @@ const UIScratchCard = forwardRef(
             </Text>
           </View>
 
-          {/* =========================================
-              HEADER / TITLE AREA
-          ========================================= */}
+          {/* =============================================
+              CONTENT
+          ============================================= */}
 
           <View style={[styles.content, contentStyle]}>
             <View style={styles.textArea}>
@@ -891,7 +808,7 @@ const UIScratchCard = forwardRef(
                 style={[
                   styles.title,
                   {
-                    color: builtInTheme.title,
+                    color: cardTheme.title,
                   },
                   titleStyle,
                 ]}
@@ -902,9 +819,9 @@ const UIScratchCard = forwardRef(
                         key={`${line}-${index}`}
                         style={{
                           color:
-                            index === builtInTheme.titleAccentLine
-                              ? builtInTheme.accent
-                              : builtInTheme.title,
+                            index === cardTheme.titleAccentLine
+                              ? cardTheme.accent
+                              : cardTheme.title,
                         }}
                       >
                         {line}
@@ -919,7 +836,7 @@ const UIScratchCard = forwardRef(
                 style={[
                   styles.subtitle,
                   {
-                    color: builtInTheme.subtitle,
+                    color: cardTheme.subtitle,
                   },
                   subtitleStyle,
                 ]}
@@ -928,16 +845,15 @@ const UIScratchCard = forwardRef(
               </Text>
             </View>
 
-            {/* =====================================
+            {/* =========================================
                 IMAGE / ICON
-            ===================================== */}
+            ========================================= */}
 
             <View style={[styles.visualArea, iconContainerStyle]}>
               {image ? (
                 typeof image === "function" ? (
                   image({
-                    theme: builtInTheme,
-                    uiTheme: theme,
+                    theme: cardTheme,
                   })
                 ) : (
                   <Image
@@ -947,14 +863,14 @@ const UIScratchCard = forwardRef(
                   />
                 )
               ) : (
-                icon || <ThemeVisualIcon theme={builtInTheme} />
+                icon || <ThemeIcon theme={cardTheme} />
               )}
             </View>
           </View>
 
-          {/* =========================================
+          {/* =============================================
               SCRATCH AREA
-          ========================================= */}
+          ============================================= */}
 
           <View
             style={[
@@ -973,7 +889,7 @@ const UIScratchCard = forwardRef(
                 style={[
                   styles.rewardContainer,
                   {
-                    borderColor: builtInTheme.scratchBorder,
+                    borderColor: cardTheme.scratchBorder,
                     borderRadius: Math.min(14, borderRadius),
                   },
                   reanimated ? rewardAnimatedStyle : null,
@@ -984,15 +900,7 @@ const UIScratchCard = forwardRef(
                   <View style={styles.rewardIcon}>{rewardIcon}</View>
                 ) : null}
 
-                <Text
-                  style={[
-                    styles.rewardText,
-                    {
-                      color: themeText,
-                    },
-                    rewardStyle,
-                  ]}
-                >
+                <Text style={[styles.rewardText, rewardStyle]}>
                   {reward || "🎉 Reward Revealed!"}
                 </Text>
               </Animated.View>
@@ -1000,10 +908,10 @@ const UIScratchCard = forwardRef(
               <ScratchSurface
                 width={width - 44}
                 height={Math.min(82, height * 0.38)}
-                colors={builtInTheme.scratch}
-                borderColor={builtInTheme.scratchBorder}
+                colors={cardTheme.scratch}
+                borderColor={cardTheme.scratchBorder}
                 scratchText={resolvedScratchText}
-                iconColor={builtInTheme.scratchIcon}
+                iconColor={cardTheme.scratchIcon}
                 threshold={scratchThreshold}
                 revealed={revealed || disabled}
                 onProgress={handleProgress}
@@ -1013,53 +921,12 @@ const UIScratchCard = forwardRef(
             )}
           </View>
 
-          {/* =========================================
-              OPTIONAL CUSTOM CHILDREN
-          ========================================= */}
-
           {children}
-
-          {/* =========================================
-              OPTIONAL PRESS OVERLAY
-          ========================================= */}
-
-          {onPress && !disabled ? (
-            <View pointerEvents="box-none" style={styles.pressLayer}>
-              {/* Intentionally empty.
-                  ScratchSurface receives touch priority. */}
-            </View>
-          ) : null}
         </View>
-
-        {/* Optional external press callback */}
-        {onPress && !disabled ? <PressableProxy onPress={handlePress} /> : null}
       </View>
     );
   },
 );
-
-/* =========================================================
-   VISUAL ICON
-========================================================= */
-
-function ThemeVisualIcon({ theme }) {
-  return getThemeIcon(theme, 68);
-}
-
-/* =========================================================
-   PRESSABLE PROXY
-========================================================= */
-
-/*
- * We don't put Pressable around the whole card because
- * that can interfere with the scratch PanResponder.
- *
- * onPress is therefore intended for programmatic/custom
- * handling while the scratch area owns the gesture.
- */
-function PressableProxy() {
-  return null;
-}
 
 /* =========================================================
    DISPLAY NAME
@@ -1127,26 +994,26 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
 
-  decorationStar: {
+  star: {
     position: "absolute",
     top: 14,
     right: 17,
     fontSize: 17,
   },
 
-  decorationStarTwo: {
+  starTwo: {
     top: 46,
     right: 120,
     fontSize: 12,
   },
 
-  decorationStarThree: {
+  starThree: {
     top: 10,
     left: 15,
     fontSize: 12,
   },
 
-  decorationStarFour: {
+  starFour: {
     bottom: 90,
     right: 155,
     fontSize: 11,
@@ -1192,14 +1059,11 @@ const styles = StyleSheet.create({
   },
 
   rewardText: {
+    color: "#263248",
     fontSize: 18,
     lineHeight: 23,
     fontWeight: "900",
     textAlign: "center",
-  },
-
-  pressLayer: {
-    ...StyleSheet.absoluteFillObject,
   },
 });
 

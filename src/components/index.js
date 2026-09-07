@@ -129,4 +129,4 @@ export {
   default as UIScratchCard,
   UIScratchCardThemes,
   UIScratchCardLabels,
-} from "./UIScratchCard";
+} from "./UIScratchCard/UIScratchCard";

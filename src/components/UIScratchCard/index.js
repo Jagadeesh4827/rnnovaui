@@ -1,3 +1,5 @@
+export { default } from "./UIScratchCard";
+
 export {
   default as UIScratchCard,
   UIScratchCardThemes,
