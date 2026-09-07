@@ -6,6 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+
 import { PanResponder, StyleSheet, Text, View, Image } from "react-native";
 
 import Svg, {
@@ -32,67 +33,55 @@ import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useUITheme } from "../../theme";
 
 /* =========================================================
-   BUILT-IN THEMES
+   THEMES
 ========================================================= */
 
 const THEMES = {
   classic: {
-    background: ["#4214C7", "#6B20E8"],
-    border: "#8B6BFF",
+    background: ["#F20D86", "#A719E8"],
+    border: "#FF75D0",
 
     title: "#FFFFFF",
-    subtitle: "#EDE7FF",
-    accent: "#FFD42A",
-
-    scratch: ["#D9DEE5", "#BEC6D0"],
-    scratchBorder: "#FFFFFF",
-    scratchText: "#263248",
+    subtitle: "#FFFFFF",
+    accent: "#FFE044",
 
     icon: {
       type: "material",
-      name: "gift-outline",
-      color: "#E8D5FF",
+      name: "percent",
+      color: "#FFE044",
     },
 
-    titleLines: ["Scratch", "& Win"],
-    subtitleText: "Reveal your reward!",
+    titleLines: ["SPECIAL", "OFFER"],
+    subtitleText: "Scratch to reveal your discount",
     scratchText: "Scratch Here",
   },
 
   trophy: {
-    background: ["#15110A", "#3D2A0A"],
-    border: "#D6A72C",
+    background: ["#15110A", "#4A3208"],
+    border: "#D7A82B",
 
     title: "#FFFFFF",
-    subtitle: "#F5E5B1",
+    subtitle: "#F8E9B2",
     accent: "#FFD43B",
-
-    scratch: ["#E1E5EA", "#C1C8D1"],
-    scratchBorder: "#E7C84A",
-    scratchText: "#263248",
 
     icon: {
       type: "material",
       name: "trophy-outline",
-      color: "#FFC62B",
+      color: "#FFD43B",
     },
 
     titleLines: ["LUCKY", "SCRATCH"],
-    subtitleText: "Win Exciting Prizes!",
+    subtitleText: "Scratch to reveal your prize",
     scratchText: "Scratch Here",
   },
 
   gift: {
-    background: ["#E51B18", "#C80F13"],
-    border: "#FF6B61",
+    background: ["#E81A20", "#C30E18"],
+    border: "#FF716D",
 
     title: "#FFFFFF",
-    subtitle: "#FFE7E5",
+    subtitle: "#FFFFFF",
     accent: "#FFD42A",
-
-    scratch: ["#D9DEE5", "#BEC6D0"],
-    scratchBorder: "#FFFFFF",
-    scratchText: "#263248",
 
     icon: {
       type: "material",
@@ -100,22 +89,18 @@ const THEMES = {
       color: "#FFD42A",
     },
 
-    titleLines: ["Scratch", "& Win"],
-    subtitleText: "Big Prizes Await!",
+    titleLines: ["SPECIAL", "OFFER"],
+    subtitleText: "Scratch to reveal your discount",
     scratchText: "Scratch Here",
   },
 
   travel: {
-    background: ["#10B8A7", "#12A9D2"],
-    border: "#6FE7DF",
+    background: ["#10B7A7", "#159DD6"],
+    border: "#73E9DF",
 
     title: "#FFFFFF",
-    subtitle: "#E4FFFF",
+    subtitle: "#FFFFFF",
     accent: "#FFE44D",
-
-    scratch: ["#D9DEE5", "#BEC6D0"],
-    scratchBorder: "#FFFFFF",
-    scratchText: "#263248",
 
     icon: {
       type: "ion",
@@ -124,90 +109,74 @@ const THEMES = {
     },
 
     titleLines: ["TRAVEL", "LUCK"],
-    subtitleText: "Scratch & Get Your Reward",
+    subtitleText: "Scratch to reveal your reward",
     scratchText: "Scratch Here",
   },
 
   discount: {
-    background: ["#F62992", "#A91DDB"],
-    border: "#FF8ED0",
+    background: ["#F20C88", "#A71BE2"],
+    border: "#FF7DCD",
 
     title: "#FFFFFF",
-    subtitle: "#FFE5F4",
-    accent: "#FFE04A",
-
-    scratch: ["#D9DEE5", "#BEC6D1"],
-    scratchBorder: "#FFFFFF",
-    scratchText: "#263248",
+    subtitle: "#FFFFFF",
+    accent: "#FFE044",
 
     icon: {
       type: "material",
-      name: "percent-outline",
-      color: "#FFE04A",
+      name: "percent",
+      color: "#FFE044",
     },
 
-    titleLines: ["Special", "DISCOUNT"],
-    subtitleText: "Scratch & Save More!",
+    titleLines: ["SPECIAL", "OFFER"],
+    subtitleText: "Scratch to reveal your discount",
     scratchText: "Scratch Here",
   },
 
   space: {
-    background: ["#06317D", "#0756C9"],
-    border: "#3D8DFF",
+    background: ["#06327F", "#0759CB"],
+    border: "#4D91FF",
 
     title: "#FFFFFF",
-    subtitle: "#DCEBFF",
-    accent: "#FFE14A",
-
-    scratch: ["#D9DEE5", "#BEC6D0"],
-    scratchBorder: "#FFFFFF",
-    scratchText: "#263248",
+    subtitle: "#FFFFFF",
+    accent: "#FFE044",
 
     icon: {
       type: "material",
       name: "rocket-launch-outline",
-      color: "#FFE14A",
+      color: "#FFE044",
     },
 
     titleLines: ["WIN", "BIG"],
-    subtitleText: "Scratch & Claim Your Prize!",
+    subtitleText: "Scratch to claim your prize",
     scratchText: "Scratch Here",
   },
 
   premium: {
-    background: ["#080808", "#222222"],
-    border: "#C89B3C",
+    background: ["#080808", "#252525"],
+    border: "#C79A3A",
 
-    title: "#F5D67B",
-    subtitle: "#F5E7BC",
-    accent: "#E2B94E",
-
-    scratch: ["#D9DEE5", "#BEC6D0"],
-    scratchBorder: "#C89B3C",
-    scratchText: "#263248",
+    title: "#F4D277",
+    subtitle: "#F4E6BC",
+    accent: "#E2B943",
 
     icon: {
       type: "material",
       name: "crown-outline",
-      color: "#E3B943",
+      color: "#E2B943",
     },
 
-    titleLines: ["PREMIUM", "SCRATCH CARD"],
-    subtitleText: "Exclusive Rewards Inside",
+    titleLines: ["PREMIUM", "OFFER"],
+    subtitleText: "Scratch to reveal your exclusive reward",
     scratchText: "Scratch Here",
   },
 
   christmas: {
-    background: ["#0874D1", "#16A7E7"],
-    border: "#72D9FF",
+    background: ["#0874D1", "#16A8E7"],
+    border: "#70D8FF",
 
     title: "#FFFFFF",
-    subtitle: "#E4F8FF",
-    accent: "#FFE14A",
-
-    scratch: ["#D9DEE5", "#BEC6D0"],
-    scratchBorder: "#FFFFFF",
-    scratchText: "#263248",
+    subtitle: "#FFFFFF",
+    accent: "#FFE044",
 
     icon: {
       type: "material",
@@ -215,31 +184,27 @@ const THEMES = {
       color: "#FFFFFF",
     },
 
-    titleLines: ["Holiday", "SURPRISE"],
-    subtitleText: "Scratch & Win Gifts",
+    titleLines: ["HOLIDAY", "SURPRISE"],
+    subtitleText: "Scratch to reveal your gift",
     scratchText: "Scratch Here",
   },
 
   mystery: {
-    background: ["#B58BFF", "#35BFFF"],
+    background: ["#B488FF", "#32BCFF"],
     border: "#E3D5FF",
 
     title: "#FFFFFF",
-    subtitle: "#F2ECFF",
+    subtitle: "#FFFFFF",
     accent: "#FFFFFF",
-
-    scratch: ["#D9DEE5", "#BEC6D0"],
-    scratchBorder: "#FFFFFF",
-    scratchText: "#263248",
 
     icon: {
       type: "feather",
       name: "help-circle",
-      color: "#6424C8",
+      color: "#6527C8",
     },
 
-    titleLines: ["Mystery", "Scratch"],
-    subtitleText: "What Will You Get?",
+    titleLines: ["MYSTERY", "OFFER"],
+    subtitleText: "Scratch to reveal your reward",
     scratchText: "Scratch Here",
   },
 };
@@ -260,7 +225,7 @@ const VARIANT_LABELS = {
    ICON
 ========================================================= */
 
-const ThemeIcon = ({ icon, size = 54, color, style }) => {
+const ThemeIcon = ({ icon, size = 58, color }) => {
   if (!icon) {
     return null;
   }
@@ -268,24 +233,15 @@ const ThemeIcon = ({ icon, size = 54, color, style }) => {
   const iconColor = color || icon.color || "#FFFFFF";
 
   if (icon.type === "ion") {
-    return (
-      <Ionicons name={icon.name} size={size} color={iconColor} style={style} />
-    );
+    return <Ionicons name={icon.name} size={size} color={iconColor} />;
   }
 
   if (icon.type === "feather") {
-    return (
-      <Feather name={icon.name} size={size} color={iconColor} style={style} />
-    );
+    return <Feather name={icon.name} size={size} color={iconColor} />;
   }
 
   return (
-    <MaterialCommunityIcons
-      name={icon.name}
-      size={size}
-      color={iconColor}
-      style={style}
-    />
+    <MaterialCommunityIcons name={icon.name} size={size} color={iconColor} />
   );
 };
 
@@ -296,29 +252,42 @@ const ThemeIcon = ({ icon, size = 54, color, style }) => {
 const ScratchSurface = ({
   width,
   height,
-  colors,
-  borderColor,
   scratchText,
-  textColor,
-  scratchThreshold = 0.45,
+  scratchThreshold,
   onProgress,
   onReveal,
 }) => {
   const [paths, setPaths] = useState([]);
   const [currentPath, setCurrentPath] = useState("");
 
-  const totalDistanceRef = useRef(0);
   const revealedRef = useRef(false);
+
   const lastPointRef = useRef(null);
 
+  /*
+   * Coverage grid.
+   *
+   * Instead of calculating how far the finger moved,
+   * we calculate how much of the actual scratch area
+   * has been touched.
+   */
+  const coverageRef = useRef(new Set());
+
+  const columns = 10;
+  const rows = 5;
+
+  const cellWidth = width / columns;
+
+  const cellHeight = height / rows;
+
   const gradientId = useRef(
-    `scratchGradient_${Math.random().toString(36).slice(2)}`,
+    `scratch_${Math.random().toString(36).slice(2)}`,
   ).current;
 
   const maskId = `${gradientId}_mask`;
 
   /* =======================================================
-     REVEAL
+     RESET INTERNAL STATE
   ======================================================= */
 
   const reveal = useCallback(() => {
@@ -340,32 +309,66 @@ const ScratchSurface = ({
   }, [onProgress, onReveal]);
 
   /* =======================================================
-     PROGRESS
+     MARK SCRATCHED CELLS
   ======================================================= */
 
-  const calculateProgress = useCallback(() => {
-    /*
-     * Practical scratching distance.
-     *
-     * This is intentionally much lower than the
-     * previous version so normal finger movement
-     * can reach the reveal threshold.
-     */
+  const markCoverage = useCallback(
+    (x, y) => {
+      const radius = 24;
 
-    const area = width * height;
+      const minColumn = Math.max(0, Math.floor((x - radius) / cellWidth));
 
-    const requiredDistance = Math.max(900, area * 0.42);
+      const maxColumn = Math.min(
+        columns - 1,
+        Math.floor((x + radius) / cellWidth),
+      );
 
-    const progress = Math.min(totalDistanceRef.current / requiredDistance, 1);
+      const minRow = Math.max(0, Math.floor((y - radius) / cellHeight));
 
-    if (onProgress) {
-      onProgress(progress);
-    }
+      const maxRow = Math.min(rows - 1, Math.floor((y + radius) / cellHeight));
 
-    if (progress >= scratchThreshold && !revealedRef.current) {
-      reveal();
-    }
-  }, [width, height, scratchThreshold, onProgress, reveal]);
+      for (let row = minRow; row <= maxRow; row += 1) {
+        for (let column = minColumn; column <= maxColumn; column += 1) {
+          const cellCenterX = column * cellWidth + cellWidth / 2;
+
+          const cellCenterY = row * cellHeight + cellHeight / 2;
+
+          const dx = cellCenterX - x;
+
+          const dy = cellCenterY - y;
+
+          const distance = Math.sqrt(dx * dx + dy * dy);
+
+          if (distance <= radius * 1.35) {
+            coverageRef.current.add(`${column}:${row}`);
+          }
+        }
+      }
+
+      const totalCells = columns * rows;
+
+      const coverage = coverageRef.current.size / totalCells;
+
+      const progress = Math.min(coverage, 1);
+
+      if (onProgress) {
+        onProgress(progress);
+      }
+
+      if (progress >= scratchThreshold && !revealedRef.current) {
+        reveal();
+      }
+    },
+    [
+      cellWidth,
+      cellHeight,
+      columns,
+      rows,
+      scratchThreshold,
+      onProgress,
+      reveal,
+    ],
+  );
 
   /* =======================================================
      PAN RESPONDER
@@ -391,6 +394,8 @@ const ScratchSurface = ({
           };
 
           setCurrentPath(`M ${locationX} ${locationY}`);
+
+          markCoverage(locationX, locationY);
         },
 
         onPanResponderMove: (event) => {
@@ -411,13 +416,28 @@ const ScratchSurface = ({
             return;
           }
 
+          /*
+           * Interpolate between the previous
+           * and current finger position so
+           * fast swipes don't leave gaps.
+           */
           const dx = locationX - last.x;
 
           const dy = locationY - last.y;
 
           const distance = Math.sqrt(dx * dx + dy * dy);
 
-          totalDistanceRef.current += distance;
+          const steps = Math.max(1, Math.ceil(distance / 8));
+
+          for (let i = 1; i <= steps; i += 1) {
+            const progress = i / steps;
+
+            const x = last.x + dx * progress;
+
+            const y = last.y + dy * progress;
+
+            markCoverage(x, y);
+          }
 
           lastPointRef.current = {
             x: locationX,
@@ -427,8 +447,6 @@ const ScratchSurface = ({
           setCurrentPath(
             (previous) => `${previous} L ${locationX} ${locationY}`,
           );
-
-          calculateProgress();
         },
 
         onPanResponderRelease: () => {
@@ -436,19 +454,13 @@ const ScratchSurface = ({
             return;
           }
 
-          setPaths((previous) => {
-            if (!currentPath) {
-              return previous;
-            }
-
-            return [...previous, currentPath];
-          });
+          if (currentPath) {
+            setPaths((previous) => [...previous, currentPath]);
+          }
 
           setCurrentPath("");
 
           lastPointRef.current = null;
-
-          calculateProgress();
         },
 
         onPanResponderTerminate: () => {
@@ -457,7 +469,7 @@ const ScratchSurface = ({
           lastPointRef.current = null;
         },
       }),
-    [calculateProgress, currentPath],
+    [currentPath, markCoverage],
   );
 
   /* =======================================================
@@ -469,16 +481,18 @@ const ScratchSurface = ({
       <Svg width={width} height={height} style={StyleSheet.absoluteFill}>
         <Defs>
           <LinearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">
-            <Stop offset="0" stopColor={colors[0]} />
+            <Stop offset="0" stopColor="#E4E8ED" />
 
-            <Stop offset="1" stopColor={colors[1]} />
+            <Stop offset="0.5" stopColor="#C9D0D8" />
+
+            <Stop offset="1" stopColor="#E5E9EE" />
           </LinearGradient>
 
           <Mask id={maskId} x="0" y="0" width={width} height={height}>
-            {/* Initially everything is visible */}
+            {/* Entire silver layer visible initially */}
             <Rect width={width} height={height} fill="white" />
 
-            {/* Black areas become transparent */}
+            {/* Black = scratched / transparent */}
             <G
               fill="none"
               stroke="black"
@@ -487,7 +501,7 @@ const ScratchSurface = ({
               strokeLinejoin="round"
             >
               {paths.map((path, index) => (
-                <Path key={`scratch-${index}`} d={path} />
+                <Path key={`path-${index}`} d={path} />
               ))}
 
               {currentPath ? <Path d={currentPath} /> : null}
@@ -495,6 +509,7 @@ const ScratchSurface = ({
           </Mask>
         </Defs>
 
+        {/* Silver scratch layer */}
         <Rect
           x={0}
           y={0}
@@ -503,36 +518,61 @@ const ScratchSurface = ({
           rx={14}
           fill={`url(#${gradientId})`}
           mask={`url(#${maskId})`}
-          stroke={borderColor}
-          strokeWidth={1.2}
+          stroke="#111111"
+          strokeWidth={1.5}
         />
       </Svg>
 
-      {/* Scratch instructions */}
+      {/* Silver texture */}
+      <View pointerEvents="none" style={styles.scratchTexture}>
+        <View
+          style={[
+            styles.textureLine,
+            {
+              transform: [
+                {
+                  rotate: "-18deg",
+                },
+              ],
+              top: 22,
+            },
+          ]}
+        />
+
+        <View
+          style={[
+            styles.textureLine,
+            {
+              transform: [
+                {
+                  rotate: "-18deg",
+                },
+              ],
+              top: 45,
+            },
+          ]}
+        />
+
+        <View
+          style={[
+            styles.textureLine,
+            {
+              transform: [
+                {
+                  rotate: "-18deg",
+                },
+              ],
+              top: 68,
+            },
+          ]}
+        />
+      </View>
+
+      {/* Scratch text */}
       <View pointerEvents="none" style={styles.scratchOverlay}>
-        <View style={styles.scratchShine} />
+        <Text style={styles.scratchTitle}>{scratchText}</Text>
 
-        <Text
-          style={[
-            styles.scratchText,
-            {
-              color: textColor,
-            },
-          ]}
-        >
-          {scratchText}
-        </Text>
-
-        <Text
-          style={[
-            styles.scratchHint,
-            {
-              color: textColor,
-            },
-          ]}
-        >
-          ✦ Scratch to reveal ✦
-        </Text>
+        <Text style={styles.scratchHint}>✦ Scratch to reveal ✦</Text>
       </View>
     </View>
   );
@@ -548,39 +588,49 @@ const UIScratchCard = forwardRef(
       variant = "classic",
 
       width = 330,
-      height = 210,
+      height = 330,
 
       title,
       subtitle,
 
       scratchText,
 
-      reward = "₹100 Cashback",
+      reward = "50% OFF",
+
+      rewardSubtitle = "On your next order",
 
       rewardIcon = "gift",
 
       icon,
       image,
 
-      scratchThreshold = 0.45,
+      /*
+       * 0.60 means approximately 60%
+       * of the scratch area needs to be touched.
+       *
+       * Even if the user scratches much more,
+       * the reward is guaranteed to appear.
+       */
+      scratchThreshold = 0.6,
 
       reanimated = false,
 
       onProgress,
       onReveal,
-      onPress,
 
       backgroundColors,
       backgroundColor,
 
-      borderRadius = 20,
+      borderRadius = 22,
 
       cardStyle,
       contentStyle,
       titleStyle,
       subtitleStyle,
       scratchStyle,
+
       rewardStyle,
+
       imageStyle,
       iconContainerStyle,
 
@@ -596,56 +646,50 @@ const UIScratchCard = forwardRef(
 
     const [isRevealed, setIsRevealed] = useState(false);
 
-    const progressRef = useRef(0);
+    const [scratchInstance, setScratchInstance] = useState(0);
 
     const scale = useSharedValue(1);
 
-    const rewardScale = useSharedValue(0.75);
+    const rewardScale = useSharedValue(0.8);
 
     const rewardOpacity = useSharedValue(0);
-
-    /* =====================================================
-       BACKGROUND
-    ===================================================== */
-
-    const cardBackground = backgroundColors || selectedTheme.background;
-
-    const resolvedBackground = backgroundColor || cardBackground;
 
     /* =====================================================
        CONTENT
     ===================================================== */
 
-    const finalIcon = icon || selectedTheme.icon;
+    const resolvedTitle = title || selectedTheme.titleLines;
 
-    const finalTitle = title || selectedTheme.titleLines;
+    const resolvedSubtitle = subtitle || selectedTheme.subtitleText;
 
-    const finalSubtitle = subtitle || selectedTheme.subtitleText;
+    const resolvedScratchText = scratchText || selectedTheme.scratchText;
 
-    const finalScratchText = scratchText || selectedTheme.scratchText;
+    const resolvedIcon = icon || selectedTheme.icon;
+
+    /* =====================================================
+       BACKGROUND
+    ===================================================== */
+
+    const resolvedBackground =
+      backgroundColor || backgroundColors || selectedTheme.background;
 
     /* =====================================================
        REVEAL
     ===================================================== */
 
     const handleReveal = useCallback(() => {
-      setIsRevealed((previous) => {
-        if (previous) {
-          return previous;
-        }
-
-        return true;
-      });
+      setIsRevealed(true);
 
       if (reanimated) {
         rewardOpacity.value = withTiming(1, {
-          duration: 300,
+          duration: 350,
         });
 
         rewardScale.value = withSequence(
           withTiming(1.08, {
             duration: 180,
           }),
+
           withSpring(1, {
             damping: 10,
             stiffness: 150,
@@ -653,22 +697,15 @@ const UIScratchCard = forwardRef(
         );
 
         scale.value = withSequence(
-          withTiming(1.03, {
+          withTiming(1.025, {
             duration: 120,
           }),
+
           withSpring(1, {
             damping: 12,
           }),
         );
       }
-
-      /*
-       * IMPORTANT:
-       *
-       * ScratchSurface calls onReveal.
-       * Therefore this callback is the only place
-       * where the parent reveal state is changed.
-       */
 
       if (onReveal) {
         onReveal();
@@ -680,32 +717,36 @@ const UIScratchCard = forwardRef(
     ===================================================== */
 
     const handleProgress = useCallback(
-      (value) => {
-        progressRef.current = value;
-
+      (progress) => {
         if (onProgress) {
-          onProgress(value);
+          onProgress(progress);
         }
       },
       [onProgress],
     );
 
     /* =====================================================
-       IMPERATIVE REVEAL
+       REVEAL API
     ===================================================== */
 
-    const revealCard = useCallback(() => {
-      handleReveal();
-    }, [handleReveal]);
+    const reveal = useCallback(() => {
+      if (!isRevealed) {
+        handleReveal();
+      }
+    }, [handleReveal, isRevealed]);
 
     /* =====================================================
-       RESET
+       RESET API
     ===================================================== */
 
-    const resetCard = useCallback(() => {
+    const reset = useCallback(() => {
       setIsRevealed(false);
 
-      progressRef.current = 0;
+      /*
+       * Force ScratchSurface to completely
+       * recreate its internal scratch state.
+       */
+      setScratchInstance((value) => value + 1);
 
       if (onProgress) {
         onProgress(0);
@@ -713,27 +754,27 @@ const UIScratchCard = forwardRef(
 
       if (reanimated) {
         rewardOpacity.value = 0;
-        rewardScale.value = 0.75;
+        rewardScale.value = 0.8;
         scale.value = 1;
       }
     }, [onProgress, reanimated, rewardOpacity, rewardScale, scale]);
 
     /* =====================================================
-       REF
+       IMPERATIVE REF
     ===================================================== */
 
     useImperativeHandle(
       ref,
       () => ({
-        reveal: revealCard,
-        reset: resetCard,
+        reveal,
+        reset,
         isRevealed,
       }),
-      [isRevealed, revealCard, resetCard],
+      [reveal, reset, isRevealed],
     );
 
     /* =====================================================
-       ANIMATED CARD
+       ANIMATION
     ===================================================== */
 
     const animatedCardStyle = useAnimatedStyle(() => ({
@@ -758,34 +799,16 @@ const UIScratchCard = forwardRef(
        DIMENSIONS
     ===================================================== */
 
+    const scratchHeight = Math.min(130, Math.max(110, height * 0.39));
+
     const scratchWidth = width - 44;
-
-    const scratchHeight = Math.min(82, Math.max(65, height * 0.38));
-
-    /* =====================================================
-       CARD STYLE
-    ===================================================== */
-
-    const cardStyleObject = [
-      styles.card,
-      {
-        width,
-        height,
-        borderRadius,
-        borderColor: selectedTheme.border,
-      },
-
-      reanimated && animatedCardStyle,
-
-      cardStyle,
-    ];
 
     /* =====================================================
        TITLE
     ===================================================== */
 
     const renderTitle = () => {
-      if (typeof finalTitle === "string") {
+      if (typeof resolvedTitle === "string") {
         return (
           <Text
             style={[
@@ -796,7 +819,7 @@ const UIScratchCard = forwardRef(
               titleStyle,
             ]}
           >
-            {finalTitle}
+            {resolvedTitle}
           </Text>
         );
       }
@@ -811,11 +834,11 @@ const UIScratchCard = forwardRef(
             titleStyle,
           ]}
         >
-          {finalTitle?.map((line, index) => (
+          {resolvedTitle.map((line, index) => (
             <Text key={`title-${index}`}>
               {line}
 
-              {index < finalTitle.length - 1 ? "\n" : ""}
+              {index < resolvedTitle.length - 1 ? "\n" : ""}
             </Text>
           ))}
         </Text>
@@ -831,84 +854,97 @@ const UIScratchCard = forwardRef(
         return rewardIcon;
       }
 
-      if (typeof rewardIcon === "string") {
-        const iconMap = {
-          gift: "gift-outline",
-          trophy: "trophy-outline",
-          star: "star-outline",
-          crown: "crown-outline",
-          discount: "percent-outline",
-          rocket: "rocket-launch-outline",
-          check: "check-circle-outline",
-        };
-
-        return (
-          <MaterialCommunityIcons
-            name={iconMap[rewardIcon] || "gift-outline"}
-            size={30}
-            color="#FFFFFF"
-          />
-        );
-      }
+      const iconMap = {
+        gift: "gift",
+        trophy: "trophy-outline",
+        star: "star-outline",
+        crown: "crown-outline",
+        discount: "percent",
+        rocket: "rocket-launch-outline",
+        check: "check-circle-outline",
+      };
 
       return (
-        <MaterialCommunityIcons name="gift-outline" size={30} color="#FFFFFF" />
+        <MaterialCommunityIcons
+          name={iconMap[rewardIcon] || "gift"}
+          size={52}
+          color="#F8B900"
+        />
       );
     };
 
     /* =====================================================
-       REWARD VIEW
+       REWARD CONTENT
     ===================================================== */
 
     const renderReward = () => {
       return (
         <Animated.View
-          entering={!reanimated ? FadeIn.duration(250) : undefined}
+          entering={!reanimated ? FadeIn.duration(300) : undefined}
           style={[
-            styles.rewardContainer,
+            styles.rewardCard,
 
             reanimated && animatedRewardStyle,
-
-            {
-              borderColor: selectedTheme.accent,
-            },
 
             rewardStyle,
           ]}
         >
-          <View
-            style={[
-              styles.rewardIcon,
-              {
-                backgroundColor: selectedTheme.accent,
-              },
-            ]}
+          {/* Confetti */}
+          <Text
+            pointerEvents="none"
+            style={[styles.confetti, styles.confettiOne]}
           >
-            {renderRewardIcon()}
+            ✦
+          </Text>
+
+          <Text
+            pointerEvents="none"
+            style={[styles.confetti, styles.confettiTwo]}
+          >
+            ◆
+          </Text>
+
+          <Text
+            pointerEvents="none"
+            style={[styles.confetti, styles.confettiThree]}
+          >
+            ✦
+          </Text>
+
+          <Text
+            pointerEvents="none"
+            style={[styles.confetti, styles.confettiFour]}
+          >
+            ◆
+          </Text>
+
+          {/* Gift */}
+          <View style={styles.rewardGift}>
+            <MaterialCommunityIcons name="gift" size={58} color="#F7B900" />
+
+            <View style={styles.giftRibbon} />
+
+            <View style={styles.giftRibbonVertical} />
           </View>
 
-          <View style={styles.rewardTextContainer}>
+          {/* Reward text */}
+          <View style={styles.rewardTextArea}>
+            <Text style={styles.youWon}>YOU WON</Text>
+
             <Text
-              style={[
-                styles.rewardLabel,
-                {
-                  color: selectedTheme.scratchText,
-                },
-              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              style={styles.rewardValue}
             >
-              YOU WON
+              {String(reward)}
             </Text>
 
             <Text
-              numberOfLines={2}
-              style={[
-                styles.rewardText,
-                {
-                  color: theme?.colors?.text?.primary || "#151515",
-                },
-              ]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              style={styles.rewardSubtitle}
             >
-              {String(reward)}
+              {rewardSubtitle}
             </Text>
           </View>
         </Animated.View>
@@ -916,13 +952,27 @@ const UIScratchCard = forwardRef(
     };
 
     /* =====================================================
-       RETURN
+       CARD
     ===================================================== */
 
     return (
-      <Animated.View style={cardStyleObject}>
+      <Animated.View
+        style={[
+          styles.card,
+          {
+            width,
+            height,
+            borderRadius,
+            borderColor: selectedTheme.border,
+          },
+
+          reanimated && animatedCardStyle,
+
+          cardStyle,
+        ]}
+      >
         {/* =================================================
-            CARD BACKGROUND
+            BACKGROUND
         ================================================= */}
 
         <View
@@ -939,7 +989,7 @@ const UIScratchCard = forwardRef(
             <Svg width={width} height={height}>
               <Defs>
                 <LinearGradient
-                  id="cardBackgroundGradient"
+                  id={`background_${variant}_${scratchInstance}`}
                   x1="0"
                   y1="0"
                   x2="1"
@@ -954,7 +1004,7 @@ const UIScratchCard = forwardRef(
               <Rect
                 width={width}
                 height={height}
-                fill="url(#cardBackgroundGradient)"
+                fill={`url(#background_${variant}_${scratchInstance})`}
               />
             </Svg>
           ) : (
@@ -987,7 +1037,7 @@ const UIScratchCard = forwardRef(
                 subtitleStyle,
               ]}
             >
-              {finalSubtitle}
+              {resolvedSubtitle}
             </Text>
           </View>
 
@@ -999,7 +1049,7 @@ const UIScratchCard = forwardRef(
                 style={[styles.image, imageStyle]}
               />
             ) : (
-              <ThemeIcon icon={finalIcon} size={58} />
+              <ThemeIcon icon={resolvedIcon} size={62} />
             )}
           </View>
         </View>
@@ -1012,32 +1062,33 @@ const UIScratchCard = forwardRef(
           style={[
             styles.scratchWrapper,
             {
-              left: 22,
-              right: 22,
-              bottom: 15,
+              width: scratchWidth,
               height: scratchHeight,
-              borderRadius: 14,
+              left: 22,
+              bottom: 18,
+              borderRadius: 15,
             },
             scratchStyle,
           ]}
         >
           {isRevealed ? (
             /*
-             * IMPORTANT:
+             * The ScratchSurface is completely removed.
              *
-             * ScratchSurface is completely removed after
-             * reveal. The reward is now the only component
-             * occupying the scratch area.
+             * Therefore the silver "Scratch Here"
+             * layer cannot remain visible.
              */
             renderReward()
+          ) : disabled ? (
+            <View style={styles.disabledScratch}>
+              <Text style={styles.disabledText}>{resolvedScratchText}</Text>
+            </View>
           ) : (
             <ScratchSurface
+              key={scratchInstance}
               width={scratchWidth}
               height={scratchHeight}
-              colors={selectedTheme.scratch}
-              borderColor={selectedTheme.scratchBorder}
-              scratchText={finalScratchText}
-              textColor={selectedTheme.scratchText}
+              scratchText={resolvedScratchText}
               scratchThreshold={scratchThreshold}
               onProgress={handleProgress}
               onReveal={handleReveal}
@@ -1055,10 +1106,6 @@ const UIScratchCard = forwardRef(
   },
 );
 
-/* =========================================================
-   DISPLAY NAME
-========================================================= */
-
 UIScratchCard.displayName = "UIScratchCard";
 
 /* =========================================================
@@ -1069,18 +1116,24 @@ const styles = StyleSheet.create({
   card: {
     position: "relative",
     overflow: "hidden",
-    borderWidth: 1.2,
-    backgroundColor: "#4214C7",
+
+    borderWidth: 1.3,
+
+    backgroundColor: "#F20D86",
   },
+
+  /* -------------------------------------------------------
+     TOP CONTENT
+  ------------------------------------------------------- */
 
   content: {
     position: "absolute",
 
-    top: 17,
-    left: 20,
-    right: 17,
+    top: 25,
+    left: 32,
+    right: 25,
 
-    height: 105,
+    height: 112,
 
     flexDirection: "row",
 
@@ -1091,39 +1144,46 @@ const styles = StyleSheet.create({
 
   textArea: {
     flex: 1,
+
     paddingRight: 8,
   },
 
   title: {
-    fontSize: 27,
-    lineHeight: 29,
+    fontSize: 31,
+    lineHeight: 34,
+
     fontWeight: "900",
-    letterSpacing: -0.5,
+
+    letterSpacing: -0.7,
   },
 
   subtitle: {
-    marginTop: 5,
+    marginTop: 7,
 
-    fontSize: 11.5,
-    lineHeight: 15,
+    fontSize: 13.5,
+    lineHeight: 18,
 
     fontWeight: "600",
 
-    maxWidth: 190,
+    maxWidth: 230,
   },
 
   iconContainer: {
-    width: 90,
-    height: 90,
+    width: 88,
+    height: 88,
 
     alignItems: "center",
     justifyContent: "center",
   },
 
   image: {
-    width: 86,
-    height: 86,
+    width: 82,
+    height: 82,
   },
+
+  /* -------------------------------------------------------
+     SCRATCH AREA
+  ------------------------------------------------------- */
 
   scratchWrapper: {
     position: "absolute",
@@ -1132,7 +1192,7 @@ const styles = StyleSheet.create({
 
     backgroundColor: "#D9DEE5",
 
-    borderWidth: 1,
+    borderRadius: 15,
   },
 
   scratchOverlay: {
@@ -1141,47 +1201,65 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
 
-    paddingHorizontal: 20,
+    paddingHorizontal: 15,
   },
 
-  scratchShine: {
-    position: "absolute",
+  scratchTitle: {
+    color: "#050505",
 
-    top: 10,
-    left: 18,
-    right: 18,
-
-    height: 1,
-
-    opacity: 0.35,
-
-    backgroundColor: "#FFFFFF",
-  },
-
-  scratchText: {
-    fontSize: 18,
+    fontSize: 25,
+    lineHeight: 29,
 
     fontWeight: "900",
-
-    letterSpacing: 0.4,
 
     textAlign: "center",
   },
 
   scratchHint: {
-    marginTop: 5,
+    marginTop: 6,
 
-    fontSize: 10,
+    color: "#4B4B4B",
+
+    fontSize: 12,
 
     fontWeight: "700",
-
-    opacity: 0.65,
 
     textAlign: "center",
   },
 
-  rewardContainer: {
+  scratchTexture: {
+    ...StyleSheet.absoluteFillObject,
+
+    opacity: 0.15,
+  },
+
+  textureLine: {
+    position: "absolute",
+
+    left: -40,
+    right: -40,
+
+    height: 1,
+
+    backgroundColor: "#FFFFFF",
+  },
+
+  /* -------------------------------------------------------
+     REWARD
+  ------------------------------------------------------- */
+
+  rewardCard: {
     flex: 1,
+
+    margin: 2,
+
+    borderRadius: 13,
+
+    borderWidth: 2,
+
+    borderColor: "#F8C400",
+
+    backgroundColor: "#FFFFFF",
 
     flexDirection: "row",
 
@@ -1189,50 +1267,145 @@ const styles = StyleSheet.create({
 
     justifyContent: "center",
 
-    margin: 2,
-
     paddingHorizontal: 18,
 
-    borderRadius: 12,
-
-    backgroundColor: "#FFFFFF",
-
-    borderWidth: 2,
+    overflow: "hidden",
   },
 
-  rewardIcon: {
-    width: 52,
-    height: 52,
-
-    marginRight: 13,
-
-    borderRadius: 26,
+  rewardGift: {
+    width: 82,
+    height: 82,
 
     alignItems: "center",
     justifyContent: "center",
+
+    marginRight: 8,
   },
 
-  rewardTextContainer: {
+  giftRibbon: {
+    position: "absolute",
+
+    width: 45,
+    height: 7,
+
+    borderRadius: 3,
+
+    backgroundColor: "#F02B2B",
+
+    top: 39,
+  },
+
+  giftRibbonVertical: {
+    position: "absolute",
+
+    width: 7,
+    height: 50,
+
+    borderRadius: 3,
+
+    backgroundColor: "#F02B2B",
+
+    top: 27,
+  },
+
+  rewardTextArea: {
     flex: 1,
+
+    alignItems: "flex-start",
 
     justifyContent: "center",
   },
 
-  rewardLabel: {
-    fontSize: 10,
+  youWon: {
+    color: "#111111",
 
-    fontWeight: "900",
+    fontSize: 13,
 
-    letterSpacing: 1.1,
+    fontWeight: "700",
+
+    letterSpacing: 0.3,
   },
 
-  rewardText: {
-    marginTop: 2,
+  rewardValue: {
+    marginTop: 1,
 
-    fontSize: 20,
-    lineHeight: 24,
+    color: "#E12626",
+
+    fontSize: 27,
+    lineHeight: 30,
 
     fontWeight: "900",
+  },
+
+  rewardSubtitle: {
+    marginTop: 2,
+
+    color: "#222222",
+
+    fontSize: 12.5,
+
+    fontWeight: "600",
+  },
+
+  /* -------------------------------------------------------
+     CONFETTI
+  ------------------------------------------------------- */
+
+  confetti: {
+    position: "absolute",
+
+    fontSize: 14,
+
+    fontWeight: "900",
+  },
+
+  confettiOne: {
+    top: 13,
+    left: 38,
+
+    color: "#F7B900",
+  },
+
+  confettiTwo: {
+    top: 21,
+    right: 35,
+
+    color: "#E82BAA",
+  },
+
+  confettiThree: {
+    bottom: 14,
+    left: 25,
+
+    color: "#FF5A5A",
+  },
+
+  confettiFour: {
+    bottom: 12,
+    right: 30,
+
+    color: "#F7B900",
+  },
+
+  /* -------------------------------------------------------
+     DISABLED
+  ------------------------------------------------------- */
+
+  disabledScratch: {
+    flex: 1,
+
+    alignItems: "center",
+    justifyContent: "center",
+
+    backgroundColor: "#BFC5CC",
+  },
+
+  disabledText: {
+    color: "#555555",
+
+    fontSize: 18,
+
+    fontWeight: "800",
   },
 });
 
