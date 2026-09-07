@@ -140,3 +140,9 @@ export {
   UISpinWheelVariants,
   UISpinWheelIcons,
 } from "./UISpinWheel/UISpinWheel";
+export {
+  default as UICountDown,
+  UICountDownVariants,
+  UICountDownLabels,
+  UICountDownDescriptions,
+} from "./UICountDown/UICountDown";

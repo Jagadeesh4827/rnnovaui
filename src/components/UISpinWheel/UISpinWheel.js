@@ -23,7 +23,7 @@ import Svg, {
   G,
   LinearGradient,
   Path,
-  Polygon,
+  Rect,
   Stop,
   Text as SvgText,
 } from "react-native-svg";
@@ -36,54 +36,19 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { MaterialCommunityIcons } from "@expo/vector-icons";
+import { runOnJS } from "react-native-worklets";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+import { MaterialCommunityIcons } from "@expo/vector-icons";
 
 /* =========================================================
    CONSTANTS
 ========================================================= */
 
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
+
 const TAU = Math.PI * 2;
 
 const DEFAULT_SIZE = Math.min(SCREEN_WIDTH - 28, 390);
-
-const CENTER_BUTTON_RATIO = 0.2;
-
-const DEFAULT_SEGMENT_COUNT = 6;
-
-/* =========================================================
-   HELPER
-========================================================= */
-
-const polarToCartesian = (cx, cy, radius, angle) => {
-  return {
-    x: cx + radius * Math.cos(angle),
-
-    y: cy + radius * Math.sin(angle),
-  };
-};
-
-const describeArc = (cx, cy, radius, startAngle, endAngle) => {
-  const start = polarToCartesian(cx, cy, radius, startAngle);
-
-  const end = polarToCartesian(cx, cy, radius, endAngle);
-
-  const largeArcFlag = endAngle - startAngle <= Math.PI ? "0" : "1";
-
-  return [
-    `M ${cx} ${cy}`,
-    `L ${start.x} ${start.y}`,
-    `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`,
-    "Z",
-  ].join(" ");
-};
-
-const normalizeAngle = (angle) => {
-  const normalized = angle % TAU;
-
-  return normalized < 0 ? normalized + TAU : normalized;
-};
 
 /* =========================================================
    ICON MAP
@@ -109,58 +74,50 @@ const ICONS = {
 };
 
 /* =========================================================
-   DEFAULT VARIANTS
+   VARIANTS
 ========================================================= */
 
 const VARIANTS = {
   foodDiscount: {
     title: "Food Discount Wheel",
     subtitle: "Spin & Get Up to 50% OFF",
-
     centerColor: "#E51B23",
-
-    outerColors: ["#F52B2B", "#FF8C00", "#FFD43B"],
 
     segments: [
       {
         label: "50% OFF",
         icon: "discount",
-        color: "#E71D2B",
+        color: "#ED2632",
         textColor: "#FFFFFF",
       },
-
       {
         label: "30% OFF",
         icon: "pizza",
-        color: "#FFF0B0",
+        color: "#FFE9A8",
         textColor: "#111111",
       },
-
       {
         label: "30% OFF",
         icon: "pizza",
-        color: "#FFE6A0",
+        color: "#FFF0B7",
         textColor: "#111111",
       },
-
       {
         label: "Free Delivery",
         icon: "delivery",
-        color: "#E72B31",
+        color: "#ED2632",
         textColor: "#FFFFFF",
       },
-
       {
         label: "10% OFF",
         icon: "gift",
-        color: "#FFE9A6",
+        color: "#FFE7A1",
         textColor: "#111111",
       },
-
       {
         label: "Free Delivery",
         icon: "delivery",
-        color: "#E92B32",
+        color: "#ED2632",
         textColor: "#FFFFFF",
       },
     ],
@@ -169,52 +126,44 @@ const VARIANTS = {
   freeFood: {
     title: "Free Food Wheel",
     subtitle: "Win Free Dishes",
-
-    centerColor: "#FF9D00",
-
-    outerColors: ["#FFB400", "#FFF0A0", "#FF7A00"],
+    centerColor: "#F59E00",
 
     segments: [
       {
         label: "Free Pizza",
         icon: "pizza",
-        color: "#171717",
+        color: "#1B170F",
         textColor: "#FFFFFF",
       },
-
       {
         label: "Free Burger",
         icon: "burger",
-        color: "#FFF0A0",
+        color: "#FFF0A7",
         textColor: "#111111",
       },
-
       {
         label: "Free Drink",
         icon: "drink",
-        color: "#FFF0A0",
+        color: "#FFF0A7",
         textColor: "#111111",
       },
-
       {
         label: "Try Again",
         icon: "retry",
-        color: "#FFF0A0",
+        color: "#FFF0A7",
         textColor: "#111111",
         retry: true,
       },
-
       {
         label: "Free Drink",
         icon: "drink",
-        color: "#FFF0A0",
+        color: "#FFF0A7",
         textColor: "#111111",
       },
-
       {
         label: "Try Again",
         icon: "retry",
-        color: "#171717",
+        color: "#1B170F",
         textColor: "#FFFFFF",
         retry: true,
       },
@@ -224,52 +173,44 @@ const VARIANTS = {
   deliveryPerks: {
     title: "Delivery Perks Wheel",
     subtitle: "Spin for Delivery Benefits",
-
-    centerColor: "#099B43",
-
-    outerColors: ["#00C94F", "#75E34B", "#00A84B"],
+    centerColor: "#079B42",
 
     segments: [
       {
         label: "Free Delivery",
         icon: "delivery",
-        color: "#E9F4A9",
+        color: "#E9F4A7",
         textColor: "#111111",
       },
-
       {
         label: "₹100 OFF",
         icon: "delivery",
-        color: "#9BE36A",
+        color: "#A2E36E",
         textColor: "#111111",
       },
-
       {
         label: "20% OFF",
         icon: "voucher",
-        color: "#E8F4B0",
+        color: "#E8F2AE",
         textColor: "#111111",
       },
-
       {
         label: "Try Again",
         icon: "retry",
-        color: "#DDF0A2",
+        color: "#D9EF9A",
         textColor: "#111111",
         retry: true,
       },
-
       {
         label: "30% OFF",
         icon: "discount",
-        color: "#0AA747",
+        color: "#079B42",
         textColor: "#FFFFFF",
       },
-
       {
         label: "₹50 OFF",
         icon: "voucher",
-        color: "#0AA747",
+        color: "#079B42",
         textColor: "#FFFFFF",
       },
     ],
@@ -278,33 +219,27 @@ const VARIANTS = {
   comboMeal: {
     title: "Combo Meal Wheel",
     subtitle: "Win Exciting Combos",
-
-    centerColor: "#E85A00",
-
-    outerColors: ["#FFB000", "#FF6B00", "#FFD34E"],
+    centerColor: "#E75C00",
 
     segments: [
       {
         label: "Burger Combo",
         icon: "burger",
-        color: "#2C1307",
+        color: "#31170A",
         textColor: "#FFFFFF",
       },
-
       {
         label: "Pizza Combo",
         icon: "pizza",
-        color: "#FFE5A0",
+        color: "#FFE6A0",
         textColor: "#111111",
       },
-
       {
         label: "Biryani Combo",
         icon: "biryani",
-        color: "#FFE8A5",
+        color: "#FFE7A2",
         textColor: "#111111",
       },
-
       {
         label: "Try Again",
         icon: "retry",
@@ -312,14 +247,12 @@ const VARIANTS = {
         textColor: "#111111",
         retry: true,
       },
-
       {
         label: "Dessert Combo",
         icon: "dessert",
-        color: "#42170A",
+        color: "#451B0A",
         textColor: "#FFFFFF",
       },
-
       {
         label: "Dessert Combo",
         icon: "dessert",
@@ -332,51 +265,43 @@ const VARIANTS = {
   restaurantVouchers: {
     title: "Restaurant Vouchers",
     subtitle: "Get Vouchers from Top Brands",
-
-    centerColor: "#7A16C8",
-
-    outerColors: ["#E029FF", "#7523F3", "#B117D6"],
+    centerColor: "#7C16C8",
 
     segments: [
       {
         label: "zomato",
         icon: "gift",
-        color: "#E82963",
+        color: "#E92863",
         textColor: "#FFFFFF",
       },
-
       {
         label: "swiggy",
         icon: "gift",
-        color: "#FF5A43",
+        color: "#FF5C44",
         textColor: "#FFFFFF",
       },
-
       {
         label: "KFC",
         icon: "burger",
         color: "#FFFFFF",
         textColor: "#111111",
       },
-
       {
         label: "Domino's",
         icon: "pizza",
-        color: "#1B4CBF",
+        color: "#204FC2",
         textColor: "#FFFFFF",
       },
-
       {
         label: "₹200 OFF",
         icon: "voucher",
         color: "#FFFFFF",
         textColor: "#111111",
       },
-
       {
         label: "Voucher",
         icon: "gift",
-        color: "#D92869",
+        color: "#D72A6B",
         textColor: "#FFFFFF",
       },
     ],
@@ -385,52 +310,44 @@ const VARIANTS = {
   foodieSurprise: {
     title: "Foodie Surprise",
     subtitle: "Spin & Discover",
-
     centerColor: "#C50B94",
-
-    outerColors: ["#FF3BC8", "#8A19DC", "#D214B8"],
 
     segments: [
       {
         label: "Mystery Dish",
         icon: "dessert",
-        color: "#6C1BBD",
+        color: "#6E1DC0",
         textColor: "#FFFFFF",
       },
-
       {
         label: "Surprise Dessert",
         icon: "dessert",
-        color: "#F43CC6",
+        color: "#F238C3",
         textColor: "#FFFFFF",
       },
-
       {
         label: "Free Drink",
         icon: "drink",
-        color: "#7732D7",
+        color: "#7731D2",
         textColor: "#FFFFFF",
       },
-
       {
         label: "Try Again",
         icon: "retry",
-        color: "#6819A8",
+        color: "#6718A8",
         textColor: "#FFFFFF",
         retry: true,
       },
-
       {
         label: "50% OFF",
         icon: "discount",
-        color: "#9D13D5",
+        color: "#9B15D2",
         textColor: "#FFFFFF",
       },
-
       {
         label: "Surprise Deal",
         icon: "gift",
-        color: "#F02AB5",
+        color: "#EE2CB4",
         textColor: "#FFFFFF",
       },
     ],
@@ -439,52 +356,44 @@ const VARIANTS = {
   healthyEats: {
     title: "Healthy Eats Wheel",
     subtitle: "Win Healthy Rewards",
-
-    centerColor: "#0AA64A",
-
-    outerColors: ["#00C84A", "#7CE35B", "#00A93E"],
+    centerColor: "#0AA44A",
 
     segments: [
       {
         label: "Free Salad",
         icon: "salad",
-        color: "#E9F5B4",
+        color: "#E9F4B2",
         textColor: "#111111",
       },
-
       {
         label: "Veg Combo",
         icon: "veg",
-        color: "#D9F19B",
+        color: "#D8F19C",
         textColor: "#111111",
       },
-
       {
         label: "10% OFF",
         icon: "veg",
-        color: "#E9F6B2",
+        color: "#E8F5B0",
         textColor: "#111111",
       },
-
       {
         label: "Try Again",
         icon: "retry",
-        color: "#D6EF9A",
+        color: "#D7EF99",
         textColor: "#111111",
         retry: true,
       },
-
       {
         label: "20% OFF",
         icon: "gift",
         color: "#9EE56D",
         textColor: "#111111",
       },
-
       {
         label: "Free Salad",
         icon: "salad",
-        color: "#E7F3AE",
+        color: "#E5F1A9",
         textColor: "#111111",
       },
     ],
@@ -493,33 +402,27 @@ const VARIANTS = {
   lateNight: {
     title: "Late Night Cravings",
     subtitle: "Spin for Night Deals",
-
-    centerColor: "#111A6B",
-
-    outerColors: ["#142169", "#31378C", "#10164E"],
+    centerColor: "#141B6A",
 
     segments: [
       {
         label: "50% OFF",
         icon: "drink",
-        color: "#111B64",
+        color: "#111B63",
         textColor: "#FFFFFF",
       },
-
       {
         label: "Free Delivery",
         icon: "delivery",
-        color: "#171C67",
+        color: "#171D68",
         textColor: "#FFFFFF",
       },
-
       {
         label: "Free Burger",
         icon: "fries",
-        color: "#24256F",
+        color: "#252670",
         textColor: "#FFFFFF",
       },
-
       {
         label: "Try Again",
         icon: "retry",
@@ -527,18 +430,16 @@ const VARIANTS = {
         textColor: "#FFFFFF",
         retry: true,
       },
-
       {
         label: "₹100 OFF",
         icon: "voucher",
-        color: "#22256C",
+        color: "#22266D",
         textColor: "#FFFFFF",
       },
-
       {
         label: "Midnight Deal",
         icon: "drink",
-        color: "#101752",
+        color: "#111752",
         textColor: "#FFFFFF",
       },
     ],
@@ -547,52 +448,44 @@ const VARIANTS = {
   firstOrder: {
     title: "First Order Special",
     subtitle: "Exclusive for New Users",
-
-    centerColor: "#079C48",
-
-    outerColors: ["#00C9D8", "#65E9D9", "#00A7C7"],
+    centerColor: "#079B48",
 
     segments: [
       {
         label: "₹100 OFF",
         icon: "voucher",
-        color: "#F1E8A4",
+        color: "#F0E7A3",
         textColor: "#111111",
       },
-
       {
         label: "Free Delivery",
         icon: "delivery",
-        color: "#E8F0B1",
+        color: "#E6EFB0",
         textColor: "#111111",
       },
-
       {
         label: "Free Dessert",
         icon: "dessert",
-        color: "#D9F1A4",
+        color: "#D8F0A2",
         textColor: "#111111",
       },
-
       {
         label: "Try Again",
         icon: "retry",
-        color: "#A6E4B4",
+        color: "#A4E4B4",
         textColor: "#111111",
         retry: true,
       },
-
       {
         label: "30% OFF",
         icon: "voucher",
-        color: "#0DAF7D",
+        color: "#0CAC79",
         textColor: "#FFFFFF",
       },
-
       {
         label: "50% OFF",
         icon: "discount",
-        color: "#08A5C8",
+        color: "#08A4C7",
         textColor: "#FFFFFF",
       },
     ],
@@ -601,33 +494,27 @@ const VARIANTS = {
   festivalFeast: {
     title: "Festival Feast",
     subtitle: "Celebrate with Great Food",
-
-    centerColor: "#E87700",
-
-    outerColors: ["#FFAA00", "#FF4B00", "#FFD447"],
+    centerColor: "#E77700",
 
     segments: [
       {
         label: "Free Biryani",
         icon: "biryani",
-        color: "#FFF0B0",
+        color: "#FFF0AF",
         textColor: "#111111",
       },
-
       {
         label: "Free Pizza",
         icon: "pizza",
-        color: "#FFE7A1",
+        color: "#FFE6A0",
         textColor: "#111111",
       },
-
       {
         label: "₹200 OFF",
         icon: "voucher",
-        color: "#FFE8A2",
+        color: "#FFE7A1",
         textColor: "#111111",
       },
-
       {
         label: "Try Again",
         icon: "retry",
@@ -635,14 +522,12 @@ const VARIANTS = {
         textColor: "#111111",
         retry: true,
       },
-
       {
         label: "Free Drink",
         icon: "drink",
         color: "#E73B16",
         textColor: "#FFFFFF",
       },
-
       {
         label: "Free Offer",
         icon: "gift",
@@ -654,173 +539,169 @@ const VARIANTS = {
 };
 
 /* =========================================================
-   ICON COMPONENT
+   ICON
 ========================================================= */
 
 const WheelIcon = ({ name, size = 28, color = "#FFFFFF" }) => {
-  const iconName = ICONS[name] || name || "gift-outline";
+  return (
+    <MaterialCommunityIcons
+      name={ICONS[name] || name || "gift-outline"}
+      size={size}
+      color={color}
+    />
+  );
+};
 
-  return <MaterialCommunityIcons name={iconName} size={size} color={color} />;
+/* =========================================================
+   POLAR
+========================================================= */
+
+const polarToCartesian = (cx, cy, radius, angle) => {
+  return {
+    x: cx + radius * Math.cos(angle),
+
+    y: cy + radius * Math.sin(angle),
+  };
+};
+
+/* =========================================================
+   ARC
+========================================================= */
+
+const describeArc = (cx, cy, radius, startAngle, endAngle) => {
+  const start = polarToCartesian(cx, cy, radius, startAngle);
+
+  const end = polarToCartesian(cx, cy, radius, endAngle);
+
+  const largeArcFlag = endAngle - startAngle <= Math.PI ? "0" : "1";
+
+  return [
+    `M ${cx} ${cy}`,
+    `L ${start.x} ${start.y}`,
+    `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`,
+    "Z",
+  ].join(" ");
+};
+
+/* =========================================================
+   NORMALIZE
+========================================================= */
+
+const normalizeAngle = (angle) => {
+  const value = angle % TAU;
+
+  return value < 0 ? value + TAU : value;
 };
 
 /* =========================================================
    WHEEL SVG
 ========================================================= */
 
-const WheelGraphic = ({ size, segments, rotation, centerColor, disabled }) => {
+const WheelGraphic = ({ size, segments, centerColor, disabled }) => {
   const center = size / 2;
 
   const outerRadius = size / 2 - 18;
 
-  const innerRadius = size * CENTER_BUTTON_RATIO;
+  const centerRadius = size * 0.2;
 
   const segmentAngle = TAU / segments.length;
 
   return (
     <Svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       <Defs>
-        <LinearGradient id="wheelGold" x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0" stopColor="#FFF5A0" />
+        <LinearGradient id="wheelGoldGradient" x1="0" y1="0" x2="1" y2="1">
+          <Stop offset="0" stopColor="#FFF6A4" />
 
-          <Stop offset="0.35" stopColor="#FFB300" />
+          <Stop offset="0.3" stopColor="#FFB300" />
 
-          <Stop offset="0.65" stopColor="#FFF6A4" />
+          <Stop offset="0.6" stopColor="#FFF3A0" />
 
           <Stop offset="1" stopColor="#FF7A00" />
         </LinearGradient>
-
-        <LinearGradient id="wheelPurple" x1="0" y1="0" x2="1" y2="1">
-          <Stop offset="0" stopColor="#FF62E7" />
-
-          <Stop offset="0.5" stopColor="#A517D8" />
-
-          <Stop offset="1" stopColor="#5B16C9" />
-        </LinearGradient>
       </Defs>
 
-      {/* Outer glow ring */}
+      {/* Outer golden ring */}
       <Circle
         cx={center}
         cy={center}
         r={outerRadius + 9}
         fill="none"
-        stroke="url(#wheelGold)"
+        stroke="url(#wheelGoldGradient)"
         strokeWidth={12}
       />
 
-      {/* Main wheel */}
-      <G rotation={(rotation * 180) / Math.PI} origin={`${center}, ${center}`}>
-        {segments.map((segment, index) => {
-          const start = -Math.PI / 2 + index * segmentAngle;
+      {/* Wheel segments */}
+      {segments.map((segment, index) => {
+        const start = -Math.PI / 2 + index * segmentAngle;
 
-          const end = start + segmentAngle;
+        const end = start + segmentAngle;
 
-          const middle = start + segmentAngle / 2;
+        return (
+          <Path
+            key={`segment-${index}`}
+            d={describeArc(center, center, outerRadius, start, end)}
+            fill={segment.color || "#FFFFFF"}
+            stroke="#FFFFFF"
+            strokeWidth={1.3}
+            opacity={disabled ? 0.55 : 1}
+          />
+        );
+      })}
 
-          const iconRadius = outerRadius * 0.62;
+      {/* Segment lines */}
+      {segments.map((_, index) => {
+        const angle = -Math.PI / 2 + index * segmentAngle;
 
-          const textRadius = outerRadius * 0.78;
+        const point = polarToCartesian(center, center, outerRadius, angle);
 
-          const iconPosition = polarToCartesian(
-            center,
-            center,
-            iconRadius,
-            middle,
-          );
+        return (
+          <Path
+            key={`line-${index}`}
+            d={`M ${center} ${center} L ${point.x} ${point.y}`}
+            stroke="#FFFFFF"
+            strokeWidth={1}
+            opacity={0.9}
+          />
+        );
+      })}
 
-          const textPosition = polarToCartesian(
-            center,
-            center,
-            textRadius,
-            middle,
-          );
-
-          return (
-            <G key={index}>
-              <Path
-                d={describeArc(center, center, outerRadius, start, end)}
-                fill={segment.color || "#FFFFFF"}
-                stroke="#FFFFFF"
-                strokeWidth={1.2}
-              />
-
-              {/* Segment separator */}
-              <Path
-                d={`M ${center} ${center} L ${
-                  polarToCartesian(center, center, outerRadius, start).x
-                } ${polarToCartesian(center, center, outerRadius, start).y}`}
-                stroke="rgba(255,255,255,0.8)"
-                strokeWidth={1}
-              />
-
-              {/* Icon circle */}
-              <Circle
-                cx={iconPosition.x}
-                cy={iconPosition.y}
-                r={24}
-                fill="rgba(255,255,255,0.12)"
-              />
-
-              {/* Text */}
-              <SvgText
-                x={textPosition.x}
-                y={textPosition.y}
-                fill={segment.textColor || "#FFFFFF"}
-                fontSize={segment.label.length > 13 ? 10 : 12}
-                fontWeight="700"
-                textAnchor="middle"
-                alignmentBaseline="middle"
-              >
-                {segment.label}
-              </SvgText>
-            </G>
-          );
-        })}
-
-        {/* Inner ring */}
-        <Circle
-          cx={center}
-          cy={center}
-          r={outerRadius - 5}
-          fill="none"
-          stroke="#FFFFFF"
-          strokeWidth={2}
-          opacity={0.65}
-        />
-      </G>
-
-      {/* Center outer ring */}
+      {/* Inner ring */}
       <Circle
         cx={center}
         cy={center}
-        r={innerRadius + 13}
-        fill="#FFFFFF"
-        opacity={0.9}
+        r={outerRadius - 5}
+        fill="none"
+        stroke="#FFFFFF"
+        strokeWidth={2}
+        opacity={0.65}
       />
+
+      {/* Center outer ring */}
+      <Circle cx={center} cy={center} r={centerRadius + 14} fill="#FFFFFF" />
 
       {/* Center button */}
       <Circle
         cx={center}
         cy={center}
-        r={innerRadius + 9}
+        r={centerRadius + 10}
         fill={centerColor}
-        stroke="#FFDD6B"
+        stroke="#FFD96A"
         strokeWidth={2}
-        opacity={disabled ? 0.55 : 1}
+        opacity={disabled ? 0.6 : 1}
       />
 
       <Circle
         cx={center}
         cy={center}
-        r={innerRadius}
+        r={centerRadius}
         fill={centerColor}
-        stroke="rgba(0,0,0,0.3)"
+        stroke="rgba(0,0,0,0.25)"
         strokeWidth={2}
       />
 
       <SvgText
         x={center}
-        y={center + 5}
+        y={center + 6}
         fill="#FFFFFF"
         fontSize={size * 0.075}
         fontWeight="900"
@@ -833,15 +714,17 @@ const WheelGraphic = ({ size, segments, rotation, centerColor, disabled }) => {
 };
 
 /* =========================================================
-   SEGMENT OVERLAY
+   SEGMENT ICONS
 ========================================================= */
 
-const SegmentIcons = ({ size, segments, rotation }) => {
+const SegmentIcons = ({ size, segments }) => {
   const center = size / 2;
 
   const outerRadius = size / 2 - 18;
 
   const segmentAngle = TAU / segments.length;
+
+  const iconRadius = outerRadius * 0.62;
 
   return (
     <View
@@ -849,31 +732,25 @@ const SegmentIcons = ({ size, segments, rotation }) => {
       style={[
         StyleSheet.absoluteFill,
         {
-          transform: [
-            {
-              rotate: `${rotation}rad`,
-            },
-          ],
+          width: size,
+          height: size,
         },
       ]}
     >
       {segments.map((segment, index) => {
         const middle = -Math.PI / 2 + index * segmentAngle + segmentAngle / 2;
 
-        const iconRadius = outerRadius * 0.62;
-
-        const x = center + Math.cos(middle) * iconRadius;
-
-        const y = center + Math.sin(middle) * iconRadius;
+        const position = polarToCartesian(center, center, iconRadius, middle);
 
         return (
           <View
-            key={index}
+            key={`icon-${index}`}
             style={[
               styles.segmentIcon,
               {
-                left: x - 24,
-                top: y - 24,
+                left: position.x - 24,
+
+                top: position.y - 24,
               },
             ]}
           >
@@ -898,22 +775,94 @@ const SegmentIcons = ({ size, segments, rotation }) => {
 };
 
 /* =========================================================
+   SEGMENT TEXT
+========================================================= */
+
+const SegmentLabels = ({ size, segments }) => {
+  const center = size / 2;
+
+  const outerRadius = size / 2 - 18;
+
+  const segmentAngle = TAU / segments.length;
+
+  const textRadius = outerRadius * 0.82;
+
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFill,
+        {
+          width: size,
+          height: size,
+        },
+      ]}
+    >
+      {segments.map((segment, index) => {
+        const middle = -Math.PI / 2 + index * segmentAngle + segmentAngle / 2;
+
+        const position = polarToCartesian(center, center, textRadius, middle);
+
+        const maxWidth = segment.label.length > 14 ? 65 : 82;
+
+        return (
+          <View
+            key={`label-${index}`}
+            style={[
+              styles.segmentLabel,
+              {
+                left: position.x - maxWidth / 2,
+
+                top: position.y - 10,
+
+                width: maxWidth,
+              },
+            ]}
+          >
+            <Text
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.65}
+              style={[
+                styles.segmentLabelText,
+                {
+                  color: segment.textColor || "#FFFFFF",
+                },
+              ]}
+            >
+              {segment.label}
+            </Text>
+          </View>
+        );
+      })}
+    </View>
+  );
+};
+
+/* =========================================================
    POINTER
 ========================================================= */
 
-const WheelPointer = ({ color = "#E3262E" }) => {
+const WheelPointer = ({ color = "#E5232A" }) => {
   return (
-    <View pointerEvents="none" style={styles.pointerContainer}>
+    <View pointerEvents="none" style={styles.pointer}>
       <View
         style={[
-          styles.pointerPin,
+          styles.pointerTriangle,
+          {
+            borderTopColor: color,
+          },
+        ]}
+      />
+
+      <View
+        style={[
+          styles.pointerBody,
           {
             backgroundColor: color,
           },
         ]}
-      >
-        <MaterialCommunityIcons name="map-marker" size={42} color={color} />
-      </View>
+      />
     </View>
   );
 };
@@ -985,8 +934,7 @@ const UISpinWheel = forwardRef(
 
     const finalCenterColor = centerColor || selectedVariant.centerColor;
 
-    const finalPointerColor =
-      pointerColor || selectedVariant.outerColors?.[0] || "#E3262E";
+    const finalPointerColor = pointerColor || "#E5232A";
 
     const [isSpinning, setIsSpinning] = useState(false);
 
@@ -994,38 +942,90 @@ const UISpinWheel = forwardRef(
 
     const rotation = useSharedValue(0);
 
-    const progress = useSharedValue(0);
-
     const scale = useSharedValue(1);
 
     const currentRotationRef = useRef(0);
 
     /* =====================================================
-       RESULT
+       RESULT INDEX
     ===================================================== */
 
     const getResultIndex = useCallback(
       (finalRotation) => {
-        /*
-         * Pointer is at the top (-PI/2).
-         *
-         * Calculate which segment ends under
-         * the pointer after rotation.
-         */
-
-        const normalized = normalizeAngle(-finalRotation);
-
-        const adjusted = normalizeAngle(normalized + Math.PI / 2);
-
         const segmentAngle = TAU / finalSegments.length;
 
-        let index = Math.floor(adjusted / segmentAngle);
+        /*
+         * The pointer is located at
+         * -PI / 2.
+         */
+
+        const pointerAngle = -Math.PI / 2;
+
+        /*
+         * Convert pointer angle into
+         * wheel-local coordinates.
+         */
+
+        const localAngle = normalizeAngle(pointerAngle - finalRotation);
+
+        /*
+         * Convert to segment index.
+         */
+
+        let index = Math.floor(
+          normalizeAngle(localAngle + Math.PI / 2) / segmentAngle,
+        );
 
         index = index % finalSegments.length;
 
         return index;
       },
       [finalSegments.length],
+    );
+
+    /* =====================================================
+       FINISH SPIN
+       
+       IMPORTANT:
+       This is a normal JavaScript function.
+
+       It contains all React state updates.
+
+       It is called through runOnJS() from
+       the Reanimated worklet.
+    ===================================================== */
+
+    const finishSpin = useCallback(
+      (finalRotation) => {
+        currentRotationRef.current = finalRotation;
+
+        setIsSpinning(false);
+
+        const actualIndex = getResultIndex(finalRotation);
+
+        const selected = finalSegments[actualIndex];
+
+        setResult({
+          index: actualIndex,
+          segment: selected,
+        });
+
+        if (onProgress) {
+          onProgress(1);
+        }
+
+        if (onSpinEnd) {
+          onSpinEnd({
+            index: actualIndex,
+            segment: selected,
+          });
+        }
+
+        if (onResult) {
+          onResult(selected, actualIndex);
+        }
+      },
+      [finalSegments, getResultIndex, onProgress, onResult, onSpinEnd],
     );
 
     /* =====================================================
@@ -1038,49 +1038,62 @@ const UISpinWheel = forwardRef(
           return;
         }
 
-        const resultIndex =
-          forcedIndex !== null
-            ? forcedIndex
-            : Math.floor(Math.random() * finalSegments.length);
+        let resultIndex = forcedIndex;
+
+        if (resultIndex === null || resultIndex === undefined) {
+          resultIndex = Math.floor(Math.random() * finalSegments.length);
+        }
+
+        resultIndex = Math.max(
+          0,
+          Math.min(resultIndex, finalSegments.length - 1),
+        );
 
         const segmentAngle = TAU / finalSegments.length;
 
         /*
-         * Target the center of the selected
-         * segment toward the pointer.
+         * Center angle of selected segment.
          */
-        const segmentCenter =
+        const selectedSegmentCenter =
           -Math.PI / 2 + resultIndex * segmentAngle + segmentAngle / 2;
 
-        const current = currentRotationRef.current;
+        /*
+         * We want the selected segment
+         * center to arrive underneath
+         * the pointer.
+         */
+        const desiredRotation = -Math.PI / 2 - selectedSegmentCenter;
 
-        const currentNormalized = normalizeAngle(current);
+        const currentRotation = currentRotationRef.current;
 
-        let targetRotation = currentNormalized + spinTurns * TAU;
+        const normalizedCurrent = normalizeAngle(currentRotation);
 
-        const desired = -Math.PI / 2 - segmentCenter;
+        const normalizedDesired = normalizeAngle(desiredRotation);
 
-        const normalizedDesired = normalizeAngle(desired);
-
-        const currentTarget = normalizeAngle(targetRotation);
-
-        let delta = normalizedDesired - currentTarget;
+        let delta = normalizedDesired - normalizedCurrent;
 
         if (delta < 0) {
           delta += TAU;
         }
 
-        targetRotation += delta;
+        /*
+         * Full rotations + final segment
+         * alignment.
+         */
+        const targetRotation = currentRotation + spinTurns * TAU + delta;
 
         setIsSpinning(true);
 
         setResult(null);
 
-        progress.value = 0;
+        if (onProgress) {
+          onProgress(0);
+        }
 
         if (onSpinStart) {
           onSpinStart({
             index: resultIndex,
+
             segment: finalSegments[resultIndex],
           });
         }
@@ -1088,14 +1101,26 @@ const UISpinWheel = forwardRef(
         if (reanimated) {
           scale.value = withSequence(
             withTiming(1.025, {
-              duration: 180,
+              duration: 150,
             }),
 
             withSpring(1, {
               damping: 10,
+              stiffness: 150,
             }),
           );
         }
+
+        /*
+         * IMPORTANT:
+         *
+         * The completion callback runs
+         * on the UI/Worklet runtime.
+         *
+         * DO NOT call setState() here.
+         *
+         * Use runOnJS().
+         */
 
         rotation.value = withTiming(
           targetRotation,
@@ -1107,46 +1132,17 @@ const UISpinWheel = forwardRef(
               return;
             }
 
-            currentRotationRef.current = targetRotation;
-
-            /*
-             * JS state must be changed on JS thread.
-             */
-            setIsSpinning(false);
-
-            const actualIndex = getResultIndex(targetRotation);
-
-            const selected = finalSegments[actualIndex];
-
-            setResult({
-              index: actualIndex,
-
-              segment: selected,
-            });
-
-            if (onSpinEnd) {
-              onSpinEnd({
-                index: actualIndex,
-
-                segment: selected,
-              });
-            }
-
-            if (onResult) {
-              onResult(selected, actualIndex);
-            }
+            runOnJS(finishSpin)(targetRotation);
           },
         );
       },
       [
         disabled,
         finalSegments,
-        getResultIndex,
+        finishSpin,
         isSpinning,
-        onResult,
-        onSpinEnd,
+        onProgress,
         onSpinStart,
-        progress,
         reanimated,
         rotation,
         scale,
@@ -1164,14 +1160,16 @@ const UISpinWheel = forwardRef(
 
       currentRotationRef.current = 0;
 
-      setResult(null);
-
       setIsSpinning(false);
 
-      progress.value = 0;
+      setResult(null);
 
       scale.value = 1;
-    }, [progress, rotation, scale]);
+
+      if (onProgress) {
+        onProgress(0);
+      }
+    }, [onProgress, rotation, scale]);
 
     /* =====================================================
        REF API
@@ -1184,6 +1182,8 @@ const UISpinWheel = forwardRef(
 
         reset,
 
+        getResult: () => result,
+
         isSpinning,
 
         result,
@@ -1195,43 +1195,37 @@ const UISpinWheel = forwardRef(
        ANIMATED STYLE
     ===================================================== */
 
-    const wheelAnimatedStyle = useAnimatedStyle(() => ({
-      transform: [
-        {
-          rotate: `${rotation.value}rad`,
-        },
-        {
-          scale: scale.value,
-        },
-      ],
-    }));
+    const wheelAnimatedStyle = useAnimatedStyle(() => {
+      return {
+        transform: [
+          {
+            rotate: `${rotation.value}rad`,
+          },
+
+          {
+            scale: scale.value,
+          },
+        ],
+      };
+    });
 
     /* =====================================================
-       PROGRESS
+       PRESS
     ===================================================== */
 
-    /*
-     * Reanimated timing doesn't expose every
-     * progress frame to JS here. onProgress is
-     * therefore emitted as 0/1 for lifecycle usage.
-     */
     const handleSpinPress = useCallback(() => {
-      if (isSpinning || disabled) {
+      if (disabled || isSpinning) {
         return;
       }
 
-      if (onProgress) {
-        onProgress(0);
-      }
-
       spin();
-    }, [disabled, isSpinning, onProgress, spin]);
+    }, [disabled, isSpinning, spin]);
 
     /* =====================================================
-       RESULT LABEL
+       RESULT
     ===================================================== */
 
-    const resultLabel = result?.segment?.label;
+    const resultSegment = result?.segment;
 
     /* =====================================================
        RENDER
@@ -1246,7 +1240,10 @@ const UISpinWheel = forwardRef(
         onRequestClose={onClose}
       >
         <View style={[styles.modalRoot, modalStyle]}>
-          {/* Backdrop */}
+          {/* =================================================
+              BACKDROP
+          ================================================= */}
+
           <Pressable
             style={StyleSheet.absoluteFill}
             onPress={() => {
@@ -1256,11 +1253,15 @@ const UISpinWheel = forwardRef(
             }}
           />
 
+          {/* =================================================
+              DIALOG
+          ================================================= */}
+
           <View style={styles.modalCenter}>
             <View style={[styles.dialog, cardStyle]}>
-              {/* =========================================
-                  CLOSE
-              ========================================= */}
+              {/* =================================================
+                  CLOSE BUTTON
+              ================================================= */}
 
               {onClose ? (
                 <Pressable
@@ -1270,15 +1271,15 @@ const UISpinWheel = forwardRef(
                 >
                   <MaterialCommunityIcons
                     name="close"
-                    size={22}
+                    size={23}
                     color="#FFFFFF"
                   />
                 </Pressable>
               ) : null}
 
-              {/* =========================================
+              {/* =================================================
                   TITLE
-              ========================================= */}
+              ================================================= */}
 
               <Text style={[styles.modalTitle, titleStyle]}>{finalTitle}</Text>
 
@@ -1286,9 +1287,9 @@ const UISpinWheel = forwardRef(
                 {finalSubtitle}
               </Text>
 
-              {/* =========================================
+              {/* =================================================
                   WHEEL
-              ========================================= */}
+              ================================================= */}
 
               <View
                 style={[
@@ -1301,6 +1302,7 @@ const UISpinWheel = forwardRef(
               >
                 {/* Glow */}
                 <View
+                  pointerEvents="none"
                   style={[
                     styles.wheelGlow,
                     {
@@ -1313,7 +1315,7 @@ const UISpinWheel = forwardRef(
                   ]}
                 />
 
-                {/* Animated wheel */}
+                {/* Rotating wheel */}
                 <Animated.View
                   style={[
                     styles.wheel,
@@ -1321,31 +1323,35 @@ const UISpinWheel = forwardRef(
                       width: size,
                       height: size,
                     },
+
                     wheelAnimatedStyle,
                   ]}
                 >
                   <WheelGraphic
                     size={size}
                     segments={finalSegments}
-                    rotation={0}
                     centerColor={finalCenterColor}
                     disabled={disabled || isSpinning}
                   />
 
-                  <SegmentIcons
-                    size={size}
-                    segments={finalSegments}
-                    rotation={0}
-                  />
+                  {/*
+                    Icons and labels are inside the
+                    same rotating container, so they
+                    remain attached to their segment.
+                  */}
+
+                  <SegmentIcons size={size} segments={finalSegments} />
+
+                  <SegmentLabels size={size} segments={finalSegments} />
                 </Animated.View>
 
-                {/* Pointer */}
+                {/* Fixed pointer */}
                 <WheelPointer color={finalPointerColor} />
               </View>
 
-              {/* =========================================
+              {/* =================================================
                   SPIN BUTTON
-              ========================================= */}
+              ================================================= */}
 
               <Pressable
                 disabled={disabled || isSpinning}
@@ -1361,7 +1367,7 @@ const UISpinWheel = forwardRef(
               >
                 <MaterialCommunityIcons
                   name="rotate-right"
-                  size={22}
+                  size={23}
                   color="#FFFFFF"
                 />
 
@@ -1370,22 +1376,22 @@ const UISpinWheel = forwardRef(
                 </Text>
               </Pressable>
 
-              {/* =========================================
+              {/* =================================================
                   RESULT
-              ========================================= */}
+              ================================================= */}
 
               {result ? (
                 <View style={[styles.resultCard, rewardStyle]}>
                   <View style={styles.resultIcon}>
-                    {result.segment?.image ? (
+                    {resultSegment?.image ? (
                       <Image
-                        source={result.segment.image}
-                        style={styles.resultImage}
+                        source={resultSegment.image}
                         resizeMode="contain"
+                        style={styles.resultImage}
                       />
                     ) : (
                       <WheelIcon
-                        name={result.segment?.icon || "gift"}
+                        name={resultSegment?.icon || "gift"}
                         size={27}
                         color="#FFFFFF"
                       />
@@ -1395,7 +1401,9 @@ const UISpinWheel = forwardRef(
                   <View style={styles.resultText}>
                     <Text style={styles.resultWon}>YOU WON</Text>
 
-                    <Text style={styles.resultValue}>{resultLabel}</Text>
+                    <Text style={styles.resultValue}>
+                      {resultSegment?.label}
+                    </Text>
                   </View>
                 </View>
               ) : null}
@@ -1423,13 +1431,13 @@ const styles = StyleSheet.create({
   modalRoot: {
     flex: 1,
 
-    backgroundColor: "rgba(0,0,0,0.78)",
+    backgroundColor: "rgba(0, 0, 0, 0.78)",
 
     alignItems: "center",
 
     justifyContent: "center",
 
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
   },
 
   modalCenter: {
@@ -1453,15 +1461,17 @@ const styles = StyleSheet.create({
 
     paddingBottom: 24,
 
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
 
     borderRadius: 28,
 
-    backgroundColor: "#0E1118",
+    backgroundColor: "#0D1017",
 
     borderWidth: 1,
 
-    borderColor: "rgba(255,255,255,0.12)",
+    borderColor: "rgba(255,255,255,0.13)",
+
+    overflow: "hidden",
   },
 
   /* =======================================================
@@ -1475,19 +1485,19 @@ const styles = StyleSheet.create({
 
     right: 12,
 
-    width: 38,
+    width: 40,
 
-    height: 38,
+    height: 40,
 
-    borderRadius: 19,
+    borderRadius: 20,
 
     alignItems: "center",
 
     justifyContent: "center",
 
-    backgroundColor: "rgba(255,255,255,0.1)",
+    backgroundColor: "rgba(255,255,255,0.10)",
 
-    zIndex: 50,
+    zIndex: 100,
   },
 
   /* =======================================================
@@ -1495,15 +1505,13 @@ const styles = StyleSheet.create({
   ======================================================= */
 
   modalTitle: {
-    marginTop: 3,
-
-    paddingHorizontal: 42,
+    paddingHorizontal: 48,
 
     color: "#FFFFFF",
 
-    fontSize: 24,
+    fontSize: 25,
 
-    lineHeight: 29,
+    lineHeight: 31,
 
     fontWeight: "900",
 
@@ -1511,13 +1519,15 @@ const styles = StyleSheet.create({
   },
 
   modalSubtitle: {
-    marginTop: 5,
+    marginTop: 4,
 
     paddingHorizontal: 25,
 
     color: "#AEB5C5",
 
-    fontSize: 13,
+    fontSize: 14,
+
+    lineHeight: 20,
 
     fontWeight: "600",
 
@@ -1529,7 +1539,7 @@ const styles = StyleSheet.create({
   ======================================================= */
 
   wheelArea: {
-    marginTop: 18,
+    marginTop: 17,
 
     alignItems: "center",
 
@@ -1549,15 +1559,15 @@ const styles = StyleSheet.create({
   wheelGlow: {
     position: "absolute",
 
-    backgroundColor: "rgba(255,177,0,0.08)",
+    backgroundColor: "rgba(255,190,35,0.07)",
 
-    borderWidth: 10,
+    borderWidth: 9,
 
-    borderColor: "rgba(255,190,35,0.15)",
+    borderColor: "rgba(255,190,35,0.18)",
 
     shadowOpacity: 0.8,
 
-    shadowRadius: 22,
+    shadowRadius: 20,
 
     shadowOffset: {
       width: 0,
@@ -1566,6 +1576,10 @@ const styles = StyleSheet.create({
 
     elevation: 15,
   },
+
+  /* =======================================================
+     ICONS
+  ======================================================= */
 
   segmentIcon: {
     position: "absolute",
@@ -1577,6 +1591,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
 
     justifyContent: "center",
+
+    borderRadius: 24,
   },
 
   segmentImage: {
@@ -1586,35 +1602,81 @@ const styles = StyleSheet.create({
   },
 
   /* =======================================================
+     LABELS
+  ======================================================= */
+
+  segmentLabel: {
+    position: "absolute",
+
+    minHeight: 22,
+
+    alignItems: "center",
+
+    justifyContent: "center",
+  },
+
+  segmentLabelText: {
+    fontSize: 11,
+
+    lineHeight: 13,
+
+    fontWeight: "900",
+
+    textAlign: "center",
+  },
+
+  /* =======================================================
      POINTER
   ======================================================= */
 
-  pointerContainer: {
+  pointer: {
     position: "absolute",
 
-    top: -12,
+    top: -13,
 
-    left: 0,
+    width: 48,
 
-    right: 0,
+    height: 70,
 
     alignItems: "center",
 
-    justifyContent: "center",
+    justifyContent: "flex-start",
 
-    zIndex: 20,
+    zIndex: 50,
   },
 
-  pointerPin: {
-    width: 42,
+  pointerBody: {
+    width: 48,
 
-    height: 52,
+    height: 58,
 
-    alignItems: "center",
+    borderRadius: 2,
 
-    justifyContent: "center",
+    marginTop: 0,
 
-    backgroundColor: "transparent",
+    elevation: 8,
+  },
+
+  pointerTriangle: {
+    position: "absolute",
+
+    bottom: 0,
+
+    width: 0,
+
+    height: 0,
+
+    borderLeftWidth: 12,
+
+    borderRightWidth: 12,
+
+    borderTopWidth: 18,
+
+    borderLeftColor: "transparent",
+
+    borderRightColor: "transparent",
+
+    zIndex: 2,
   },
 
   /* =======================================================
@@ -1622,15 +1684,15 @@ const styles = StyleSheet.create({
   ======================================================= */
 
   spinButton: {
-    marginTop: 18,
+    marginTop: 17,
 
-    minWidth: 170,
+    minWidth: 175,
 
-    height: 50,
+    height: 52,
 
     paddingHorizontal: 25,
 
-    borderRadius: 25,
+    borderRadius: 27,
 
     flexDirection: "row",
 
@@ -1642,9 +1704,9 @@ const styles = StyleSheet.create({
 
     borderWidth: 2,
 
-    borderColor: "rgba(255,255,255,0.3)",
+    borderColor: "rgba(255,255,255,0.32)",
 
-    elevation: 5,
+    elevation: 6,
   },
 
   spinButtonDisabled: {
@@ -1658,7 +1720,7 @@ const styles = StyleSheet.create({
 
     fontWeight: "900",
 
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
   },
 
   /* =======================================================
@@ -1672,7 +1734,7 @@ const styles = StyleSheet.create({
 
     maxWidth: "92%",
 
-    minHeight: 66,
+    minHeight: 68,
 
     paddingHorizontal: 14,
 
@@ -1706,19 +1768,19 @@ const styles = StyleSheet.create({
   },
 
   resultImage: {
-    width: 35,
+    width: 34,
 
-    height: 35,
+    height: 34,
   },
 
   resultText: {
-    marginLeft: 10,
-
     flex: 1,
+
+    marginLeft: 10,
   },
 
   resultWon: {
-    color: "#444444",
+    color: "#555555",
 
     fontSize: 9,
 
@@ -1739,7 +1801,7 @@ const styles = StyleSheet.create({
 });
 
 /* =========================================================
-   EXPORTS
+   EXPORT
 ========================================================= */
 
 export default UISpinWheel;
@@ -1748,5 +1810,4 @@ export {
   UISpinWheel,
   VARIANTS as UISpinWheelVariants,
   ICONS as UISpinWheelIcons,
-  DEFAULT_SEGMENT_COUNT,
 };
