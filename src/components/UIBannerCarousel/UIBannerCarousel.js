@@ -1,24 +1,19 @@
-import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import React, { useCallback, useEffect, useMemo, useRef } from "react";
 
 import {
+  Animated as RNAnimated,
   Dimensions,
   Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 
 import Animated, {
-  Extrapolation,
+  Easing,
   interpolate,
-  useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
   withRepeat,
@@ -28,172 +23,143 @@ import Animated, {
 
 import { LinearGradient } from "expo-linear-gradient";
 
-// Keep this pointing to the SAME theme hook used by your UIProvider.
-import { useTheme } from "../../theme";
-
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
-
-const DEFAULT_HEIGHT = 190;
 
 /* =========================================================
    HELPERS
 ========================================================= */
 
-const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
-
-const numberOr = (value, fallback) =>
-  typeof value === "number" ? value : fallback;
-
-const normalizeGradient = (gradient) => {
-  if (!Array.isArray(gradient) || gradient.length === 0) {
-    return ["#7C3AED", "#EC4899"];
-  }
-
-  if (gradient.length === 1) {
-    return [gradient[0], gradient[0]];
-  }
-
-  return gradient;
+const isValidElement = (value) => {
+  return React.isValidElement(value);
 };
 
-const getAnimationName = (item) => item?.animation || "none";
+const getAssetSource = (source) => {
+  if (!source) return null;
+
+  if (typeof source === "number") {
+    return source;
+  }
+
+  if (typeof source === "string") {
+    return { uri: source };
+  }
+
+  if (source?.uri) {
+    return source;
+  }
+
+  return source;
+};
 
 /* =========================================================
-   ANIMATED ASSET
-   Used for individual images and icons.
+   BACKGROUND
 ========================================================= */
 
-function AnimatedBannerAsset({ item, type = "image" }) {
-  const progress = useSharedValue(0);
-
-  const animation = item?.animation || "none";
+function BannerBackground({
+  background,
+  animation,
+  enabled,
+  width,
+  height,
+  borderRadius,
+}) {
+  const animationValue = useSharedValue(0);
 
   useEffect(() => {
-    if (animation === "none") {
-      progress.value = 0;
-      return undefined;
-    }
-
-    const duration = item?.animationDuration || 2200;
-
-    progress.value = 0;
-
-    if (animation === "float") {
-      progress.value = withRepeat(
-        withSequence(
-          withTiming(1, {
-            duration,
-          }),
-          withTiming(0, {
-            duration,
-          }),
-        ),
-        -1,
-        false,
-      );
+    if (!enabled || !animation || animation === "none") {
+      animationValue.value = 0;
+      return;
     }
 
     if (animation === "pulse") {
-      progress.value = withRepeat(
+      animationValue.value = withRepeat(
         withSequence(
           withTiming(1, {
-            duration,
+            duration: 1800,
+            easing: Easing.inOut(Easing.ease),
           }),
           withTiming(0, {
-            duration,
+            duration: 1800,
+            easing: Easing.inOut(Easing.ease),
           }),
         ),
         -1,
         false,
       );
+
+      return;
     }
 
-    if (animation === "rotate") {
-      progress.value = withRepeat(
-        withTiming(1, {
-          duration: item?.animationDuration || 5000,
-        }),
-        -1,
-        false,
-      );
-    }
-
-    if (animation === "zoom") {
-      progress.value = withRepeat(
-        withTiming(1, {
-          duration: item?.animationDuration || 5000,
-        }),
-        -1,
-        true,
-      );
-    }
-
-    if (animation === "bounce") {
-      progress.value = withRepeat(
+    if (animation === "float") {
+      animationValue.value = withRepeat(
         withSequence(
           withTiming(1, {
-            duration: 700,
+            duration: 2200,
+            easing: Easing.inOut(Easing.ease),
           }),
           withTiming(0, {
-            duration: 700,
+            duration: 2200,
+            easing: Easing.inOut(Easing.ease),
           }),
         ),
         -1,
         false,
       );
+
+      return;
     }
 
-    return () => {
-      progress.value = 0;
-    };
-  }, [animation, item?.animationDuration]);
+    if (animation === "zoom" || animation === "kenBurns") {
+      animationValue.value = withRepeat(
+        withSequence(
+          withTiming(1, {
+            duration: 5000,
+            easing: Easing.inOut(Easing.ease),
+          }),
+          withTiming(0, {
+            duration: 5000,
+            easing: Easing.inOut(Easing.ease),
+          }),
+        ),
+        -1,
+        false,
+      );
+
+      return;
+    }
+
+    if (animation === "rays") {
+      animationValue.value = withRepeat(
+        withTiming(1, {
+          duration: 9000,
+          easing: Easing.linear,
+        }),
+        -1,
+        false,
+      );
+
+      return;
+    }
+
+    animationValue.value = 0;
+  }, [animation, enabled]);
 
   const animatedStyle = useAnimatedStyle(() => {
-    if (animation === "none") {
+    if (!enabled || !animation || animation === "none") {
       return {};
     }
 
+    if (animation === "pulse") {
+      return {
+        opacity: interpolate(animationValue.value, [0, 1], [0.9, 1]),
+      };
+    }
+
     if (animation === "float") {
       return {
         transform: [
           {
-            translateY: interpolate(
-              progress.value,
-              [0, 1],
-              [0, -8],
-              Extrapolation.CLAMP,
-            ),
-          },
-        ],
-      };
-    }
-
-    if (animation === "pulse") {
-      return {
-        opacity: interpolate(
-          progress.value,
-          [0, 1],
-          [0.75, 1],
-          Extrapolation.CLAMP,
-        ),
-        transform: [
-          {
-            scale: interpolate(
-              progress.value,
-              [0, 1],
-              [0.96, 1.04],
-              Extrapolation.CLAMP,
-            ),
-          },
-        ],
-      };
-    }
-
-    if (animation === "rotate") {
-      return {
-        transform: [
-          {
-            rotate: `${progress.value * 360}deg`,
+            translateY: interpolate(animationValue.value, [0, 1], [0, -6]),
           },
         ],
       };
@@ -203,35 +169,30 @@ function AnimatedBannerAsset({ item, type = "image" }) {
       return {
         transform: [
           {
-            scale: interpolate(
-              progress.value,
-              [0, 1],
-              [0.96, 1.08],
-              Extrapolation.CLAMP,
-            ),
+            scale: interpolate(animationValue.value, [0, 1], [1, 1.06]),
           },
         ],
       };
     }
 
-    if (animation === "bounce") {
+    if (animation === "kenBurns") {
       return {
         transform: [
           {
-            translateY: interpolate(
-              progress.value,
-              [0, 1],
-              [0, -12],
-              Extrapolation.CLAMP,
-            ),
+            scale: interpolate(animationValue.value, [0, 1], [1, 1.1]),
           },
           {
-            scale: interpolate(
-              progress.value,
-              [0, 1],
-              [1, 1.05],
-              Extrapolation.CLAMP,
-            ),
+            translateX: interpolate(animationValue.value, [0, 1], [0, -8]),
+          },
+        ],
+      };
+    }
+
+    if (animation === "rays") {
+      return {
+        transform: [
+          {
+            rotate: `${interpolate(animationValue.value, [0, 1], [-8, 8])}deg`,
           },
         ],
       };
@@ -240,715 +201,669 @@ function AnimatedBannerAsset({ item, type = "image" }) {
     return {};
   });
 
-  const positionStyle =
-    item?.position && typeof item.position === "object" ? item.position : {};
+  const backgroundType = background?.type || "color";
 
-  const rotation = item?.rotation || "0deg";
+  /* ---------------- COLOR ---------------- */
 
-  const opacity = numberOr(item?.opacity, 1);
-
-  const zIndex = numberOr(item?.zIndex, 1);
-
-  const width = numberOr(item?.width, type === "icon" ? 32 : 100);
-
-  const height = numberOr(item?.height, type === "icon" ? 32 : 100);
-
-  if (type === "icon") {
+  if (backgroundType === "color") {
     return (
-      <Animated.View
+      <View
         pointerEvents="none"
         style={[
-          styles.asset,
-          positionStyle,
+          StyleSheet.absoluteFillObject,
           {
-            width,
-            height,
-            zIndex,
-            opacity,
-            transform: [
-              {
-                rotate: rotation,
-              },
-            ],
+            backgroundColor: background?.color || "#E91E63",
+            borderRadius,
+            overflow: "hidden",
           },
-          animatedStyle,
-          item?.style,
+        ]}
+      />
+    );
+  }
+
+  /* ---------------- GRADIENT ---------------- */
+
+  if (backgroundType === "gradient") {
+    return (
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFillObject,
+          {
+            borderRadius,
+            overflow: "hidden",
+          },
         ]}
       >
-        {item?.icon}
-      </Animated.View>
+        <LinearGradient
+          colors={background?.colors || ["#E91E63", "#9C27B0"]}
+          start={background?.start || { x: 0, y: 0 }}
+          end={background?.end || { x: 1, y: 1 }}
+          style={StyleSheet.absoluteFillObject}
+        />
+
+        {enabled && animation && animation !== "none" && (
+          <Animated.View
+            pointerEvents="none"
+            style={[styles.backgroundAnimationLayer, animatedStyle]}
+          >
+            <View
+              style={[
+                styles.gradientGlow,
+                {
+                  width: width * 0.7,
+                  height: height * 1.5,
+                },
+              ]}
+            />
+          </Animated.View>
+        )}
+      </View>
     );
+  }
+
+  /* ---------------- IMAGE ---------------- */
+
+  if (backgroundType === "image") {
+    const source = getAssetSource(background?.source);
+
+    return (
+      <View
+        pointerEvents="none"
+        style={[
+          StyleSheet.absoluteFillObject,
+          {
+            borderRadius,
+            overflow: "hidden",
+          },
+        ]}
+      >
+        {source ? (
+          <Animated.Image
+            source={source}
+            resizeMode={background?.resizeMode || "cover"}
+            style={[StyleSheet.absoluteFillObject, animatedStyle]}
+          />
+        ) : (
+          <View
+            style={[
+              StyleSheet.absoluteFillObject,
+              {
+                backgroundColor: background?.fallbackColor || "#E91E63",
+              },
+            ]}
+          />
+        )}
+      </View>
+    );
+  }
+
+  return (
+    <View
+      pointerEvents="none"
+      style={[
+        StyleSheet.absoluteFillObject,
+        {
+          backgroundColor: "#E91E63",
+          borderRadius,
+          overflow: "hidden",
+        },
+      ]}
+    />
+  );
+}
+
+/* =========================================================
+   RAYS
+========================================================= */
+
+function RaysLayer({ enabled, width, height, color, opacity = 0.12 }) {
+  const rotation = useSharedValue(0);
+
+  useEffect(() => {
+    if (!enabled) {
+      rotation.value = 0;
+      return;
+    }
+
+    rotation.value = withRepeat(
+      withTiming(1, {
+        duration: 12000,
+        easing: Easing.linear,
+      }),
+      -1,
+      false,
+    );
+  }, [enabled]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    if (!enabled) {
+      return {};
+    }
+
+    return {
+      transform: [
+        {
+          rotate: `${interpolate(rotation.value, [0, 1], [-10, 10])}deg`,
+        },
+      ],
+    };
+  });
+
+  if (!enabled) {
+    return null;
   }
 
   return (
     <Animated.View
       pointerEvents="none"
       style={[
-        styles.asset,
-        positionStyle,
+        styles.raysContainer,
         {
-          width,
-          height,
-          zIndex,
-          opacity,
-          transform: [
-            {
-              rotate: rotation,
-            },
-          ],
+          width: width * 1.5,
+          height: height * 2,
+          left: -width * 0.25,
+          top: -height * 0.5,
         },
         animatedStyle,
-        item?.containerStyle,
       ]}
     >
-      <Image
-        source={item?.source}
-        resizeMode={item?.resizeMode || "contain"}
-        style={[StyleSheet.absoluteFill, item?.imageStyle]}
-      />
+      {Array.from({ length: 9 }).map((_, index) => (
+        <View
+          key={`ray-${index}`}
+          style={[
+            styles.ray,
+            {
+              backgroundColor: color,
+              opacity,
+              transform: [
+                {
+                  rotate: `${index * 20}deg`,
+                },
+              ],
+            },
+          ]}
+        />
+      ))}
     </Animated.View>
   );
 }
 
 /* =========================================================
-   BACKGROUND
+   BANNER ASSET
 ========================================================= */
 
-function BannerBackground({ banner, width, height, reanimated }) {
-  const progress = useSharedValue(0);
+function BannerAsset({ item, type, enabled }) {
+  const animationValue = useSharedValue(0);
 
-  const animation = banner?.backgroundAnimation || "none";
+  const animation = item?.animation || "none";
 
   useEffect(() => {
-    if (!reanimated || animation === "none") {
-      progress.value = 0;
-      return undefined;
+    if (!enabled || !animation || animation === "none") {
+      animationValue.value = 0;
+      return;
     }
 
-    const duration = banner?.animationDuration || 7000;
-
-    progress.value = 0;
-
-    if (
-      animation === "rays" ||
-      animation === "zoom" ||
-      animation === "kenBurns"
-    ) {
-      progress.value = withRepeat(
-        withTiming(1, {
-          duration,
-        }),
+    if (animation === "float") {
+      animationValue.value = withRepeat(
+        withSequence(
+          withTiming(1, {
+            duration: 1800,
+            easing: Easing.inOut(Easing.ease),
+          }),
+          withTiming(0, {
+            duration: 1800,
+            easing: Easing.inOut(Easing.ease),
+          }),
+        ),
         -1,
-        animation !== "rays",
+        false,
       );
+
+      return;
     }
 
     if (animation === "pulse") {
-      progress.value = withRepeat(
+      animationValue.value = withRepeat(
         withSequence(
           withTiming(1, {
-            duration: banner?.animationDuration || 1800,
+            duration: 900,
+            easing: Easing.inOut(Easing.ease),
           }),
           withTiming(0, {
-            duration: banner?.animationDuration || 1800,
+            duration: 900,
+            easing: Easing.inOut(Easing.ease),
+          }),
+        ),
+        -1,
+        false,
+      );
+
+      return;
+    }
+
+    if (animation === "rotate") {
+      animationValue.value = withRepeat(
+        withTiming(1, {
+          duration: 3000,
+          easing: Easing.linear,
+        }),
+        -1,
+        false,
+      );
+
+      return;
+    }
+
+    if (animation === "zoom") {
+      animationValue.value = withRepeat(
+        withSequence(
+          withTiming(1, {
+            duration: 1800,
+            easing: Easing.inOut(Easing.ease),
+          }),
+          withTiming(0, {
+            duration: 1800,
+            easing: Easing.inOut(Easing.ease),
+          }),
+        ),
+        -1,
+        false,
+      );
+
+      return;
+    }
+
+    if (animation === "bounce") {
+      animationValue.value = withRepeat(
+        withSequence(
+          withTiming(1, {
+            duration: 500,
+            easing: Easing.out(Easing.ease),
+          }),
+          withTiming(0, {
+            duration: 500,
+            easing: Easing.in(Easing.ease),
           }),
         ),
         -1,
         false,
       );
     }
+  }, [animation, enabled]);
 
-    return () => {
-      progress.value = 0;
-    };
-  }, [reanimated, animation, banner?.animationDuration]);
-
-  const raysStyle = useAnimatedStyle(() => {
-    if (!reanimated || animation !== "rays") {
+  const animatedStyle = useAnimatedStyle(() => {
+    if (!enabled || animation === "none") {
       return {};
     }
 
-    return {
-      transform: [
-        {
-          rotate: `${progress.value * 360}deg`,
-        },
-        {
-          scale: interpolate(
-            progress.value,
-            [0, 1],
-            [1, 1.08],
-            Extrapolation.CLAMP,
-          ),
-        },
-      ],
-    };
-  });
-
-  const pulseStyle = useAnimatedStyle(() => {
-    if (!reanimated || animation !== "pulse") {
-      return {};
-    }
-
-    return {
-      opacity: interpolate(
-        progress.value,
-        [0, 1],
-        [0.08, 0.3],
-        Extrapolation.CLAMP,
-      ),
-      transform: [
-        {
-          scale: interpolate(
-            progress.value,
-            [0, 1],
-            [0.85, 1.15],
-            Extrapolation.CLAMP,
-          ),
-        },
-      ],
-    };
-  });
-
-  const imageStyle = useAnimatedStyle(() => {
-    if (!reanimated || !(animation === "zoom" || animation === "kenBurns")) {
-      return {};
-    }
-
-    return {
-      transform: [
-        {
-          scale: interpolate(
-            progress.value,
-            [0, 1],
-            animation === "kenBurns" ? [1.03, 1.14] : [1, 1.08],
-            Extrapolation.CLAMP,
-          ),
-        },
-        {
-          translateX:
-            animation === "kenBurns"
-              ? interpolate(
-                  progress.value,
-                  [0, 1],
-                  [0, -12],
-                  Extrapolation.CLAMP,
-                )
-              : 0,
-        },
-      ],
-    };
-  });
-
-  const backgroundType = banner?.backgroundType || "color";
-
-  const backgroundColor = banner?.backgroundColor || "#E91E63";
-
-  const gradient = normalizeGradient(banner?.gradient);
-
-  return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
-      {/* COLOR */}
-      {backgroundType === "color" && (
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor,
-            },
-          ]}
-        />
-      )}
-
-      {/* GRADIENT */}
-      {backgroundType === "gradient" && (
-        <LinearGradient
-          colors={gradient}
-          start={
-            banner?.gradientStart || {
-              x: 0,
-              y: 0,
-            }
-          }
-          end={
-            banner?.gradientEnd || {
-              x: 1,
-              y: 1,
-            }
-          }
-          style={StyleSheet.absoluteFill}
-        />
-      )}
-
-      {/* IMAGE */}
-      {backgroundType === "image" && banner?.image && (
-        <Animated.Image
-          source={banner.image}
-          resizeMode={banner?.imageResizeMode || "cover"}
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              width,
-              height,
-            },
-            imageStyle,
-          ]}
-        />
-      )}
-
-      {/* RAYS */}
-      {animation === "rays" && (
-        <Animated.View
-          style={[
-            styles.rays,
-            {
-              width: width * 1.8,
-              height: height * 3,
-              left: -width * 0.4,
-              top: -height,
-            },
-            raysStyle,
-          ]}
-        >
-          {Array.from({
-            length: 12,
-          }).map((_, index) => (
-            <View
-              key={`ray-${index}`}
-              style={[
-                styles.ray,
-                {
-                  transform: [
-                    {
-                      rotate: `${index * 30}deg`,
-                    },
-                  ],
-                },
-              ]}
-            />
-          ))}
-        </Animated.View>
-      )}
-
-      {/* PULSE */}
-      {animation === "pulse" && (
-        <Animated.View
-          style={[
-            styles.pulse,
-            {
-              width: width * 0.9,
-              height: width * 0.9,
-              borderRadius: width * 0.45,
-              right: -width * 0.2,
-              top: -width * 0.25,
-            },
-            pulseStyle,
-          ]}
-        />
-      )}
-
-      {/* CUSTOM OVERLAY */}
-      {banner?.overlayColor && (
-        <View
-          style={[
-            StyleSheet.absoluteFill,
-            {
-              backgroundColor: banner.overlayColor,
-              opacity: clamp(numberOr(banner.overlayOpacity, 0), 0, 1),
-            },
-          ]}
-        />
-      )}
-
-      {/* GRADIENT OVERLAY */}
-      {banner?.gradientOverlay && (
-        <LinearGradient
-          colors={
-            banner.gradientOverlay.colors || ["transparent", "rgba(0,0,0,0.4)"]
-          }
-          start={
-            banner.gradientOverlay.start || {
-              x: 0,
-              y: 0,
-            }
-          }
-          end={
-            banner.gradientOverlay.end || {
-              x: 1,
-              y: 1,
-            }
-          }
-          style={StyleSheet.absoluteFill}
-        />
-      )}
-    </View>
-  );
-}
-
-/* =========================================================
-   CONTENT ANIMATION
-========================================================= */
-
-function BannerTextContent({
-  banner,
-  theme,
-  width,
-  height,
-  index,
-  activeIndex,
-  reanimated,
-  onPress,
-}) {
-  const progress = useSharedValue(0);
-
-  const animation = banner?.contentAnimation || "fadeSlide";
-
-  useEffect(() => {
-    if (!reanimated || index !== activeIndex) {
-      progress.value = 1;
-      return undefined;
-    }
-
-    progress.value = 0;
-
-    progress.value = withTiming(1, {
-      duration: banner?.contentAnimationDuration || 500,
-    });
-
-    return () => {
-      progress.value = 0;
-    };
-  }, [reanimated, index, activeIndex, animation]);
-
-  const contentAnimatedStyle = useAnimatedStyle(() => {
-    if (!reanimated) {
-      return {};
-    }
-
-    if (animation === "none") {
-      return {};
-    }
-
-    if (animation === "fade") {
+    if (animation === "float") {
       return {
-        opacity: progress.value,
-      };
-    }
-
-    if (animation === "scale") {
-      return {
-        opacity: progress.value,
         transform: [
           {
-            scale: interpolate(
-              progress.value,
-              [0, 1],
-              [0.9, 1],
-              Extrapolation.CLAMP,
-            ),
+            translateY: interpolate(animationValue.value, [0, 1], [0, -8]),
           },
         ],
       };
     }
 
-    return {
-      opacity: progress.value,
-      transform: [
-        {
-          translateY: interpolate(
-            progress.value,
-            [0, 1],
-            [18, 0],
-            Extrapolation.CLAMP,
-          ),
-        },
-      ],
-    };
+    if (animation === "pulse") {
+      return {
+        opacity: interpolate(animationValue.value, [0, 1], [1, 0.72]),
+        transform: [
+          {
+            scale: interpolate(animationValue.value, [0, 1], [1, 1.05]),
+          },
+        ],
+      };
+    }
+
+    if (animation === "rotate") {
+      return {
+        transform: [
+          {
+            rotate: `${interpolate(animationValue.value, [0, 1], [0, 360])}deg`,
+          },
+        ],
+      };
+    }
+
+    if (animation === "zoom") {
+      return {
+        transform: [
+          {
+            scale: interpolate(animationValue.value, [0, 1], [1, 1.08]),
+          },
+        ],
+      };
+    }
+
+    if (animation === "bounce") {
+      return {
+        transform: [
+          {
+            translateY: interpolate(animationValue.value, [0, 1], [0, -12]),
+          },
+        ],
+      };
+    }
+
+    return {};
   });
 
-  if (typeof banner?.renderContent === "function") {
+  const position = item?.position || {};
+
+  const assetStyle = {
+    position: "absolute",
+    left: position.left,
+    right: position.right,
+    top: position.top,
+    bottom: position.bottom,
+
+    width: item?.width || (type === "icon" ? 36 : 120),
+
+    height: item?.height || (type === "icon" ? 36 : 120),
+
+    opacity: item?.opacity == null ? 1 : item.opacity,
+
+    zIndex: item?.zIndex == null ? 2 : item.zIndex,
+
+    transform: [
+      {
+        rotate: `${item?.rotate || 0}deg`,
+      },
+    ],
+
+    ...item?.style,
+  };
+
+  /* ---------------- ICON ---------------- */
+
+  if (type === "icon" && isValidElement(item?.icon)) {
     return (
-      <Animated.View style={[styles.customContent, contentAnimatedStyle]}>
-        {banner.renderContent({
-          banner,
-          index,
-          activeIndex,
-          width,
-          height,
-          theme,
-        })}
+      <Animated.View pointerEvents="none" style={[assetStyle, animatedStyle]}>
+        {item.icon}
       </Animated.View>
     );
   }
 
-  const textColor =
-    banner?.textColor || theme?.colors?.text?.inverse || "#FFFFFF";
+  /* ---------------- IMAGE ---------------- */
 
-  const secondaryColor = banner?.secondaryTextColor || textColor;
+  const source = getAssetSource(item?.source || item?.image);
 
-  const buttonBackground = banner?.buttonBackgroundColor || "#FFFFFF";
+  if (!source) {
+    return null;
+  }
 
-  const buttonTextColor = banner?.buttonTextColor || "#111827";
+  return (
+    <Animated.Image
+      pointerEvents="none"
+      source={source}
+      resizeMode={item?.resizeMode || "contain"}
+      style={[assetStyle, animatedStyle]}
+    />
+  );
+}
 
-  const contentPosition = banner?.contentPosition || "left";
+/* =========================================================
+   CONTENT
+========================================================= */
 
-  const align =
-    contentPosition === "center"
-      ? "center"
-      : contentPosition === "right"
-        ? "flex-end"
-        : "flex-start";
+function BannerContent({ banner, enabled }) {
+  const contentAnimation = banner?.contentAnimation || "none";
 
-  const textAlign = contentPosition === "center" ? "center" : "left";
+  const animationValue = useSharedValue(0);
+
+  useEffect(() => {
+    if (!enabled || contentAnimation === "none") {
+      animationValue.value = 0;
+      return;
+    }
+
+    animationValue.value = withSequence(
+      withTiming(1, {
+        duration: 650,
+        easing: Easing.out(Easing.cubic),
+      }),
+    );
+  }, [contentAnimation, enabled]);
+
+  const animatedStyle = useAnimatedStyle(() => {
+    if (!enabled || contentAnimation === "none") {
+      return {};
+    }
+
+    if (contentAnimation === "fade") {
+      return {
+        opacity: animationValue.value,
+      };
+    }
+
+    if (contentAnimation === "slideUp") {
+      return {
+        opacity: animationValue.value,
+        transform: [
+          {
+            translateY: interpolate(animationValue.value, [0, 1], [25, 0]),
+          },
+        ],
+      };
+    }
+
+    if (contentAnimation === "slideLeft") {
+      return {
+        opacity: animationValue.value,
+        transform: [
+          {
+            translateX: interpolate(animationValue.value, [0, 1], [35, 0]),
+          },
+        ],
+      };
+    }
+
+    if (contentAnimation === "scale") {
+      return {
+        opacity: animationValue.value,
+        transform: [
+          {
+            scale: interpolate(animationValue.value, [0, 1], [0.85, 1]),
+          },
+        ],
+      };
+    }
+
+    return {};
+  });
+
+  if (typeof banner?.renderContent === "function") {
+    return (
+      <Animated.View
+        style={[styles.contentContainer, banner?.contentStyle, animatedStyle]}
+      >
+        {banner.renderContent(banner)}
+      </Animated.View>
+    );
+  }
 
   return (
     <Animated.View
-      style={[
-        styles.content,
-        {
-          alignItems: align,
-          paddingHorizontal: banner?.contentPaddingHorizontal ?? 22,
-          paddingVertical: banner?.contentPaddingVertical ?? 20,
-          width:
-            banner?.contentWidth ||
-            (contentPosition === "center" ? width * 0.86 : width * 0.65),
-        },
-        contentAnimatedStyle,
-        banner?.contentContainerStyle,
-      ]}
+      style={[styles.contentContainer, banner?.contentStyle, animatedStyle]}
     >
       {/* BADGE */}
 
-      {banner?.badge && (
-        <View
-          style={[
-            styles.badge,
-            {
-              backgroundColor:
-                banner?.badgeBackgroundColor || "rgba(255,255,255,0.18)",
-            },
-            banner?.badgeStyle,
-          ]}
-        >
-          {banner?.badgeIcon && (
+      {banner?.badge ? (
+        <View style={[styles.badge, banner?.badgeStyle]}>
+          {isValidElement(banner?.badgeIcon) && (
             <View style={styles.badgeIcon}>{banner.badgeIcon}</View>
           )}
 
-          <Text
-            style={[
-              styles.badgeText,
-              {
-                color: banner?.badgeTextColor || textColor,
-              },
-              banner?.badgeTextStyle,
-            ]}
-          >
+          <Text style={[styles.badgeText, banner?.badgeTextStyle]}>
             {banner.badge}
           </Text>
         </View>
-      )}
+      ) : null}
 
       {/* EYEBROW */}
 
-      {banner?.eyebrow && (
-        <Text
-          style={[
-            styles.eyebrow,
-            {
-              color: secondaryColor,
-              textAlign,
-            },
-            banner?.eyebrowStyle,
-          ]}
-        >
+      {banner?.eyebrow ? (
+        <Text style={[styles.eyebrow, banner?.eyebrowStyle]}>
           {banner.eyebrow}
         </Text>
-      )}
+      ) : null}
 
       {/* TITLE */}
 
-      {banner?.title && (
+      {banner?.title ? (
         <Text
           numberOfLines={banner?.titleNumberOfLines || 2}
-          style={[
-            styles.title,
-            {
-              color: textColor,
-              textAlign,
-            },
-            banner?.titleStyle,
-          ]}
+          style={[styles.title, banner?.titleStyle]}
         >
           {banner.title}
         </Text>
-      )}
+      ) : null}
 
       {/* SUBTITLE */}
 
-      {banner?.subtitle && (
+      {banner?.subtitle ? (
         <Text
           numberOfLines={banner?.subtitleNumberOfLines || 2}
-          style={[
-            styles.subtitle,
-            {
-              color: secondaryColor,
-              textAlign,
-            },
-            banner?.subtitleStyle,
-          ]}
+          style={[styles.subtitle, banner?.subtitleStyle]}
         >
           {banner.subtitle}
         </Text>
-      )}
+      ) : null}
 
-      {/* CTA */}
+      {/* BUTTON */}
 
-      {banner?.buttonText && (
+      {banner?.buttonText ? (
         <Pressable
-          onPress={() => {
-            if (typeof banner?.onPress === "function") {
-              banner.onPress();
-            } else if (typeof onPress === "function") {
-              onPress(banner, index);
-            }
-          }}
-          style={({ pressed }) => [
-            styles.button,
-            {
-              backgroundColor: buttonBackground,
-              opacity: pressed ? 0.75 : 1,
-            },
-            banner?.buttonStyle,
-          ]}
+          onPress={banner?.onButtonPress}
+          disabled={!banner?.onButtonPress}
+          style={[styles.button, banner?.buttonStyle]}
         >
-          {banner?.buttonIcon && (
+          {isValidElement(banner?.buttonIcon) && (
             <View style={styles.buttonIcon}>{banner.buttonIcon}</View>
           )}
 
-          <Text
-            style={[
-              styles.buttonText,
-              {
-                color: buttonTextColor,
-              },
-              banner?.buttonTextStyle,
-            ]}
-          >
+          <Text style={[styles.buttonText, banner?.buttonTextStyle]}>
             {banner.buttonText}
           </Text>
-
-          {banner?.buttonIcon === undefined &&
-            banner?.showButtonArrow !== false && (
-              <Text
-                style={[
-                  styles.buttonArrow,
-                  {
-                    color: buttonTextColor,
-                  },
-                ]}
-              >
-                →
-              </Text>
-            )}
         </Pressable>
-      )}
+      ) : null}
     </Animated.View>
   );
 }
 
 /* =========================================================
-   PAGINATION
+   SINGLE SLIDE
 ========================================================= */
 
-function Pagination({
-  count,
-  activeIndex,
+function BannerSlide({
+  banner,
+  index,
+  width,
+  height,
+  reanimated,
+  radius,
   onPress,
-  dotSize,
-  activeWidth,
-  gap,
-  activeColor,
-  inactiveColor,
-  style,
 }) {
-  if (count <= 1) {
-    return null;
-  }
+  const backgroundAnimation = banner?.backgroundAnimation || "none";
 
-  return (
-    <View
-      style={[
-        styles.pagination,
-        {
-          gap,
-        },
-        style,
-      ]}
-    >
-      {Array.from({
-        length: count,
-      }).map((_, index) => {
-        const active = index === activeIndex;
+  const background = banner?.background || {
+    type: "color",
+    color: "#E91E63",
+  };
 
-        return (
-          <Pressable
-            key={`dot-${index}`}
-            onPress={() => onPress(index)}
-            hitSlop={8}
-            style={[
-              styles.paginationDot,
-              {
-                width: active ? activeWidth : dotSize,
-                height: dotSize,
-                borderRadius: dotSize / 2,
-                backgroundColor: active ? activeColor : inactiveColor,
-              },
-            ]}
-          />
-        );
-      })}
-    </View>
-  );
-}
+  const backgroundColor =
+    background?.type === "color" ? background?.color || "#E91E63" : "#E91E63";
 
-/* =========================================================
-   NAVIGATION
-========================================================= */
-
-function NavigationButton({
-  direction,
-  size,
-  backgroundColor,
-  iconColor,
-  onPress,
-  style,
-}) {
   return (
     <Pressable
-      onPress={onPress}
-      hitSlop={8}
-      style={({ pressed }) => [
-        styles.navigationButton,
+      onPress={() => {
+        if (onPress) {
+          onPress(banner, index);
+        }
+
+        if (banner?.onPress) {
+          banner.onPress(banner, index);
+        }
+      }}
+      disabled={!onPress && !banner?.onPress}
+      style={[
+        styles.slide,
         {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          backgroundColor,
-          opacity: pressed ? 0.7 : 1,
+          width,
+          height,
+          borderRadius: radius,
         },
-        style,
+        banner?.slideStyle,
       ]}
     >
-      <Text
-        style={[
-          styles.navigationIcon,
-          {
-            color: iconColor,
-          },
-        ]}
-      >
-        {direction === "left" ? "‹" : "›"}
-      </Text>
+      {/* BACKGROUND */}
+
+      <BannerBackground
+        background={background}
+        animation={backgroundAnimation}
+        enabled={reanimated}
+        width={width}
+        height={height}
+        borderRadius={radius}
+      />
+
+      {/* RAYS */}
+
+      {backgroundAnimation === "rays" && (
+        <RaysLayer
+          enabled={reanimated}
+          width={width}
+          height={height}
+          color={banner?.raysColor || "#FFFFFF"}
+          opacity={banner?.raysOpacity == null ? 0.12 : banner.raysOpacity}
+        />
+      )}
+
+      {/* DECORATIVE OVERLAY */}
+
+      {banner?.overlay ? (
+        <View
+          pointerEvents="none"
+          style={[
+            StyleSheet.absoluteFillObject,
+            {
+              backgroundColor: banner.overlay,
+              borderRadius: radius,
+            },
+          ]}
+        />
+      ) : null}
+
+      {/* IMAGES */}
+
+      {Array.isArray(banner?.images) &&
+        banner.images.map((item, imageIndex) => (
+          <BannerAsset
+            key={item?.id || `image-${index}-${imageIndex}`}
+            item={item}
+            type="image"
+            enabled={reanimated}
+          />
+        ))}
+
+      {/* ICONS */}
+
+      {Array.isArray(banner?.icons) &&
+        banner.icons.map((item, iconIndex) => (
+          <BannerAsset
+            key={item?.id || `icon-${index}-${iconIndex}`}
+            item={item}
+            type="icon"
+            enabled={reanimated}
+          />
+        ))}
+
+      {/* CONTENT */}
+
+      <BannerContent banner={banner} enabled={reanimated} />
     </Pressable>
   );
 }
@@ -960,541 +875,358 @@ function NavigationButton({
 export default function UIBannerCarousel({
   banners = [],
 
-  /*
-   * Reanimated
-   */
-  reanimated = false,
-
-  /*
-   * Dimensions
-   */
   width,
-  height = DEFAULT_HEIGHT,
+  height = 190,
 
-  /*
-   * Outer spacing
-   */
-  margin = 0,
-  marginTop = 0,
-  marginBottom = 0,
-  marginLeft = 0,
-  marginRight = 0,
+  radius = 18,
 
-  paddingHorizontal = 0,
-  paddingVertical = 0,
-
-  /*
-   * Banner spacing
-   */
   gap = 0,
 
-  /*
-   * Shape
-   */
-  borderRadius = 18,
-
-  /*
-   * Carousel
-   */
   autoplay = true,
-  autoplayInterval = 4500,
+  interval = 3500,
+
   loop = true,
+
+  swipe = true,
+
+  pagination = true,
+
+  navigation = false,
+
   initialIndex = 0,
 
-  /*
-   * Pagination
-   */
-  showPagination = true,
-  paginationPosition = "bottom",
+  reanimated = false,
 
-  paginationDotSize = 7,
-  paginationActiveWidth = 20,
-  paginationGap = 6,
+  style,
+  contentContainerStyle,
 
-  paginationActiveColor,
-  paginationInactiveColor,
+  paginationStyle,
+  dotStyle,
+  activeDotStyle,
 
-  /*
-   * Navigation
-   */
-  showNavigation = false,
-  navigationSize = 34,
-  navigationBackgroundColor,
-  navigationIconColor,
+  leftArrow,
+  rightArrow,
 
-  /*
-   * Events
-   */
   onIndexChange,
   onPress,
 
-  /*
-   * Custom rendering
-   */
-  renderItem,
-
-  /*
-   * Styles
-   */
   containerStyle,
-  carouselStyle,
-  slideStyle,
-  paginationStyle,
-  navigationStyle,
-
-  testID,
 }) {
-  /*
-   * Theme is READ ONLY.
-   *
-   * UIProvider controls the theme.
-   * This component never changes theme.
-   */
-  const { theme } = useTheme();
-
-  const safeBanners = useMemo(
-    () => (Array.isArray(banners) ? banners : []),
-    [banners],
-  );
-
-  const carouselWidth = width || SCREEN_WIDTH - paddingHorizontal * 2;
-
-  const carouselHeight = numberOr(height, DEFAULT_HEIGHT);
-
-  const [activeIndex, setActiveIndex] = useState(() =>
-    clamp(numberOr(initialIndex, 0), 0, Math.max(safeBanners.length - 1, 0)),
-  );
-
-  const activeIndexRef = useRef(activeIndex);
-
   const scrollRef = useRef(null);
 
-  const scrollX = useSharedValue(activeIndex * carouselWidth);
+  const currentIndexRef = useRef(initialIndex);
 
-  /*
-   * Keep active index synchronized.
-   */
-  const setIndex = useCallback(
-    (index) => {
-      if (!safeBanners.length) {
-        return;
-      }
+  const timerRef = useRef(null);
 
-      const nextIndex = clamp(index, 0, safeBanners.length - 1);
-
-      activeIndexRef.current = nextIndex;
-
-      setActiveIndex(nextIndex);
-
-      if (typeof onIndexChange === "function") {
-        onIndexChange(nextIndex, safeBanners[nextIndex]);
-      }
-    },
-    [safeBanners, onIndexChange],
+  const [containerWidth, setContainerWidth] = React.useState(
+    width || SCREEN_WIDTH,
   );
 
-  /*
-   * Go to specific slide.
-   */
-  const goToIndex = useCallback(
+  const bannerWidth = width || containerWidth || SCREEN_WIDTH;
+
+  const totalBanners = Array.isArray(banners) ? banners.length : 0;
+
+  const safeInitialIndex =
+    totalBanners > 0
+      ? Math.min(Math.max(initialIndex, 0), totalBanners - 1)
+      : 0;
+
+  const itemWidth = bannerWidth - gap;
+
+  /* =====================================================
+     CLEAR AUTOPLAY
+  ===================================================== */
+
+  const clearAutoplay = useCallback(() => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
+  /* =====================================================
+     SCROLL TO INDEX
+  ===================================================== */
+
+  const scrollToIndex = useCallback(
     (index, animated = true) => {
-      if (!safeBanners.length) {
+      if (!scrollRef.current) {
         return;
       }
 
-      const nextIndex = clamp(index, 0, safeBanners.length - 1);
+      if (totalBanners === 0) {
+        return;
+      }
 
-      scrollRef.current?.scrollTo({
-        x: nextIndex * carouselWidth,
+      let nextIndex = index;
+
+      if (loop) {
+        if (nextIndex < 0) {
+          nextIndex = totalBanners - 1;
+        }
+
+        if (nextIndex >= totalBanners) {
+          nextIndex = 0;
+        }
+      } else {
+        nextIndex = Math.max(0, Math.min(nextIndex, totalBanners - 1));
+      }
+
+      currentIndexRef.current = nextIndex;
+
+      scrollRef.current.scrollTo({
+        x: nextIndex * itemWidth,
+        y: 0,
         animated,
       });
 
-      setIndex(nextIndex);
+      if (onIndexChange) {
+        onIndexChange(nextIndex);
+      }
     },
-    [safeBanners.length, carouselWidth, setIndex],
+    [totalBanners, loop, itemWidth, onIndexChange],
   );
 
-  /*
-   * Next.
-   */
-  const goNext = useCallback(() => {
-    if (safeBanners.length <= 1) {
-      return;
-    }
+  /* =====================================================
+     AUTOPLAY
+  ===================================================== */
 
-    const current = activeIndexRef.current;
-
-    if (current < safeBanners.length - 1) {
-      goToIndex(current + 1);
-      return;
-    }
-
-    if (loop) {
-      goToIndex(0);
-    }
-  }, [safeBanners.length, loop, goToIndex]);
-
-  /*
-   * Previous.
-   */
-  const goPrevious = useCallback(() => {
-    if (safeBanners.length <= 1) {
-      return;
-    }
-
-    const current = activeIndexRef.current;
-
-    if (current > 0) {
-      goToIndex(current - 1);
-      return;
-    }
-
-    if (loop) {
-      goToIndex(safeBanners.length - 1);
-    }
-  }, [safeBanners.length, loop, goToIndex]);
-
-  /*
-   * AUTOPLAY
-   */
   useEffect(() => {
-    if (!autoplay || safeBanners.length <= 1) {
+    clearAutoplay();
+
+    if (!autoplay || totalBanners <= 1) {
       return undefined;
     }
 
-    const timer = setInterval(
-      () => {
-        goNext();
-      },
-      Math.max(1000, autoplayInterval),
-    );
+    timerRef.current = setInterval(() => {
+      const current = currentIndexRef.current;
+
+      if (!loop && current >= totalBanners - 1) {
+        clearAutoplay();
+        return;
+      }
+
+      scrollToIndex(current + 1, true);
+    }, interval);
+
+    return clearAutoplay;
+  }, [autoplay, interval, totalBanners, loop, scrollToIndex, clearAutoplay]);
+
+  /* =====================================================
+     INITIAL INDEX
+  ===================================================== */
+
+  useEffect(() => {
+    if (totalBanners === 0) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      scrollToIndex(safeInitialIndex, false);
+    }, 50);
 
     return () => {
-      clearInterval(timer);
+      clearTimeout(timeout);
     };
-  }, [autoplay, autoplayInterval, safeBanners.length, goNext]);
+  }, [safeInitialIndex, totalBanners, scrollToIndex]);
 
-  /*
-   * Reanimated scroll handler.
-   */
-  const animatedScrollHandler = useAnimatedScrollHandler({
-    onScroll: (event) => {
-      scrollX.value = event.contentOffset.x;
-    },
-  });
+  /* =====================================================
+     SCROLL END
+  ===================================================== */
 
-  /*
-   * Native scroll end.
-   */
   const handleMomentumScrollEnd = useCallback(
     (event) => {
-      const index = clamp(
-        Math.round(event.nativeEvent.contentOffset.x / carouselWidth),
+      const x = event.nativeEvent.contentOffset.x;
+
+      const index = Math.round(x / itemWidth);
+
+      if (totalBanners === 0) {
+        return;
+      }
+
+      let normalizedIndex = index;
+
+      if (loop) {
+        if (index < 0) {
+          normalizedIndex = totalBanners - 1;
+        }
+
+        if (index >= totalBanners) {
+          normalizedIndex = 0;
+        }
+      }
+
+      normalizedIndex = Math.max(
         0,
-        Math.max(safeBanners.length - 1, 0),
+        Math.min(normalizedIndex, totalBanners - 1),
       );
 
-      setIndex(index);
+      currentIndexRef.current = normalizedIndex;
+
+      if (onIndexChange) {
+        onIndexChange(normalizedIndex);
+      }
     },
-    [carouselWidth, safeBanners.length, setIndex],
+    [itemWidth, totalBanners, loop, onIndexChange],
   );
 
-  /*
-   * Theme fallback colors.
-   */
-  const activePaginationColor =
-    paginationActiveColor ||
-    theme?.colors?.brand?.primary ||
-    theme?.colors?.primary ||
-    "#E91E63";
+  /* =====================================================
+     EMPTY STATE
+  ===================================================== */
 
-  const inactivePaginationColor =
-    paginationInactiveColor ||
-    theme?.colors?.border?.default ||
-    "rgba(0,0,0,0.18)";
-
-  const navBackground =
-    navigationBackgroundColor ||
-    theme?.colors?.background?.primary ||
-    "#FFFFFF";
-
-  const navIconColor =
-    navigationIconColor || theme?.colors?.text?.primary || "#111827";
-
-  /*
-   * Empty state.
-   */
-  if (!safeBanners.length) {
+  if (totalBanners === 0) {
     return null;
   }
 
+  /* =====================================================
+     CONTAINER WIDTH
+  ===================================================== */
+
+  const handleLayout = (event) => {
+    if (width) {
+      return;
+    }
+
+    const measuredWidth = event.nativeEvent.layout.width;
+
+    if (measuredWidth > 0 && measuredWidth !== containerWidth) {
+      setContainerWidth(measuredWidth);
+    }
+  };
+
+  /* =====================================================
+     NAVIGATION
+  ===================================================== */
+
+  const handlePrevious = () => {
+    clearAutoplay();
+
+    scrollToIndex(currentIndexRef.current - 1, true);
+  };
+
+  const handleNext = () => {
+    clearAutoplay();
+
+    scrollToIndex(currentIndexRef.current + 1, true);
+  };
+
+  /* =====================================================
+     RENDER
+  ===================================================== */
+
   return (
     <View
-      testID={testID}
+      onLayout={handleLayout}
       style={[
-        styles.outerContainer,
         {
-          margin,
-          marginTop,
-          marginBottom,
-          marginLeft,
-          marginRight,
-
-          paddingHorizontal,
-          paddingVertical,
+          width: width || "100%",
         },
         containerStyle,
+        style,
       ]}
     >
-      <View
-        style={[
-          styles.carousel,
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        pagingEnabled={gap === 0}
+        scrollEnabled={swipe}
+        bounces={false}
+        decelerationRate="fast"
+        snapToInterval={gap > 0 ? itemWidth : undefined}
+        snapToAlignment="start"
+        disableIntervalMomentum
+        contentContainerStyle={[
           {
-            width: carouselWidth,
-            height: carouselHeight,
+            paddingHorizontal: gap > 0 ? gap / 2 : 0,
           },
-          carouselStyle,
+          contentContainerStyle,
         ]}
-      >
-        <Animated.ScrollView
-          ref={scrollRef}
-          horizontal
-          pagingEnabled
-          showsHorizontalScrollIndicator={false}
-          showsVerticalScrollIndicator={false}
-          bounces={false}
-          scrollEventThrottle={16}
-          decelerationRate="fast"
-          contentOffset={{
-            x: activeIndex * carouselWidth,
-            y: 0,
-          }}
-          onScroll={reanimated ? animatedScrollHandler : undefined}
-          onMomentumScrollEnd={handleMomentumScrollEnd}
-          contentContainerStyle={{
-            paddingHorizontal: gap / 2,
-          }}
-        >
-          {safeBanners.map((banner, index) => {
-            const slideWidth = carouselWidth - gap;
+        onMomentumScrollEnd={handleMomentumScrollEnd}
+        onScrollBeginDrag={clearAutoplay}
+        onTouchEnd={() => {
+          if (autoplay && totalBanners > 1) {
+            clearAutoplay();
 
-            /*
-             * Custom renderItem.
-             */
-            if (typeof renderItem === "function") {
-              return (
-                <View
-                  key={banner?.id || `banner-${index}`}
-                  style={[
-                    styles.slide,
-                    {
-                      width: slideWidth,
-                      height: carouselHeight,
-                      marginHorizontal: gap / 2,
-                    },
-                    slideStyle,
-                    banner?.slideStyle,
-                  ]}
-                >
-                  {renderItem({
-                    banner,
-                    index,
-                    activeIndex,
-                    width: slideWidth,
-                    height: carouselHeight,
-                    theme,
-                  })}
-                </View>
-              );
-            }
+            timerRef.current = setInterval(() => {
+              const current = currentIndexRef.current;
+
+              if (!loop && current >= totalBanners - 1) {
+                clearAutoplay();
+                return;
+              }
+
+              scrollToIndex(current + 1, true);
+            }, interval);
+          }
+        }}
+      >
+        {banners.map((banner, index) => (
+          <View
+            key={banner?.id || `banner-${index}`}
+            style={{
+              width: itemWidth,
+              marginHorizontal: gap > 0 ? gap / 2 : 0,
+            }}
+          >
+            <BannerSlide
+              banner={banner}
+              index={index}
+              width={itemWidth}
+              height={height}
+              reanimated={reanimated}
+              radius={radius}
+              onPress={onPress}
+            />
+          </View>
+        ))}
+      </ScrollView>
+
+      {/* =================================================
+          NAVIGATION
+      ================================================= */}
+
+      {navigation && totalBanners > 1 ? (
+        <>
+          <Pressable
+            onPress={handlePrevious}
+            style={[styles.navigationButton, styles.leftNavigation]}
+          >
+            {leftArrow || <Text style={styles.navigationText}>‹</Text>}
+          </Pressable>
+
+          <Pressable
+            onPress={handleNext}
+            style={[styles.navigationButton, styles.rightNavigation]}
+          >
+            {rightArrow || <Text style={styles.navigationText}>›</Text>}
+          </Pressable>
+        </>
+      ) : null}
+
+      {/* =================================================
+          PAGINATION
+      ================================================= */}
+
+      {pagination && totalBanners > 1 ? (
+        <View pointerEvents="none" style={[styles.pagination, paginationStyle]}>
+          {banners.map((_, index) => {
+            const active = index === currentIndexRef.current;
 
             return (
-              <BannerSlide
-                key={banner?.id || `banner-${index}`}
-                banner={{
-                  ...banner,
-
-                  borderRadius: banner?.borderRadius ?? borderRadius,
-
-                  contentPaddingHorizontal: banner?.contentPaddingHorizontal,
-
-                  contentPaddingVertical: banner?.contentPaddingVertical,
-                }}
-                index={index}
-                activeIndex={activeIndex}
-                width={slideWidth}
-                height={carouselHeight}
-                reanimated={reanimated}
-                theme={theme}
-                onPress={onPress}
-                slideStyle={slideStyle}
+              <View
+                key={`dot-${index}`}
+                style={[
+                  styles.dot,
+                  dotStyle,
+                  active && styles.activeDot,
+                  active && activeDotStyle,
+                ]}
               />
             );
           })}
-        </Animated.ScrollView>
-
-        {/* NAVIGATION */}
-
-        {showNavigation && safeBanners.length > 1 && (
-          <>
-            <View
-              pointerEvents="box-none"
-              style={[styles.navigationLeft, navigationStyle]}
-            >
-              <NavigationButton
-                direction="left"
-                size={navigationSize}
-                backgroundColor={navBackground}
-                iconColor={navIconColor}
-                onPress={goPrevious}
-              />
-            </View>
-
-            <View
-              pointerEvents="box-none"
-              style={[styles.navigationRight, navigationStyle]}
-            >
-              <NavigationButton
-                direction="right"
-                size={navigationSize}
-                backgroundColor={navBackground}
-                iconColor={navIconColor}
-                onPress={goNext}
-              />
-            </View>
-          </>
-        )}
-
-        {/* PAGINATION */}
-
-        {showPagination && (
-          <View
-            pointerEvents="box-none"
-            style={
-              paginationPosition === "top"
-                ? styles.paginationTop
-                : styles.paginationBottom
-            }
-          >
-            <Pagination
-              count={safeBanners.length}
-              activeIndex={activeIndex}
-              onPress={goToIndex}
-              dotSize={paginationDotSize}
-              activeWidth={paginationActiveWidth}
-              gap={paginationGap}
-              activeColor={activePaginationColor}
-              inactiveColor={inactivePaginationColor}
-              style={paginationStyle}
-            />
-          </View>
-        )}
-      </View>
-    </View>
-  );
-}
-
-/* =========================================================
-   BANNER SLIDE
-========================================================= */
-
-function BannerSlide({
-  banner,
-  index,
-  activeIndex,
-  width,
-  height,
-  reanimated,
-  theme,
-  onPress,
-  slideStyle,
-}) {
-  const handlePress = banner?.onPress || onPress;
-
-  return (
-    <View
-      style={[
-        styles.slide,
-        {
-          width,
-          height,
-          marginHorizontal: 0,
-        },
-        slideStyle,
-        banner?.slideStyle,
-      ]}
-    >
-      <View
-        style={[
-          styles.banner,
-          {
-            width,
-            height,
-            borderRadius: banner?.borderRadius || 18,
-          },
-        ]}
-      >
-        {/* BACKGROUND */}
-
-        <BannerBackground
-          banner={banner}
-          width={width}
-          height={height}
-          reanimated={reanimated}
-        />
-
-        {/* PRESSABLE CONTENT */}
-
-        <Pressable
-          disabled={typeof handlePress !== "function"}
-          onPress={() => {
-            if (typeof banner?.onPress === "function") {
-              banner.onPress();
-              return;
-            }
-
-            if (typeof onPress === "function") {
-              onPress(banner, index);
-            }
-          }}
-          style={StyleSheet.absoluteFill}
-        />
-
-        {/* MULTIPLE IMAGES */}
-
-        {Array.isArray(banner?.images) &&
-          banner.images.map((item, imageIndex) => (
-            <AnimatedBannerAsset
-              key={item?.id || `image-${index}-${imageIndex}`}
-              item={item}
-              type="image"
-            />
-          ))}
-
-        {/* MULTIPLE ICONS */}
-
-        {Array.isArray(banner?.icons) &&
-          banner.icons.map((item, iconIndex) => (
-            <AnimatedBannerAsset
-              key={item?.id || `icon-${index}-${iconIndex}`}
-              item={item}
-              type="icon"
-            />
-          ))}
-
-        {/* TEXT / CTA */}
-
-        <BannerTextContent
-          banner={banner}
-          theme={theme}
-          width={width}
-          height={height}
-          index={index}
-          activeIndex={activeIndex}
-          reanimated={reanimated}
-          onPress={onPress}
-        />
-      </View>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -1504,231 +1236,155 @@ function BannerSlide({
 ========================================================= */
 
 const styles = StyleSheet.create({
-  outerContainer: {
-    width: "100%",
-  },
-
-  carousel: {
-    position: "relative",
-    overflow: "visible",
-  },
-
   slide: {
-    position: "relative",
-  },
-
-  banner: {
-    position: "relative",
     overflow: "hidden",
+    position: "relative",
   },
 
-  asset: {
-    position: "absolute",
+  backgroundAnimationLayer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
     alignItems: "center",
-    justifyContent: "center",
   },
 
-  /*
-   * Content
-   */
+  gradientGlow: {
+    borderRadius: 999,
+    backgroundColor: "rgba(255,255,255,0.08)",
+  },
 
-  content: {
+  raysContainer: {
     position: "absolute",
-    left: 0,
-    top: 0,
-    bottom: 0,
     justifyContent: "center",
+    alignItems: "center",
   },
 
-  customContent: {
+  ray: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0,
+    width: 18,
+    height: "100%",
+    borderRadius: 20,
   },
 
-  /*
-   * Badge
-   */
+  contentContainer: {
+    position: "relative",
+    zIndex: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    alignItems: "flex-start",
+    justifyContent: "center",
+    maxWidth: "65%",
+  },
 
   badge: {
-    minHeight: 26,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
     flexDirection: "row",
     alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    backgroundColor: "rgba(255,255,255,0.2)",
     marginBottom: 7,
   },
 
   badgeIcon: {
     marginRight: 5,
-    alignItems: "center",
-    justifyContent: "center",
   },
 
   badgeText: {
+    color: "#FFFFFF",
     fontSize: 11,
-    lineHeight: 15,
     fontWeight: "700",
-    letterSpacing: 0.2,
   },
 
-  /*
-   * Text
-   */
-
   eyebrow: {
-    fontSize: 10,
-    lineHeight: 14,
+    color: "#FFFFFF",
+    fontSize: 12,
     fontWeight: "700",
-    letterSpacing: 1,
     marginBottom: 4,
   },
 
   title: {
-    fontSize: 26,
-    lineHeight: 30,
+    color: "#FFFFFF",
+    fontSize: 25,
     fontWeight: "800",
-    letterSpacing: -0.4,
+    lineHeight: 29,
   },
 
   subtitle: {
+    color: "rgba(255,255,255,0.9)",
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: "500",
-    marginTop: 5,
-    opacity: 0.92,
+    marginTop: 6,
   },
 
-  /*
-   * Button
-   */
-
   button: {
-    minHeight: 36,
-    paddingHorizontal: 15,
-    borderRadius: 999,
-    marginTop: 12,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
   },
 
   buttonIcon: {
     marginRight: 6,
-    alignItems: "center",
-    justifyContent: "center",
   },
 
   buttonText: {
     fontSize: 12,
-    lineHeight: 16,
-    fontWeight: "700",
+    fontWeight: "800",
+    color: "#222222",
   },
-
-  buttonArrow: {
-    fontSize: 17,
-    lineHeight: 20,
-    fontWeight: "700",
-    marginLeft: 5,
-  },
-
-  /*
-   * Rays
-   */
-
-  rays: {
-    position: "absolute",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  ray: {
-    position: "absolute",
-    width: 24,
-    height: "72%",
-    backgroundColor: "rgba(255,255,255,0.22)",
-    borderRadius: 999,
-  },
-
-  /*
-   * Pulse
-   */
-
-  pulse: {
-    position: "absolute",
-    backgroundColor: "rgba(255,255,255,0.4)",
-  },
-
-  /*
-   * Pagination
-   */
 
   pagination: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  paginationDot: {
-    minWidth: 6,
-  },
-
-  paginationTop: {
     position: "absolute",
-    left: 0,
-    right: 0,
-    top: 9,
-  },
-
-  paginationBottom: {
-    position: "absolute",
-    left: 0,
-    right: 0,
     bottom: 9,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 50,
   },
 
-  /*
-   * Navigation
-   */
-
-  navigationLeft: {
-    position: "absolute",
-    left: -7,
-    top: 0,
-    bottom: 0,
-    justifyContent: "center",
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginHorizontal: 3,
+    backgroundColor: "rgba(255,255,255,0.5)",
   },
 
-  navigationRight: {
-    position: "absolute",
-    right: -7,
-    top: 0,
-    bottom: 0,
-    justifyContent: "center",
+  activeDot: {
+    width: 18,
+    backgroundColor: "#FFFFFF",
   },
 
   navigationButton: {
-    alignItems: "center",
+    position: "absolute",
+    top: "50%",
+    marginTop: -18,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
-
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-
-    shadowOpacity: 0.16,
-    shadowRadius: 5,
-
-    elevation: 4,
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.25)",
+    zIndex: 60,
   },
 
-  navigationIcon: {
-    fontSize: 29,
+  leftNavigation: {
+    left: 10,
+  },
+
+  rightNavigation: {
+    right: 10,
+  },
+
+  navigationText: {
+    color: "#FFFFFF",
+    fontSize: 30,
     lineHeight: 32,
     fontWeight: "400",
-    marginTop: -2,
   },
 });
