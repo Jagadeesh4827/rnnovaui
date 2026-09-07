@@ -1,6 +1,6 @@
 {
   "name": "rnnovaui",
-  "version": "0.10.33",
+  "version": "0.10.34",
   "description": "",
   "main": "src/index.js",
   "react-native": "src/index.js",
