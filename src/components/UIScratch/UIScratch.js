@@ -39,7 +39,7 @@ import Animated, {
 
 import { Feather, Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 
-import { useTheme } from "../../theme";
+import { useUITheme } from "../../theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
@@ -636,7 +636,7 @@ const UIScratchCard = forwardRef(
     },
     ref,
   ) => {
-    const theme = useTheme();
+    const theme = useUITheme();
 
     const selectedTheme = THEMES[variant] || THEMES.classic;
 
