@@ -138,4 +138,7 @@ export {
   UIScratchCard,
   UIScratchCardThemes,
   UIScratchCardLabels,
+  UIScratch,
+  UIScratchThemes,
+  UIScratchLabels,
 } from "./components";

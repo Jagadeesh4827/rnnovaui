@@ -130,3 +130,8 @@ export {
   UIScratchCardThemes,
   UIScratchCardLabels,
 } from "./UIScratchCard/UIScratchCard";
+export {
+  default as UIScratch,
+  UIScratchThemes,
+  UIScratchLabels,
+} from "./UIScratchCard/UIScratch";
