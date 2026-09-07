@@ -1,1 +1,7 @@
-export { default as UIBannerCarousel } from "./UIBannerCarousel";
+export {
+  default,
+  UIBannerCarousel,
+  UIBannerCarouselBackgroundAnimations,
+  UIBannerCarouselAssetAnimations,
+  UIBannerCarouselContentAnimations,
+} from "./UIBannerCarousel";
