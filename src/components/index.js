@@ -134,4 +134,4 @@ export {
   default as UIScratch,
   UIScratchThemes,
   UIScratchLabels,
-} from "./UIScratchCard/UIScratch";
+} from "./UIScratch/UIScratch";
