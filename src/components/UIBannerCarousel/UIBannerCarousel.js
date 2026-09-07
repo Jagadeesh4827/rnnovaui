@@ -1,14 +1,19 @@
 import React, {
-  forwardRef,
   useCallback,
   useEffect,
-  useImperativeHandle,
   useMemo,
   useRef,
   useState,
 } from "react";
 
-import { Image, Pressable, StyleSheet, Text, View } from "react-native";
+import {
+  Dimensions,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 
 import Animated, {
   Extrapolation,
@@ -16,1509 +21,1714 @@ import Animated, {
   useAnimatedScrollHandler,
   useAnimatedStyle,
   useSharedValue,
+  withRepeat,
+  withSequence,
   withTiming,
 } from "react-native-reanimated";
 
-import Svg, { Defs, LinearGradient, Rect, Stop } from "react-native-svg";
+import { LinearGradient } from "expo-linear-gradient";
 
-import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+// Keep this pointing to the SAME theme hook used by your UIProvider.
+import { useTheme } from "../../theme";
 
-const AnimatedFlatList = Animated.createAnimatedComponent(Animated.FlatList);
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-/* =========================================================
-   DEFAULT BANNERS
-========================================================= */
-
-const DEFAULT_BANNERS = [
-  {
-    id: "items-under-149",
-
-    title: "ITEMS UNDER ₹149",
-
-    subtitle: "EXPLORE BEST DEALS",
-
-    backgroundColor: "#009C96",
-
-    secondaryColor: "#0878C9",
-
-    icon: "food",
-
-    iconType: "material",
-
-    buttonText: "Explore Now",
-
-    buttonColor: "#FFFFFF",
-
-    buttonTextColor: "#111111",
-  },
-
-  {
-    id: "free-delivery",
-
-    title: "FREE DELIVERY",
-
-    subtitle: "ON ORDERS ABOVE ₹299",
-
-    backgroundColor: "#0877D1",
-
-    secondaryColor: "#1646A5",
-
-    icon: "moped",
-
-    iconType: "material",
-
-    buttonText: "Order Now",
-
-    buttonColor: "#FFFFFF",
-
-    buttonTextColor: "#111111",
-  },
-
-  {
-    id: "minimum-discount",
-
-    title: "MINIMUM ₹125 OFF",
-
-    subtitle: "ON YOUR FAVORITE MEALS",
-
-    backgroundColor: "#A40086",
-
-    secondaryColor: "#E51B70",
-
-    icon: "sale",
-
-    iconType: "material",
-
-    buttonText: "Order Now",
-
-    buttonColor: "#FFFFFF",
-
-    buttonTextColor: "#111111",
-  },
-
-  {
-    id: "breakfast",
-
-    title: "BREAKFAST SUBSCRIPTIONS",
-
-    subtitle: "START YOUR DAY WITH GREAT FOOD",
-
-    backgroundColor: "#18A8E0",
-
-    secondaryColor: "#0B72D0",
-
-    icon: "coffee",
-
-    iconType: "material",
-
-    buttonText: "Explore Now",
-
-    buttonColor: "#FFFFFF",
-
-    buttonTextColor: "#111111",
-  },
-
-  {
-    id: "items-50-off",
-
-    title: "ITEMS AT 50% OFF",
-
-    subtitle: "AMAZING FOOD. AMAZING PRICES.",
-
-    backgroundColor: "#E31D25",
-
-    secondaryColor: "#A40E38",
-
-    icon: "percent",
-
-    iconType: "material",
-
-    buttonText: "Order Now",
-
-    buttonColor: "#FFFFFF",
-
-    buttonTextColor: "#111111",
-  },
-];
+const DEFAULT_HEIGHT = 190;
 
 /* =========================================================
-   ICON
+   HELPERS
 ========================================================= */
 
-const BannerIcon = ({
-  name,
-  type = "material",
-  size = 60,
-  color = "#FFFFFF",
-}) => {
-  if (!name) {
-    return null;
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+const numberOr = (value, fallback) =>
+  typeof value === "number" ? value : fallback;
+
+const normalizeGradient = (gradient) => {
+  if (!Array.isArray(gradient) || gradient.length === 0) {
+    return ["#7C3AED", "#EC4899"];
   }
 
-  if (type === "ionicons") {
-    return <Ionicons name={name} size={size} color={color} />;
+  if (gradient.length === 1) {
+    return [gradient[0], gradient[0]];
   }
 
-  return <MaterialCommunityIcons name={name} size={size} color={color} />;
+  return gradient;
 };
 
-/* =========================================================
-   GRADIENT BACKGROUND
-========================================================= */
-
-const GradientBackground = ({ banner, gradientId }) => {
-  const first = banner.backgroundColor || "#0877D1";
-
-  const second = banner.secondaryColor || first;
-
-  return (
-    <Svg
-      pointerEvents="none"
-      width="100%"
-      height="100%"
-      style={StyleSheet.absoluteFillObject}
-    >
-      <Defs>
-        <LinearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-          <Stop offset="0%" stopColor={first} stopOpacity="1" />
-
-          <Stop offset="100%" stopColor={second} stopOpacity="1" />
-        </LinearGradient>
-      </Defs>
-
-      <Rect
-        x="0"
-        y="0"
-        width="100%"
-        height="100%"
-        fill={`url(#${gradientId})`}
-      />
-    </Svg>
-  );
-};
+const getAnimationName = (item) => item?.animation || "none";
 
 /* =========================================================
-   BANNER BACKGROUND
+   ANIMATED ASSET
+   Used for individual images and icons.
 ========================================================= */
 
-const BannerBackground = ({ banner, gradientId }) => {
-  /*
-   * Full background image has priority.
-   */
+function AnimatedBannerAsset({ item, type = "image" }) {
+  const progress = useSharedValue(0);
 
-  if (banner.backgroundImage) {
-    return (
-      <Image
-        source={banner.backgroundImage}
-        resizeMode={banner.backgroundImageResizeMode || "cover"}
-        style={StyleSheet.absoluteFillObject}
-      />
-    );
-  }
-
-  /*
-   * Gradient.
-   */
-
-  if (banner.backgroundColor && banner.secondaryColor) {
-    return <GradientBackground banner={banner} gradientId={gradientId} />;
-  }
-
-  /*
-   * Solid color.
-   */
-
-  return (
-    <View
-      pointerEvents="none"
-      style={[
-        StyleSheet.absoluteFillObject,
-        {
-          backgroundColor: banner.backgroundColor || "#222222",
-        },
-      ]}
-    />
-  );
-};
-
-/* =========================================================
-   SINGLE BANNER
-========================================================= */
-
-const BannerItem = ({
-  banner,
-  index,
-  currentIndex,
-  width,
-  height,
-  borderRadius,
-  gap,
-  reanimated,
-  onPress,
-  titleStyle,
-  subtitleStyle,
-  buttonStyle,
-  buttonTextStyle,
-}) => {
-  const active = index === currentIndex;
-
-  const animation = useSharedValue(active ? 1 : 0);
+  const animation = item?.animation || "none";
 
   useEffect(() => {
-    if (!reanimated) {
-      return;
+    if (animation === "none") {
+      progress.value = 0;
+      return undefined;
     }
 
-    animation.value = withTiming(active ? 1 : 0, {
-      duration: 420,
-    });
-  }, [active, animation, reanimated]);
+    const duration = item?.animationDuration || 2200;
+
+    progress.value = 0;
+
+    if (animation === "float") {
+      progress.value = withRepeat(
+        withSequence(
+          withTiming(1, {
+            duration,
+          }),
+          withTiming(0, {
+            duration,
+          }),
+        ),
+        -1,
+        false,
+      );
+    }
+
+    if (animation === "pulse") {
+      progress.value = withRepeat(
+        withSequence(
+          withTiming(1, {
+            duration,
+          }),
+          withTiming(0, {
+            duration,
+          }),
+        ),
+        -1,
+        false,
+      );
+    }
+
+    if (animation === "rotate") {
+      progress.value = withRepeat(
+        withTiming(1, {
+          duration: item?.animationDuration || 5000,
+        }),
+        -1,
+        false,
+      );
+    }
+
+    if (animation === "zoom") {
+      progress.value = withRepeat(
+        withTiming(1, {
+          duration: item?.animationDuration || 5000,
+        }),
+        -1,
+        true,
+      );
+    }
+
+    if (animation === "bounce") {
+      progress.value = withRepeat(
+        withSequence(
+          withTiming(1, {
+            duration: 700,
+          }),
+          withTiming(0, {
+            duration: 700,
+          }),
+        ),
+        -1,
+        false,
+      );
+    }
+
+    return () => {
+      progress.value = 0;
+    };
+  }, [animation, item?.animationDuration]);
 
   const animatedStyle = useAnimatedStyle(() => {
-    if (!reanimated) {
+    if (animation === "none") {
       return {};
     }
 
-    const scale = interpolate(
-      animation.value,
-      [0, 1],
-      [0.96, 1],
-      Extrapolation.CLAMP,
-    );
-
-    const opacity = interpolate(
-      animation.value,
-      [0, 1],
-      [0.86, 1],
-      Extrapolation.CLAMP,
-    );
-
-    return {
-      transform: [
-        {
-          scale,
-        },
-      ],
-      opacity,
-    };
-  });
-
-  const animatedContentStyle = useAnimatedStyle(() => {
-    if (!reanimated) {
-      return {};
+    if (animation === "float") {
+      return {
+        transform: [
+          {
+            translateY: interpolate(
+              progress.value,
+              [0, 1],
+              [0, -8],
+              Extrapolation.CLAMP,
+            ),
+          },
+        ],
+      };
     }
 
-    const translateY = interpolate(
-      animation.value,
-      [0, 1],
-      [8, 0],
-      Extrapolation.CLAMP,
-    );
+    if (animation === "pulse") {
+      return {
+        opacity: interpolate(
+          progress.value,
+          [0, 1],
+          [0.75, 1],
+          Extrapolation.CLAMP,
+        ),
+        transform: [
+          {
+            scale: interpolate(
+              progress.value,
+              [0, 1],
+              [0.96, 1.04],
+              Extrapolation.CLAMP,
+            ),
+          },
+        ],
+      };
+    }
 
-    return {
-      transform: [
-        {
-          translateY,
-        },
-      ],
-    };
+    if (animation === "rotate") {
+      return {
+        transform: [
+          {
+            rotate: `${progress.value * 360}deg`,
+          },
+        ],
+      };
+    }
+
+    if (animation === "zoom") {
+      return {
+        transform: [
+          {
+            scale: interpolate(
+              progress.value,
+              [0, 1],
+              [0.96, 1.08],
+              Extrapolation.CLAMP,
+            ),
+          },
+        ],
+      };
+    }
+
+    if (animation === "bounce") {
+      return {
+        transform: [
+          {
+            translateY: interpolate(
+              progress.value,
+              [0, 1],
+              [0, -12],
+              Extrapolation.CLAMP,
+            ),
+          },
+          {
+            scale: interpolate(
+              progress.value,
+              [0, 1],
+              [1, 1.05],
+              Extrapolation.CLAMP,
+            ),
+          },
+        ],
+      };
+    }
+
+    return {};
   });
 
-  const handlePress = useCallback(() => {
-    if (onPress) {
-      onPress(banner, index);
-    }
-  }, [banner, index, onPress]);
+  const positionStyle =
+    item?.position && typeof item.position === "object" ? item.position : {};
 
-  /*
-   * Every item gets exactly width + gap.
-   * This prevents the FlatList from changing
-   * the banner height/layout.
-   */
+  const rotation = item?.rotation || "0deg";
 
-  const gradientId = `uiBannerGradient_${banner.id}_${index}`;
+  const opacity = numberOr(item?.opacity, 1);
 
-  return (
-    <View
-      style={{
-        width: width + gap,
+  const zIndex = numberOr(item?.zIndex, 1);
 
-        height,
-      }}
-    >
+  const width = numberOr(item?.width, type === "icon" ? 32 : 100);
+
+  const height = numberOr(item?.height, type === "icon" ? 32 : 100);
+
+  if (type === "icon") {
+    return (
       <Animated.View
+        pointerEvents="none"
         style={[
-          styles.banner,
+          styles.asset,
+          positionStyle,
           {
             width,
             height,
-            borderRadius,
+            zIndex,
+            opacity,
+            transform: [
+              {
+                rotate: rotation,
+              },
+            ],
           },
           animatedStyle,
+          item?.style,
         ]}
       >
-        <BannerBackground banner={banner} gradientId={gradientId} />
+        {item?.icon}
+      </Animated.View>
+    );
+  }
 
-        {/*
-         * Optional dark overlay for
-         * background images.
-         */}
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={[
+        styles.asset,
+        positionStyle,
+        {
+          width,
+          height,
+          zIndex,
+          opacity,
+          transform: [
+            {
+              rotate: rotation,
+            },
+          ],
+        },
+        animatedStyle,
+        item?.containerStyle,
+      ]}
+    >
+      <Image
+        source={item?.source}
+        resizeMode={item?.resizeMode || "contain"}
+        style={[StyleSheet.absoluteFill, item?.imageStyle]}
+      />
+    </Animated.View>
+  );
+}
 
-        {banner.backgroundImage && banner.overlay !== false ? (
-          <View
-            pointerEvents="none"
+/* =========================================================
+   BACKGROUND
+========================================================= */
+
+function BannerBackground({ banner, width, height, reanimated }) {
+  const progress = useSharedValue(0);
+
+  const animation = banner?.backgroundAnimation || "none";
+
+  useEffect(() => {
+    if (!reanimated || animation === "none") {
+      progress.value = 0;
+      return undefined;
+    }
+
+    const duration = banner?.animationDuration || 7000;
+
+    progress.value = 0;
+
+    if (
+      animation === "rays" ||
+      animation === "zoom" ||
+      animation === "kenBurns"
+    ) {
+      progress.value = withRepeat(
+        withTiming(1, {
+          duration,
+        }),
+        -1,
+        animation !== "rays",
+      );
+    }
+
+    if (animation === "pulse") {
+      progress.value = withRepeat(
+        withSequence(
+          withTiming(1, {
+            duration: banner?.animationDuration || 1800,
+          }),
+          withTiming(0, {
+            duration: banner?.animationDuration || 1800,
+          }),
+        ),
+        -1,
+        false,
+      );
+    }
+
+    return () => {
+      progress.value = 0;
+    };
+  }, [reanimated, animation, banner?.animationDuration]);
+
+  const raysStyle = useAnimatedStyle(() => {
+    if (!reanimated || animation !== "rays") {
+      return {};
+    }
+
+    return {
+      transform: [
+        {
+          rotate: `${progress.value * 360}deg`,
+        },
+        {
+          scale: interpolate(
+            progress.value,
+            [0, 1],
+            [1, 1.08],
+            Extrapolation.CLAMP,
+          ),
+        },
+      ],
+    };
+  });
+
+  const pulseStyle = useAnimatedStyle(() => {
+    if (!reanimated || animation !== "pulse") {
+      return {};
+    }
+
+    return {
+      opacity: interpolate(
+        progress.value,
+        [0, 1],
+        [0.08, 0.3],
+        Extrapolation.CLAMP,
+      ),
+      transform: [
+        {
+          scale: interpolate(
+            progress.value,
+            [0, 1],
+            [0.85, 1.15],
+            Extrapolation.CLAMP,
+          ),
+        },
+      ],
+    };
+  });
+
+  const imageStyle = useAnimatedStyle(() => {
+    if (!reanimated || !(animation === "zoom" || animation === "kenBurns")) {
+      return {};
+    }
+
+    return {
+      transform: [
+        {
+          scale: interpolate(
+            progress.value,
+            [0, 1],
+            animation === "kenBurns" ? [1.03, 1.14] : [1, 1.08],
+            Extrapolation.CLAMP,
+          ),
+        },
+        {
+          translateX:
+            animation === "kenBurns"
+              ? interpolate(
+                  progress.value,
+                  [0, 1],
+                  [0, -12],
+                  Extrapolation.CLAMP,
+                )
+              : 0,
+        },
+      ],
+    };
+  });
+
+  const backgroundType = banner?.backgroundType || "color";
+
+  const backgroundColor = banner?.backgroundColor || "#E91E63";
+
+  const gradient = normalizeGradient(banner?.gradient);
+
+  return (
+    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+      {/* COLOR */}
+      {backgroundType === "color" && (
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor,
+            },
+          ]}
+        />
+      )}
+
+      {/* GRADIENT */}
+      {backgroundType === "gradient" && (
+        <LinearGradient
+          colors={gradient}
+          start={
+            banner?.gradientStart || {
+              x: 0,
+              y: 0,
+            }
+          }
+          end={
+            banner?.gradientEnd || {
+              x: 1,
+              y: 1,
+            }
+          }
+          style={StyleSheet.absoluteFill}
+        />
+      )}
+
+      {/* IMAGE */}
+      {backgroundType === "image" && banner?.image && (
+        <Animated.Image
+          source={banner.image}
+          resizeMode={banner?.imageResizeMode || "cover"}
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              width,
+              height,
+            },
+            imageStyle,
+          ]}
+        />
+      )}
+
+      {/* RAYS */}
+      {animation === "rays" && (
+        <Animated.View
+          style={[
+            styles.rays,
+            {
+              width: width * 1.8,
+              height: height * 3,
+              left: -width * 0.4,
+              top: -height,
+            },
+            raysStyle,
+          ]}
+        >
+          {Array.from({
+            length: 12,
+          }).map((_, index) => (
+            <View
+              key={`ray-${index}`}
+              style={[
+                styles.ray,
+                {
+                  transform: [
+                    {
+                      rotate: `${index * 30}deg`,
+                    },
+                  ],
+                },
+              ]}
+            />
+          ))}
+        </Animated.View>
+      )}
+
+      {/* PULSE */}
+      {animation === "pulse" && (
+        <Animated.View
+          style={[
+            styles.pulse,
+            {
+              width: width * 0.9,
+              height: width * 0.9,
+              borderRadius: width * 0.45,
+              right: -width * 0.2,
+              top: -width * 0.25,
+            },
+            pulseStyle,
+          ]}
+        />
+      )}
+
+      {/* CUSTOM OVERLAY */}
+      {banner?.overlayColor && (
+        <View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: banner.overlayColor,
+              opacity: clamp(numberOr(banner.overlayOpacity, 0), 0, 1),
+            },
+          ]}
+        />
+      )}
+
+      {/* GRADIENT OVERLAY */}
+      {banner?.gradientOverlay && (
+        <LinearGradient
+          colors={
+            banner.gradientOverlay.colors || ["transparent", "rgba(0,0,0,0.4)"]
+          }
+          start={
+            banner.gradientOverlay.start || {
+              x: 0,
+              y: 0,
+            }
+          }
+          end={
+            banner.gradientOverlay.end || {
+              x: 1,
+              y: 1,
+            }
+          }
+          style={StyleSheet.absoluteFill}
+        />
+      )}
+    </View>
+  );
+}
+
+/* =========================================================
+   CONTENT ANIMATION
+========================================================= */
+
+function BannerTextContent({
+  banner,
+  theme,
+  width,
+  height,
+  index,
+  activeIndex,
+  reanimated,
+  onPress,
+}) {
+  const progress = useSharedValue(0);
+
+  const animation = banner?.contentAnimation || "fadeSlide";
+
+  useEffect(() => {
+    if (!reanimated || index !== activeIndex) {
+      progress.value = 1;
+      return undefined;
+    }
+
+    progress.value = 0;
+
+    progress.value = withTiming(1, {
+      duration: banner?.contentAnimationDuration || 500,
+    });
+
+    return () => {
+      progress.value = 0;
+    };
+  }, [reanimated, index, activeIndex, animation]);
+
+  const contentAnimatedStyle = useAnimatedStyle(() => {
+    if (!reanimated) {
+      return {};
+    }
+
+    if (animation === "none") {
+      return {};
+    }
+
+    if (animation === "fade") {
+      return {
+        opacity: progress.value,
+      };
+    }
+
+    if (animation === "scale") {
+      return {
+        opacity: progress.value,
+        transform: [
+          {
+            scale: interpolate(
+              progress.value,
+              [0, 1],
+              [0.9, 1],
+              Extrapolation.CLAMP,
+            ),
+          },
+        ],
+      };
+    }
+
+    return {
+      opacity: progress.value,
+      transform: [
+        {
+          translateY: interpolate(
+            progress.value,
+            [0, 1],
+            [18, 0],
+            Extrapolation.CLAMP,
+          ),
+        },
+      ],
+    };
+  });
+
+  if (typeof banner?.renderContent === "function") {
+    return (
+      <Animated.View style={[styles.customContent, contentAnimatedStyle]}>
+        {banner.renderContent({
+          banner,
+          index,
+          activeIndex,
+          width,
+          height,
+          theme,
+        })}
+      </Animated.View>
+    );
+  }
+
+  const textColor =
+    banner?.textColor || theme?.colors?.text?.inverse || "#FFFFFF";
+
+  const secondaryColor = banner?.secondaryTextColor || textColor;
+
+  const buttonBackground = banner?.buttonBackgroundColor || "#FFFFFF";
+
+  const buttonTextColor = banner?.buttonTextColor || "#111827";
+
+  const contentPosition = banner?.contentPosition || "left";
+
+  const align =
+    contentPosition === "center"
+      ? "center"
+      : contentPosition === "right"
+        ? "flex-end"
+        : "flex-start";
+
+  const textAlign = contentPosition === "center" ? "center" : "left";
+
+  return (
+    <Animated.View
+      style={[
+        styles.content,
+        {
+          alignItems: align,
+          paddingHorizontal: banner?.contentPaddingHorizontal ?? 22,
+          paddingVertical: banner?.contentPaddingVertical ?? 20,
+          width:
+            banner?.contentWidth ||
+            (contentPosition === "center" ? width * 0.86 : width * 0.65),
+        },
+        contentAnimatedStyle,
+        banner?.contentContainerStyle,
+      ]}
+    >
+      {/* BADGE */}
+
+      {banner?.badge && (
+        <View
+          style={[
+            styles.badge,
+            {
+              backgroundColor:
+                banner?.badgeBackgroundColor || "rgba(255,255,255,0.18)",
+            },
+            banner?.badgeStyle,
+          ]}
+        >
+          {banner?.badgeIcon && (
+            <View style={styles.badgeIcon}>{banner.badgeIcon}</View>
+          )}
+
+          <Text
             style={[
-              StyleSheet.absoluteFillObject,
+              styles.badgeText,
               {
-                backgroundColor: banner.overlayColor || "rgba(0,0,0,0.18)",
+                color: banner?.badgeTextColor || textColor,
+              },
+              banner?.badgeTextStyle,
+            ]}
+          >
+            {banner.badge}
+          </Text>
+        </View>
+      )}
+
+      {/* EYEBROW */}
+
+      {banner?.eyebrow && (
+        <Text
+          style={[
+            styles.eyebrow,
+            {
+              color: secondaryColor,
+              textAlign,
+            },
+            banner?.eyebrowStyle,
+          ]}
+        >
+          {banner.eyebrow}
+        </Text>
+      )}
+
+      {/* TITLE */}
+
+      {banner?.title && (
+        <Text
+          numberOfLines={banner?.titleNumberOfLines || 2}
+          style={[
+            styles.title,
+            {
+              color: textColor,
+              textAlign,
+            },
+            banner?.titleStyle,
+          ]}
+        >
+          {banner.title}
+        </Text>
+      )}
+
+      {/* SUBTITLE */}
+
+      {banner?.subtitle && (
+        <Text
+          numberOfLines={banner?.subtitleNumberOfLines || 2}
+          style={[
+            styles.subtitle,
+            {
+              color: secondaryColor,
+              textAlign,
+            },
+            banner?.subtitleStyle,
+          ]}
+        >
+          {banner.subtitle}
+        </Text>
+      )}
+
+      {/* CTA */}
+
+      {banner?.buttonText && (
+        <Pressable
+          onPress={() => {
+            if (typeof banner?.onPress === "function") {
+              banner.onPress();
+            } else if (typeof onPress === "function") {
+              onPress(banner, index);
+            }
+          }}
+          style={({ pressed }) => [
+            styles.button,
+            {
+              backgroundColor: buttonBackground,
+              opacity: pressed ? 0.75 : 1,
+            },
+            banner?.buttonStyle,
+          ]}
+        >
+          {banner?.buttonIcon && (
+            <View style={styles.buttonIcon}>{banner.buttonIcon}</View>
+          )}
+
+          <Text
+            style={[
+              styles.buttonText,
+              {
+                color: buttonTextColor,
+              },
+              banner?.buttonTextStyle,
+            ]}
+          >
+            {banner.buttonText}
+          </Text>
+
+          {banner?.buttonIcon === undefined &&
+            banner?.showButtonArrow !== false && (
+              <Text
+                style={[
+                  styles.buttonArrow,
+                  {
+                    color: buttonTextColor,
+                  },
+                ]}
+              >
+                →
+              </Text>
+            )}
+        </Pressable>
+      )}
+    </Animated.View>
+  );
+}
+
+/* =========================================================
+   PAGINATION
+========================================================= */
+
+function Pagination({
+  count,
+  activeIndex,
+  onPress,
+  dotSize,
+  activeWidth,
+  gap,
+  activeColor,
+  inactiveColor,
+  style,
+}) {
+  if (count <= 1) {
+    return null;
+  }
+
+  return (
+    <View
+      style={[
+        styles.pagination,
+        {
+          gap,
+        },
+        style,
+      ]}
+    >
+      {Array.from({
+        length: count,
+      }).map((_, index) => {
+        const active = index === activeIndex;
+
+        return (
+          <Pressable
+            key={`dot-${index}`}
+            onPress={() => onPress(index)}
+            hitSlop={8}
+            style={[
+              styles.paginationDot,
+              {
+                width: active ? activeWidth : dotSize,
+                height: dotSize,
+                borderRadius: dotSize / 2,
+                backgroundColor: active ? activeColor : inactiveColor,
               },
             ]}
           />
-        ) : null}
-
-        {/*
-         * Decorative circles.
-         */}
-
-        {banner.decorations !== false && (
-          <>
-            <View
-              pointerEvents="none"
-              style={[
-                styles.decorativeCircleOne,
-                {
-                  backgroundColor:
-                    banner.decorationColor || "rgba(255,255,255,0.10)",
-                },
-              ]}
-            />
-
-            <View
-              pointerEvents="none"
-              style={[
-                styles.decorativeCircleTwo,
-                {
-                  backgroundColor:
-                    banner.decorationColor || "rgba(255,255,255,0.08)",
-                },
-              ]}
-            />
-          </>
-        )}
-
-        <Animated.View style={[styles.bannerContent, animatedContentStyle]}>
-          {/*
-           * LEFT CONTENT
-           */}
-
-          <View style={styles.leftContent}>
-            {banner.badge ? (
-              <View
-                style={[
-                  styles.badge,
-                  {
-                    backgroundColor:
-                      banner.badgeColor || "rgba(255,255,255,0.18)",
-                  },
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.badgeText,
-                    {
-                      color: banner.badgeTextColor || "#FFFFFF",
-                    },
-                  ]}
-                >
-                  {banner.badge}
-                </Text>
-              </View>
-            ) : null}
-
-            {banner.icon && banner.iconPosition !== "right" ? (
-              <View style={styles.iconWrapper}>
-                <BannerIcon
-                  name={banner.icon}
-                  type={banner.iconType}
-                  size={banner.iconSize || 46}
-                  color={banner.iconColor || "#FFFFFF"}
-                />
-              </View>
-            ) : null}
-
-            <Text
-              numberOfLines={banner.titleLines || 2}
-              style={[
-                styles.title,
-                {
-                  color: banner.titleColor || "#FFFFFF",
-                },
-                titleStyle,
-                banner.titleStyle,
-              ]}
-            >
-              {banner.title}
-            </Text>
-
-            {banner.subtitle ? (
-              <Text
-                numberOfLines={banner.subtitleLines || 2}
-                style={[
-                  styles.subtitle,
-                  {
-                    color: banner.subtitleColor || "rgba(255,255,255,0.92)",
-                  },
-                  subtitleStyle,
-                  banner.subtitleStyle,
-                ]}
-              >
-                {banner.subtitle}
-              </Text>
-            ) : null}
-
-            {banner.description ? (
-              <Text
-                numberOfLines={2}
-                style={[
-                  styles.description,
-                  {
-                    color: banner.descriptionColor || "rgba(255,255,255,0.82)",
-                  },
-                ]}
-              >
-                {banner.description}
-              </Text>
-            ) : null}
-
-            {banner.buttonText ? (
-              <Pressable
-                onPress={handlePress}
-                style={[
-                  styles.button,
-                  {
-                    backgroundColor: banner.buttonColor || "#FFFFFF",
-                  },
-                  buttonStyle,
-                  banner.buttonStyle,
-                ]}
-              >
-                <Text
-                  style={[
-                    styles.buttonText,
-                    {
-                      color: banner.buttonTextColor || "#111111",
-                    },
-                    buttonTextStyle,
-                    banner.buttonTextStyle,
-                  ]}
-                >
-                  {banner.buttonText}
-                </Text>
-
-                {banner.showButtonArrow !== false ? (
-                  <Ionicons
-                    name="arrow-forward"
-                    size={15}
-                    color={banner.buttonTextColor || "#111111"}
-                  />
-                ) : null}
-              </Pressable>
-            ) : null}
-          </View>
-
-          {/*
-           * FOREGROUND IMAGE
-           */}
-
-          {banner.image ? (
-            <Image
-              source={banner.image}
-              resizeMode={banner.imageResizeMode || "contain"}
-              style={[styles.foregroundImage, banner.imageStyle]}
-            />
-          ) : null}
-
-          {/*
-           * RIGHT ICON
-           */}
-
-          {banner.icon && banner.iconPosition === "right" ? (
-            <View style={[styles.rightIcon, banner.iconContainerStyle]}>
-              <BannerIcon
-                name={banner.icon}
-                type={banner.iconType}
-                size={banner.iconSize || 82}
-                color={banner.iconColor || "#FFFFFF"}
-              />
-            </View>
-          ) : null}
-
-          {/*
-           * CUSTOM RENDER
-           */}
-
-          {banner.renderContent ? banner.renderContent(banner, index) : null}
-        </Animated.View>
-      </Animated.View>
+        );
+      })}
     </View>
   );
-};
+}
+
+/* =========================================================
+   NAVIGATION
+========================================================= */
+
+function NavigationButton({
+  direction,
+  size,
+  backgroundColor,
+  iconColor,
+  onPress,
+  style,
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      hitSlop={8}
+      style={({ pressed }) => [
+        styles.navigationButton,
+        {
+          width: size,
+          height: size,
+          borderRadius: size / 2,
+          backgroundColor,
+          opacity: pressed ? 0.7 : 1,
+        },
+        style,
+      ]}
+    >
+      <Text
+        style={[
+          styles.navigationIcon,
+          {
+            color: iconColor,
+          },
+        ]}
+      >
+        {direction === "left" ? "‹" : "›"}
+      </Text>
+    </Pressable>
+  );
+}
 
 /* =========================================================
    MAIN COMPONENT
 ========================================================= */
 
-const UIBannerCarousel = forwardRef(
-  (
-    {
-      data = DEFAULT_BANNERS,
+export default function UIBannerCarousel({
+  banners = [],
 
-      /*
-       * IMPORTANT:
-       * Height is fixed.
-       */
+  /*
+   * Reanimated
+   */
+  reanimated = false,
 
-      height = 180,
+  /*
+   * Dimensions
+   */
+  width,
+  height = DEFAULT_HEIGHT,
 
-      /*
-       * Width can be:
-       *
-       * "100%"
-       *
-       * or number.
-       *
-       * Default uses screen width
-       * through onLayout.
-       */
+  /*
+   * Outer spacing
+   */
+  margin = 0,
+  marginTop = 0,
+  marginBottom = 0,
+  marginLeft = 0,
+  marginRight = 0,
 
-      width,
+  paddingHorizontal = 0,
+  paddingVertical = 0,
 
-      borderRadius = 20,
+  /*
+   * Banner spacing
+   */
+  gap = 0,
 
-      gap = 0,
+  /*
+   * Shape
+   */
+  borderRadius = 18,
 
-      autoplay = true,
+  /*
+   * Carousel
+   */
+  autoplay = true,
+  autoplayInterval = 4500,
+  loop = true,
+  initialIndex = 0,
 
-      autoplayInterval = 3500,
+  /*
+   * Pagination
+   */
+  showPagination = true,
+  paginationPosition = "bottom",
 
-      loop = true,
+  paginationDotSize = 7,
+  paginationActiveWidth = 20,
+  paginationGap = 6,
 
-      initialIndex = 0,
+  paginationActiveColor,
+  paginationInactiveColor,
 
-      reanimated = false,
+  /*
+   * Navigation
+   */
+  showNavigation = false,
+  navigationSize = 34,
+  navigationBackgroundColor,
+  navigationIconColor,
 
-      showPagination = true,
+  /*
+   * Events
+   */
+  onIndexChange,
+  onPress,
 
-      paginationType = "dots",
+  /*
+   * Custom rendering
+   */
+  renderItem,
 
-      activeDotColor = "#FFFFFF",
+  /*
+   * Styles
+   */
+  containerStyle,
+  carouselStyle,
+  slideStyle,
+  paginationStyle,
+  navigationStyle,
 
-      inactiveDotColor = "rgba(255,255,255,0.40)",
+  testID,
+}) {
+  /*
+   * Theme is READ ONLY.
+   *
+   * UIProvider controls the theme.
+   * This component never changes theme.
+   */
+  const { theme } = useTheme();
 
-      paginationSize = 7,
+  const safeBanners = useMemo(
+    () => (Array.isArray(banners) ? banners : []),
+    [banners],
+  );
 
-      paginationGap = 5,
+  const carouselWidth = width || SCREEN_WIDTH - paddingHorizontal * 2;
 
-      paginationBottom = 9,
+  const carouselHeight = numberOr(height, DEFAULT_HEIGHT);
 
-      showArrows = false,
+  const [activeIndex, setActiveIndex] = useState(() =>
+    clamp(numberOr(initialIndex, 0), 0, Math.max(safeBanners.length - 1, 0)),
+  );
 
-      arrowColor = "#FFFFFF",
+  const activeIndexRef = useRef(activeIndex);
 
-      arrowBackgroundColor = "rgba(0,0,0,0.35)",
+  const scrollRef = useRef(null);
 
-      onIndexChange,
+  const scrollX = useSharedValue(activeIndex * carouselWidth);
 
-      onPress,
+  /*
+   * Keep active index synchronized.
+   */
+  const setIndex = useCallback(
+    (index) => {
+      if (!safeBanners.length) {
+        return;
+      }
 
-      onScroll,
+      const nextIndex = clamp(index, 0, safeBanners.length - 1);
 
-      onMomentumScrollEnd,
+      activeIndexRef.current = nextIndex;
 
-      /*
-       * Custom renderer.
-       */
+      setActiveIndex(nextIndex);
 
-      renderItem,
-
-      keyExtractor,
-
-      /*
-       * Styles.
-       */
-
-      containerStyle,
-
-      contentContainerStyle,
-
-      titleStyle,
-
-      subtitleStyle,
-
-      buttonStyle,
-
-      buttonTextStyle,
-
-      /*
-       * Disable.
-       */
-
-      disabled = false,
+      if (typeof onIndexChange === "function") {
+        onIndexChange(nextIndex, safeBanners[nextIndex]);
+      }
     },
-    ref,
-  ) => {
-    /*
-     * Width measured from parent.
-     *
-     * This is important because
-     * "100%" cannot be used directly
-     * as a FlatList numeric layout size.
-     */
+    [safeBanners, onIndexChange],
+  );
 
-    const [containerWidth, setContainerWidth] = useState(0);
-
-    const listRef = useRef(null);
-
-    const autoplayRef = useRef(null);
-
-    const currentIndexRef = useRef(Math.max(0, initialIndex));
-
-    const [currentIndex, setCurrentIndex] = useState(Math.max(0, initialIndex));
-
-    const [isDragging, setIsDragging] = useState(false);
-
-    const scrollX = useSharedValue(0);
-
-    /*
-     * Normalize data.
-     */
-
-    const banners = useMemo(() => {
-      if (!Array.isArray(data)) {
-        return [];
-      }
-
-      return data.map((item, index) => ({
-        ...item,
-
-        id: item.id ?? `banner-${index}`,
-      }));
-    }, [data]);
-
-    /*
-     * Actual width.
-     */
-
-    const actualWidth = typeof width === "number" ? width : containerWidth;
-
-    /*
-     * Nothing can be rendered until
-     * parent width is known.
-     */
-
-    const itemSize = actualWidth > 0 ? actualWidth : 1;
-
-    /* =====================================================
-         UPDATE INDEX
-      ===================================================== */
-
-    const updateIndex = useCallback(
-      (index) => {
-        if (banners.length === 0) {
-          return;
-        }
-
-        const safeIndex = Math.max(0, Math.min(index, banners.length - 1));
-
-        currentIndexRef.current = safeIndex;
-
-        setCurrentIndex(safeIndex);
-
-        if (onIndexChange) {
-          onIndexChange(safeIndex, banners[safeIndex]);
-        }
-      },
-      [banners, onIndexChange],
-    );
-
-    /* =====================================================
-         SCROLL
-      ===================================================== */
-
-    const scrollHandler = useAnimatedScrollHandler({
-      onScroll: (event) => {
-        scrollX.value = event.contentOffset.x;
-
-        if (onScroll) {
-          onScroll(event);
-        }
-      },
-    });
-
-    /* =====================================================
-         MOMENTUM
-      ===================================================== */
-
-    const handleMomentumEnd = useCallback(
-      (event) => {
-        const x = event.nativeEvent.contentOffset.x;
-
-        const index = Math.round(x / (itemSize + gap));
-
-        updateIndex(index);
-
-        setIsDragging(false);
-
-        if (onMomentumScrollEnd) {
-          onMomentumScrollEnd(event);
-        }
-      },
-      [gap, itemSize, onMomentumScrollEnd, updateIndex],
-    );
-
-    /* =====================================================
-         GO TO
-      ===================================================== */
-
-    const goTo = useCallback(
-      (requestedIndex, animated = true) => {
-        if (!listRef.current || banners.length === 0 || actualWidth <= 0) {
-          return;
-        }
-
-        let index = requestedIndex;
-
-        if (loop) {
-          if (index < 0) {
-            index = banners.length - 1;
-          }
-
-          if (index >= banners.length) {
-            index = 0;
-          }
-        } else {
-          index = Math.max(0, Math.min(index, banners.length - 1));
-        }
-
-        listRef.current.scrollToOffset({
-          offset: index * (itemSize + gap),
-
-          animated,
-        });
-
-        updateIndex(index);
-      },
-      [actualWidth, banners.length, gap, itemSize, loop, updateIndex],
-    );
-
-    /* =====================================================
-         NEXT
-      ===================================================== */
-
-    const next = useCallback(() => {
-      if (banners.length <= 1) {
+  /*
+   * Go to specific slide.
+   */
+  const goToIndex = useCallback(
+    (index, animated = true) => {
+      if (!safeBanners.length) {
         return;
       }
 
-      const nextIndex = currentIndexRef.current + 1;
+      const nextIndex = clamp(index, 0, safeBanners.length - 1);
 
-      if (nextIndex >= banners.length && !loop) {
-        goTo(banners.length - 1);
+      scrollRef.current?.scrollTo({
+        x: nextIndex * carouselWidth,
+        animated,
+      });
 
-        return;
-      }
+      setIndex(nextIndex);
+    },
+    [safeBanners.length, carouselWidth, setIndex],
+  );
 
-      goTo(nextIndex);
-    }, [banners.length, goTo, loop]);
-
-    /* =====================================================
-         PREVIOUS
-      ===================================================== */
-
-    const previous = useCallback(() => {
-      if (banners.length <= 1) {
-        return;
-      }
-
-      goTo(currentIndexRef.current - 1);
-    }, [banners.length, goTo]);
-
-    /* =====================================================
-         AUTOPLAY
-      ===================================================== */
-
-    const stopAutoplay = useCallback(() => {
-      if (autoplayRef.current) {
-        clearInterval(autoplayRef.current);
-
-        autoplayRef.current = null;
-      }
-    }, []);
-
-    const startAutoplay = useCallback(() => {
-      stopAutoplay();
-
-      if (!autoplay || disabled || banners.length <= 1 || isDragging) {
-        return;
-      }
-
-      autoplayRef.current = setInterval(() => {
-        next();
-      }, autoplayInterval);
-    }, [
-      autoplay,
-      autoplayInterval,
-      banners.length,
-      disabled,
-      isDragging,
-      next,
-      stopAutoplay,
-    ]);
-
-    /*
-     * Start autoplay.
-     */
-
-    useEffect(() => {
-      startAutoplay();
-
-      return () => {
-        stopAutoplay();
-      };
-    }, [startAutoplay, stopAutoplay]);
-
-    /*
-     * Re-start after drag.
-     */
-
-    useEffect(() => {
-      if (!isDragging) {
-        startAutoplay();
-      } else {
-        stopAutoplay();
-      }
-    }, [isDragging, startAutoplay, stopAutoplay]);
-
-    /* =====================================================
-         IMPERATIVE REF
-      ===================================================== */
-
-    useImperativeHandle(
-      ref,
-      () => ({
-        next,
-
-        previous,
-
-        goTo,
-
-        startAutoplay,
-
-        stopAutoplay,
-
-        getCurrentIndex: () => currentIndexRef.current,
-
-        getCurrentBanner: () => banners[currentIndexRef.current],
-      }),
-      [banners, goTo, next, previous, startAutoplay, stopAutoplay],
-    );
-
-    /* =====================================================
-         PAGINATION
-      ===================================================== */
-
-    const renderPagination = () => {
-      if (!showPagination || banners.length <= 1) {
-        return null;
-      }
-
-      if (paginationType === "numbers") {
-        return (
-          <View
-            style={[
-              styles.numberPagination,
-              {
-                bottom: paginationBottom,
-              },
-            ]}
-          >
-            <Text
-              style={[
-                styles.numberActive,
-                {
-                  color: activeDotColor,
-                },
-              ]}
-            >
-              {currentIndex + 1}
-            </Text>
-
-            <Text
-              style={[
-                styles.numberSlash,
-                {
-                  color: inactiveDotColor,
-                },
-              ]}
-            >
-              /
-            </Text>
-
-            <Text
-              style={[
-                styles.numberTotal,
-                {
-                  color: inactiveDotColor,
-                },
-              ]}
-            >
-              {banners.length}
-            </Text>
-          </View>
-        );
-      }
-
-      if (paginationType === "lines") {
-        return (
-          <View
-            pointerEvents="box-none"
-            style={[
-              styles.pagination,
-              {
-                bottom: paginationBottom,
-              },
-            ]}
-          >
-            {banners.map((banner, index) => (
-              <Pressable
-                key={banner.id}
-                onPress={() => goTo(index)}
-                hitSlop={8}
-                style={[
-                  styles.paginationLine,
-                  {
-                    width: index === currentIndex ? 28 : 9,
-
-                    backgroundColor:
-                      index === currentIndex
-                        ? activeDotColor
-                        : inactiveDotColor,
-                  },
-                ]}
-              />
-            ))}
-          </View>
-        );
-      }
-
-      return (
-        <View
-          pointerEvents="box-none"
-          style={[
-            styles.pagination,
-            {
-              bottom: paginationBottom,
-            },
-          ]}
-        >
-          {banners.map((banner, index) => (
-            <Pressable
-              key={banner.id}
-              onPress={() => goTo(index)}
-              hitSlop={8}
-              style={[
-                styles.dot,
-                {
-                  width:
-                    index === currentIndex
-                      ? paginationSize * 2.5
-                      : paginationSize,
-
-                  height: paginationSize,
-
-                  borderRadius: paginationSize,
-
-                  marginHorizontal: paginationGap,
-
-                  backgroundColor:
-                    index === currentIndex ? activeDotColor : inactiveDotColor,
-                },
-              ]}
-            />
-          ))}
-        </View>
-      );
-    };
-
-    /* =====================================================
-         ARROWS
-      ===================================================== */
-
-    const renderArrows = () => {
-      if (!showArrows || banners.length <= 1) {
-        return null;
-      }
-
-      return (
-        <>
-          <Pressable
-            onPress={previous}
-            style={[
-              styles.arrow,
-              styles.leftArrow,
-              {
-                backgroundColor: arrowBackgroundColor,
-              },
-            ]}
-          >
-            <Ionicons name="chevron-back" size={20} color={arrowColor} />
-          </Pressable>
-
-          <Pressable
-            onPress={next}
-            style={[
-              styles.arrow,
-              styles.rightArrow,
-              {
-                backgroundColor: arrowBackgroundColor,
-              },
-            ]}
-          >
-            <Ionicons name="chevron-forward" size={20} color={arrowColor} />
-          </Pressable>
-        </>
-      );
-    };
-
-    /* =====================================================
-         RENDER ITEM
-      ===================================================== */
-
-    const renderBanner = ({ item, index }) => {
-      if (renderItem) {
-        return renderItem({
-          item,
-          index,
-          currentIndex,
-          width: actualWidth,
-          height,
-        });
-      }
-
-      return (
-        <BannerItem
-          banner={item}
-          index={index}
-          currentIndex={currentIndex}
-          width={actualWidth}
-          height={height}
-          borderRadius={borderRadius}
-          gap={gap}
-          reanimated={reanimated}
-          onPress={onPress}
-          titleStyle={titleStyle}
-          subtitleStyle={subtitleStyle}
-          buttonStyle={buttonStyle}
-          buttonTextStyle={buttonTextStyle}
-        />
-      );
-    };
-
-    /* =====================================================
-         EMPTY
-      ===================================================== */
-
-    if (banners.length === 0) {
-      return null;
+  /*
+   * Next.
+   */
+  const goNext = useCallback(() => {
+    if (safeBanners.length <= 1) {
+      return;
     }
 
-    /* =====================================================
-         RETURN
-      ===================================================== */
+    const current = activeIndexRef.current;
 
-    return (
+    if (current < safeBanners.length - 1) {
+      goToIndex(current + 1);
+      return;
+    }
+
+    if (loop) {
+      goToIndex(0);
+    }
+  }, [safeBanners.length, loop, goToIndex]);
+
+  /*
+   * Previous.
+   */
+  const goPrevious = useCallback(() => {
+    if (safeBanners.length <= 1) {
+      return;
+    }
+
+    const current = activeIndexRef.current;
+
+    if (current > 0) {
+      goToIndex(current - 1);
+      return;
+    }
+
+    if (loop) {
+      goToIndex(safeBanners.length - 1);
+    }
+  }, [safeBanners.length, loop, goToIndex]);
+
+  /*
+   * AUTOPLAY
+   */
+  useEffect(() => {
+    if (!autoplay || safeBanners.length <= 1) {
+      return undefined;
+    }
+
+    const timer = setInterval(
+      () => {
+        goNext();
+      },
+      Math.max(1000, autoplayInterval),
+    );
+
+    return () => {
+      clearInterval(timer);
+    };
+  }, [autoplay, autoplayInterval, safeBanners.length, goNext]);
+
+  /*
+   * Reanimated scroll handler.
+   */
+  const animatedScrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      scrollX.value = event.contentOffset.x;
+    },
+  });
+
+  /*
+   * Native scroll end.
+   */
+  const handleMomentumScrollEnd = useCallback(
+    (event) => {
+      const index = clamp(
+        Math.round(event.nativeEvent.contentOffset.x / carouselWidth),
+        0,
+        Math.max(safeBanners.length - 1, 0),
+      );
+
+      setIndex(index);
+    },
+    [carouselWidth, safeBanners.length, setIndex],
+  );
+
+  /*
+   * Theme fallback colors.
+   */
+  const activePaginationColor =
+    paginationActiveColor ||
+    theme?.colors?.brand?.primary ||
+    theme?.colors?.primary ||
+    "#E91E63";
+
+  const inactivePaginationColor =
+    paginationInactiveColor ||
+    theme?.colors?.border?.default ||
+    "rgba(0,0,0,0.18)";
+
+  const navBackground =
+    navigationBackgroundColor ||
+    theme?.colors?.background?.primary ||
+    "#FFFFFF";
+
+  const navIconColor =
+    navigationIconColor || theme?.colors?.text?.primary || "#111827";
+
+  /*
+   * Empty state.
+   */
+  if (!safeBanners.length) {
+    return null;
+  }
+
+  return (
+    <View
+      testID={testID}
+      style={[
+        styles.outerContainer,
+        {
+          margin,
+          marginTop,
+          marginBottom,
+          marginLeft,
+          marginRight,
+
+          paddingHorizontal,
+          paddingVertical,
+        },
+        containerStyle,
+      ]}
+    >
       <View
-        onLayout={(event) => {
-          if (typeof width !== "number") {
-            const measuredWidth = event.nativeEvent.layout.width;
-
-            if (measuredWidth > 0) {
-              setContainerWidth(measuredWidth);
-            }
-          }
-        }}
         style={[
-          styles.container,
+          styles.carousel,
           {
-            height,
+            width: carouselWidth,
+            height: carouselHeight,
           },
-          containerStyle,
+          carouselStyle,
         ]}
       >
-        {actualWidth > 0 ? (
-          <AnimatedFlatList
-            ref={listRef}
-            data={banners}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            bounces={false}
-            overScrollMode="never"
-            scrollEventThrottle={16}
+        <Animated.ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          scrollEventThrottle={16}
+          decelerationRate="fast"
+          contentOffset={{
+            x: activeIndex * carouselWidth,
+            y: 0,
+          }}
+          onScroll={reanimated ? animatedScrollHandler : undefined}
+          onMomentumScrollEnd={handleMomentumScrollEnd}
+          contentContainerStyle={{
+            paddingHorizontal: gap / 2,
+          }}
+        >
+          {safeBanners.map((banner, index) => {
+            const slideWidth = carouselWidth - gap;
+
             /*
-             * Fixed item width.
+             * Custom renderItem.
              */
-
-            snapToInterval={actualWidth + gap}
-            snapToAlignment="start"
-            decelerationRate="fast"
-            disableIntervalMomentum
-            /*
-             * Initial position.
-             */
-
-            initialScrollIndex={Math.max(
-              0,
-              Math.min(initialIndex, banners.length - 1),
-            )}
-            getItemLayout={(_data, index) => ({
-              length: actualWidth + gap,
-
-              offset: (actualWidth + gap) * index,
-
-              index,
-            })}
-            keyExtractor={(item, index) =>
-              String(
-                keyExtractor ? keyExtractor(item, index) : (item.id ?? index),
-              )
+            if (typeof renderItem === "function") {
+              return (
+                <View
+                  key={banner?.id || `banner-${index}`}
+                  style={[
+                    styles.slide,
+                    {
+                      width: slideWidth,
+                      height: carouselHeight,
+                      marginHorizontal: gap / 2,
+                    },
+                    slideStyle,
+                    banner?.slideStyle,
+                  ]}
+                >
+                  {renderItem({
+                    banner,
+                    index,
+                    activeIndex,
+                    width: slideWidth,
+                    height: carouselHeight,
+                    theme,
+                  })}
+                </View>
+              );
             }
-            renderItem={renderBanner}
-            contentContainerStyle={[styles.listContent, contentContainerStyle]}
-            onScroll={scrollHandler}
-            onScrollBeginDrag={() => {
-              setIsDragging(true);
 
-              stopAutoplay();
-            }}
-            onMomentumScrollEnd={handleMomentumEnd}
-            onTouchEnd={() => {
-              setIsDragging(false);
-            }}
-            scrollEnabled={!disabled && banners.length > 1}
-          />
-        ) : null}
+            return (
+              <BannerSlide
+                key={banner?.id || `banner-${index}`}
+                banner={{
+                  ...banner,
 
-        {/*
-         * Pagination is INSIDE the
-         * fixed-height container.
-         */}
+                  borderRadius: banner?.borderRadius ?? borderRadius,
 
-        {renderPagination()}
+                  contentPaddingHorizontal: banner?.contentPaddingHorizontal,
 
-        {renderArrows()}
+                  contentPaddingVertical: banner?.contentPaddingVertical,
+                }}
+                index={index}
+                activeIndex={activeIndex}
+                width={slideWidth}
+                height={carouselHeight}
+                reanimated={reanimated}
+                theme={theme}
+                onPress={onPress}
+                slideStyle={slideStyle}
+              />
+            );
+          })}
+        </Animated.ScrollView>
+
+        {/* NAVIGATION */}
+
+        {showNavigation && safeBanners.length > 1 && (
+          <>
+            <View
+              pointerEvents="box-none"
+              style={[styles.navigationLeft, navigationStyle]}
+            >
+              <NavigationButton
+                direction="left"
+                size={navigationSize}
+                backgroundColor={navBackground}
+                iconColor={navIconColor}
+                onPress={goPrevious}
+              />
+            </View>
+
+            <View
+              pointerEvents="box-none"
+              style={[styles.navigationRight, navigationStyle]}
+            >
+              <NavigationButton
+                direction="right"
+                size={navigationSize}
+                backgroundColor={navBackground}
+                iconColor={navIconColor}
+                onPress={goNext}
+              />
+            </View>
+          </>
+        )}
+
+        {/* PAGINATION */}
+
+        {showPagination && (
+          <View
+            pointerEvents="box-none"
+            style={
+              paginationPosition === "top"
+                ? styles.paginationTop
+                : styles.paginationBottom
+            }
+          >
+            <Pagination
+              count={safeBanners.length}
+              activeIndex={activeIndex}
+              onPress={goToIndex}
+              dotSize={paginationDotSize}
+              activeWidth={paginationActiveWidth}
+              gap={paginationGap}
+              activeColor={activePaginationColor}
+              inactiveColor={inactivePaginationColor}
+              style={paginationStyle}
+            />
+          </View>
+        )}
       </View>
-    );
-  },
-);
+    </View>
+  );
+}
 
-UIBannerCarousel.displayName = "UIBannerCarousel";
+/* =========================================================
+   BANNER SLIDE
+========================================================= */
+
+function BannerSlide({
+  banner,
+  index,
+  activeIndex,
+  width,
+  height,
+  reanimated,
+  theme,
+  onPress,
+  slideStyle,
+}) {
+  const handlePress = banner?.onPress || onPress;
+
+  return (
+    <View
+      style={[
+        styles.slide,
+        {
+          width,
+          height,
+          marginHorizontal: 0,
+        },
+        slideStyle,
+        banner?.slideStyle,
+      ]}
+    >
+      <View
+        style={[
+          styles.banner,
+          {
+            width,
+            height,
+            borderRadius: banner?.borderRadius || 18,
+          },
+        ]}
+      >
+        {/* BACKGROUND */}
+
+        <BannerBackground
+          banner={banner}
+          width={width}
+          height={height}
+          reanimated={reanimated}
+        />
+
+        {/* PRESSABLE CONTENT */}
+
+        <Pressable
+          disabled={typeof handlePress !== "function"}
+          onPress={() => {
+            if (typeof banner?.onPress === "function") {
+              banner.onPress();
+              return;
+            }
+
+            if (typeof onPress === "function") {
+              onPress(banner, index);
+            }
+          }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        {/* MULTIPLE IMAGES */}
+
+        {Array.isArray(banner?.images) &&
+          banner.images.map((item, imageIndex) => (
+            <AnimatedBannerAsset
+              key={item?.id || `image-${index}-${imageIndex}`}
+              item={item}
+              type="image"
+            />
+          ))}
+
+        {/* MULTIPLE ICONS */}
+
+        {Array.isArray(banner?.icons) &&
+          banner.icons.map((item, iconIndex) => (
+            <AnimatedBannerAsset
+              key={item?.id || `icon-${index}-${iconIndex}`}
+              item={item}
+              type="icon"
+            />
+          ))}
+
+        {/* TEXT / CTA */}
+
+        <BannerTextContent
+          banner={banner}
+          theme={theme}
+          width={width}
+          height={height}
+          index={index}
+          activeIndex={activeIndex}
+          reanimated={reanimated}
+          onPress={onPress}
+        />
+      </View>
+    </View>
+  );
+}
 
 /* =========================================================
    STYLES
 ========================================================= */
 
 const styles = StyleSheet.create({
-  container: {
+  outerContainer: {
     width: "100%",
-
-    position: "relative",
-
-    overflow: "hidden",
   },
 
-  listContent: {
-    padding: 0,
+  carousel: {
+    position: "relative",
+    overflow: "visible",
+  },
 
-    margin: 0,
+  slide: {
+    position: "relative",
   },
 
   banner: {
     position: "relative",
-
     overflow: "hidden",
-
-    justifyContent: "center",
   },
 
-  bannerContent: {
-    flex: 1,
-
-    flexDirection: "row",
-
+  asset: {
+    position: "absolute",
     alignItems: "center",
-
-    paddingHorizontal: 18,
-
-    paddingVertical: 12,
-
-    position: "relative",
-
-    zIndex: 5,
-  },
-
-  leftContent: {
-    flex: 1,
-
     justifyContent: "center",
-
-    alignItems: "flex-start",
-
-    paddingBottom: 5,
   },
 
-  iconWrapper: {
-    marginBottom: 3,
+  /*
+   * Content
+   */
+
+  content: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
   },
 
-  title: {
-    fontSize: 25,
-
-    lineHeight: 29,
-
-    fontWeight: "900",
-
-    letterSpacing: -0.5,
-
-    maxWidth: "100%",
+  customContent: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
   },
 
-  subtitle: {
-    fontSize: 12.5,
-
-    lineHeight: 17,
-
-    fontWeight: "600",
-
-    marginTop: 3,
-
-    maxWidth: "100%",
-  },
-
-  description: {
-    fontSize: 10,
-
-    lineHeight: 14,
-
-    fontWeight: "500",
-
-    marginTop: 2,
-  },
+  /*
+   * Badge
+   */
 
   badge: {
-    paddingHorizontal: 9,
+    minHeight: 26,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 999,
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 7,
+  },
 
-    paddingVertical: 4,
-
-    borderRadius: 20,
-
-    marginBottom: 5,
+  badgeIcon: {
+    marginRight: 5,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   badgeText: {
-    fontSize: 9,
-
-    fontWeight: "900",
-
-    letterSpacing: 0.5,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
 
+  /*
+   * Text
+   */
+
+  eyebrow: {
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: "700",
+    letterSpacing: 1,
+    marginBottom: 4,
+  },
+
+  title: {
+    fontSize: 26,
+    lineHeight: 30,
+    fontWeight: "800",
+    letterSpacing: -0.4,
+  },
+
+  subtitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "500",
+    marginTop: 5,
+    opacity: 0.92,
+  },
+
+  /*
+   * Button
+   */
+
   button: {
-    minHeight: 32,
-
-    paddingHorizontal: 13,
-
-    paddingVertical: 6,
-
-    borderRadius: 17,
-
+    minHeight: 36,
+    paddingHorizontal: 15,
+    borderRadius: 999,
+    marginTop: 12,
     flexDirection: "row",
-
     alignItems: "center",
-
     justifyContent: "center",
+  },
 
-    gap: 5,
-
-    marginTop: 8,
+  buttonIcon: {
+    marginRight: 6,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
   buttonText: {
-    fontSize: 11,
-
-    fontWeight: "900",
-  },
-
-  foregroundImage: {
-    width: "43%",
-
-    height: "92%",
-
-    marginLeft: 5,
-
-    zIndex: 4,
-  },
-
-  rightIcon: {
-    width: "38%",
-
-    height: "100%",
-
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    zIndex: 4,
-  },
-
-  decorativeCircleOne: {
-    position: "absolute",
-
-    width: 140,
-
-    height: 140,
-
-    borderRadius: 70,
-
-    right: -55,
-
-    top: -65,
-
-    zIndex: 2,
-  },
-
-  decorativeCircleTwo: {
-    position: "absolute",
-
-    width: 95,
-
-    height: 95,
-
-    borderRadius: 50,
-
-    left: -48,
-
-    bottom: -55,
-
-    zIndex: 2,
-  },
-
-  /* =======================================================
-     PAGINATION
-  ======================================================= */
-
-  pagination: {
-    position: "absolute",
-
-    left: 0,
-
-    right: 0,
-
-    flexDirection: "row",
-
-    justifyContent: "center",
-
-    alignItems: "center",
-
-    zIndex: 100,
-  },
-
-  dot: {
-    minWidth: 7,
-  },
-
-  paginationLine: {
-    height: 4,
-
-    borderRadius: 4,
-
-    marginHorizontal: 3,
-  },
-
-  numberPagination: {
-    position: "absolute",
-
-    right: 10,
-
-    flexDirection: "row",
-
-    alignItems: "center",
-
-    paddingHorizontal: 9,
-
-    paddingVertical: 4,
-
-    borderRadius: 15,
-
-    backgroundColor: "rgba(0,0,0,0.35)",
-
-    zIndex: 100,
-  },
-
-  numberActive: {
-    fontSize: 11,
-
-    fontWeight: "900",
-  },
-
-  numberSlash: {
-    fontSize: 10,
-
-    marginHorizontal: 3,
-  },
-
-  numberTotal: {
-    fontSize: 10,
-
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: "700",
   },
 
-  /* =======================================================
-     ARROWS
-  ======================================================= */
+  buttonArrow: {
+    fontSize: 17,
+    lineHeight: 20,
+    fontWeight: "700",
+    marginLeft: 5,
+  },
 
-  arrow: {
+  /*
+   * Rays
+   */
+
+  rays: {
     position: "absolute",
-
-    width: 34,
-
-    height: 34,
-
-    borderRadius: 17,
-
     alignItems: "center",
+    justifyContent: "center",
+  },
 
+  ray: {
+    position: "absolute",
+    width: 24,
+    height: "72%",
+    backgroundColor: "rgba(255,255,255,0.22)",
+    borderRadius: 999,
+  },
+
+  /*
+   * Pulse
+   */
+
+  pulse: {
+    position: "absolute",
+    backgroundColor: "rgba(255,255,255,0.4)",
+  },
+
+  /*
+   * Pagination
+   */
+
+  pagination: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  paginationDot: {
+    minWidth: 6,
+  },
+
+  paginationTop: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    top: 9,
+  },
+
+  paginationBottom: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 9,
+  },
+
+  /*
+   * Navigation
+   */
+
+  navigationLeft: {
+    position: "absolute",
+    left: -7,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
+  },
+
+  navigationRight: {
+    position: "absolute",
+    right: -7,
+    top: 0,
+    bottom: 0,
+    justifyContent: "center",
+  },
+
+  navigationButton: {
+    alignItems: "center",
     justifyContent: "center",
 
-    top: "50%",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
 
-    marginTop: -17,
+    shadowOpacity: 0.16,
+    shadowRadius: 5,
 
-    zIndex: 200,
+    elevation: 4,
   },
 
-  leftArrow: {
-    left: 8,
-  },
-
-  rightArrow: {
-    right: 8,
+  navigationIcon: {
+    fontSize: 29,
+    lineHeight: 32,
+    fontWeight: "400",
+    marginTop: -2,
   },
 });
-
-/* =========================================================
-   EXPORTS
-========================================================= */
-
-export default UIBannerCarousel;
-
-export { UIBannerCarousel, DEFAULT_BANNERS as UIBannerCarouselDefaultData };

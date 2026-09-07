@@ -135,7 +135,6 @@ export {
   UILayout,
   UIHeader,
   UIBannerCarousel,
-  UIBannerCarouselDefaultData,
   UIScratchCard,
   UIScratchCardThemes,
   UIScratchCardLabels,
