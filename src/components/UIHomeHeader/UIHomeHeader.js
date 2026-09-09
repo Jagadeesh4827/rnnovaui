@@ -1,12 +1,15 @@
 import React from "react";
+
 import { Pressable, StyleSheet, Text, View } from "react-native";
+
 import { Ionicons } from "@expo/vector-icons";
+
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const UIHomeHeader = ({
-  /* ---------------------------------------------------------------------- */
-  /* Location                                                               */
-  /* ---------------------------------------------------------------------- */
+  /* ====================================================================== */
+  /* LOCATION                                                               */
+  /* ====================================================================== */
 
   locationMode = "location",
 
@@ -14,35 +17,33 @@ const UIHomeHeader = ({
 
   locationTitle = "Home",
 
-  locationAddress = "Plot No 9, Seethapathi Colony, Samrat ...",
+  locationAddress = "",
 
   showLocationChevron = true,
 
   onLocationPress,
 
-  /* ---------------------------------------------------------------------- */
-  /* Back                                                                    */
-  /* ---------------------------------------------------------------------- */
-
   backIcon = "arrow-back",
 
   onBackPress,
 
-  /* ---------------------------------------------------------------------- */
-  /* Right Actions                                                           */
-  /* ---------------------------------------------------------------------- */
+  /* ====================================================================== */
+  /* RIGHT ACTIONS                                                          */
+  /* ====================================================================== */
 
   rightActions = [],
 
-  rightActionsGap = 4,
+  rightActionsGap = 5,
 
   rightActionStyle,
 
   rightActionIconStyle,
 
-  /* ---------------------------------------------------------------------- */
-  /* Search                                                                  */
-  /* ---------------------------------------------------------------------- */
+  rightActionsStyle,
+
+  /* ====================================================================== */
+  /* SEARCH                                                                 */
+  /* ====================================================================== */
 
   showSearch = true,
 
@@ -62,19 +63,19 @@ const UIHomeHeader = ({
 
   searchMicColor = "#FFF",
 
-  onSearchPress,
-
-  onMicPress,
-
   searchActions = [],
 
   searchActionsGap = 4,
 
   searchActionStyle,
 
-  /* ---------------------------------------------------------------------- */
-  /* VEG                                                                     */
-  /* ---------------------------------------------------------------------- */
+  onSearchPress,
+
+  onMicPress,
+
+  /* ====================================================================== */
+  /* VEG                                                                    */
+  /* ====================================================================== */
 
   showVeg = true,
 
@@ -88,15 +89,13 @@ const UIHomeHeader = ({
 
   vegThumbStyle,
 
-  /* ---------------------------------------------------------------------- */
-  /* Layout                                                                  */
-  /* ---------------------------------------------------------------------- */
-
-  height,
+  /* ====================================================================== */
+  /* LAYOUT                                                                  */
+  /* ====================================================================== */
 
   paddingHorizontal = 20,
 
-  paddingTop = 8,
+  paddingTop = 5,
 
   paddingBottom = 10,
 
@@ -104,13 +103,13 @@ const UIHomeHeader = ({
 
   searchHeight = 58,
 
-  searchMarginTop = 16,
+  searchMarginTop = 12,
 
-  borderRadius = 18,
+  searchBorderRadius = 18,
 
-  /* ---------------------------------------------------------------------- */
-  /* Styles                                                                  */
-  /* ---------------------------------------------------------------------- */
+  /* ====================================================================== */
+  /* STYLES                                                                  */
+  /* ====================================================================== */
 
   style,
 
@@ -124,15 +123,13 @@ const UIHomeHeader = ({
 
   locationAddressStyle,
 
-  rightActionsStyle,
-
   searchStyle,
 
   searchTextStyle,
 
-  /* ---------------------------------------------------------------------- */
-  /* Custom rendering                                                        */
-  /* ---------------------------------------------------------------------- */
+  /* ====================================================================== */
+  /* CUSTOM RENDERING                                                        */
+  /* ====================================================================== */
 
   renderLocation,
 
@@ -146,6 +143,10 @@ const UIHomeHeader = ({
 }) => {
   const insets = useSafeAreaInsets();
 
+  /* ====================================================================== */
+  /* LOCATION                                                               */
+  /* ====================================================================== */
+
   const renderLocationArea = () => {
     if (renderLocation) {
       return renderLocation({
@@ -153,27 +154,20 @@ const UIHomeHeader = ({
       });
     }
 
+    const isBack = locationMode === "back";
+
     return (
       <Pressable
-        onPress={onLocationPress}
-        disabled={!onLocationPress}
+        onPress={isBack ? onBackPress : onLocationPress}
+        disabled={isBack ? !onBackPress : !onLocationPress}
         style={[styles.locationArea, locationRowStyle]}
       >
-        {locationMode === "back" ? (
-          <Ionicons
-            name={backIcon}
-            size={28}
-            color="#FFF"
-            style={locationIconStyle}
-          />
-        ) : (
-          <Ionicons
-            name={locationIcon}
-            size={30}
-            color="#FFF"
-            style={locationIconStyle}
-          />
-        )}
+        <Ionicons
+          name={isBack ? backIcon : locationIcon}
+          size={isBack ? 28 : 30}
+          color="#FFF"
+          style={locationIconStyle}
+        />
 
         <View style={[styles.locationContent, locationContentStyle]}>
           <View style={styles.titleRow}>
@@ -184,10 +178,10 @@ const UIHomeHeader = ({
               {locationTitle}
             </Text>
 
-            {showLocationChevron && locationMode !== "back" ? (
+            {!isBack && showLocationChevron ? (
               <Ionicons
                 name="chevron-down"
-                size={21}
+                size={20}
                 color="#FFF"
                 style={styles.chevron}
               />
@@ -208,6 +202,10 @@ const UIHomeHeader = ({
     );
   };
 
+  /* ====================================================================== */
+  /* RIGHT ACTIONS                                                          */
+  /* ====================================================================== */
+
   const renderActions = () => {
     if (renderRightActions) {
       return renderRightActions();
@@ -216,8 +214,8 @@ const UIHomeHeader = ({
     return (
       <View style={[styles.rightActions, rightActionsStyle]}>
         {rightActions.map((action, index) => {
-          const actionPadding =
-            action.paddingHorizontal ?? action.horizontalPadding ?? 8;
+          const horizontalPadding =
+            action.paddingHorizontal ?? action.horizontalPadding ?? 5;
 
           return (
             <Pressable
@@ -226,11 +224,15 @@ const UIHomeHeader = ({
               disabled={action.disabled}
               style={[
                 styles.rightAction,
+
                 {
                   marginLeft: index === 0 ? 0 : rightActionsGap,
-                  paddingHorizontal: actionPadding,
+
+                  paddingHorizontal: horizontalPadding,
                 },
+
                 rightActionStyle,
+
                 action.style,
               ]}
             >
@@ -253,6 +255,10 @@ const UIHomeHeader = ({
     );
   };
 
+  /* ====================================================================== */
+  /* SEARCH                                                                 */
+  /* ====================================================================== */
+
   const renderSearchArea = () => {
     if (!showSearch) {
       return null;
@@ -268,11 +274,15 @@ const UIHomeHeader = ({
         disabled={!onSearchPress}
         style={[
           styles.search,
+
           {
             height: searchHeight,
-            borderRadius,
+
             marginTop: searchMarginTop,
+
+            borderRadius: searchBorderRadius,
           },
+
           searchStyle,
         ]}
       >
@@ -288,8 +298,8 @@ const UIHomeHeader = ({
 
         <View style={styles.searchActions}>
           {searchActions.map((action, index) => {
-            const actionPadding =
-              action.paddingHorizontal ?? action.horizontalPadding ?? 8;
+            const horizontalPadding =
+              action.paddingHorizontal ?? action.horizontalPadding ?? 5;
 
             return (
               <Pressable
@@ -297,16 +307,22 @@ const UIHomeHeader = ({
                 onPress={action.onPress}
                 style={[
                   styles.searchAction,
+
                   {
                     marginLeft: index === 0 ? 0 : searchActionsGap,
-                    paddingHorizontal: actionPadding,
+
+                    paddingHorizontal: horizontalPadding,
                   },
+
                   searchActionStyle,
+
                   action.style,
                 ]}
               >
                 {action.render ? (
                   action.render(action)
+                ) : action.icon ? (
+                  action.icon
                 ) : (
                   <Ionicons
                     name={action.name || "ellipsis-horizontal"}
@@ -322,7 +338,7 @@ const UIHomeHeader = ({
             <Pressable
               onPress={onMicPress}
               disabled={!onMicPress}
-              style={[styles.micButton]}
+              style={styles.micButton}
             >
               <Ionicons
                 name={searchMicIcon}
@@ -335,6 +351,10 @@ const UIHomeHeader = ({
       </Pressable>
     );
   };
+
+  /* ====================================================================== */
+  /* VEG                                                                    */
+  /* ====================================================================== */
 
   const renderVegArea = () => {
     if (!showVeg) {
@@ -357,6 +377,7 @@ const UIHomeHeader = ({
           style={[
             styles.vegTrack,
             vegTrackStyle,
+
             vegValue && styles.vegTrackActive,
           ]}
         >
@@ -364,6 +385,7 @@ const UIHomeHeader = ({
             style={[
               styles.vegThumb,
               vegThumbStyle,
+
               vegValue && styles.vegThumbActive,
             ]}
           />
@@ -372,26 +394,34 @@ const UIHomeHeader = ({
     );
   };
 
+  /* ====================================================================== */
+  /* RENDER                                                                 */
+  /* ====================================================================== */
+
   return (
     <View
       style={[
         styles.container,
+
         {
           paddingTop: insets.top + paddingTop,
+
           paddingHorizontal,
+
           paddingBottom,
-          ...(height ? { minHeight: height } : {}),
         },
+
         style,
       ]}
     >
-      {/* -------------------------------------------------------------- */}
-      {/* TOP ROW                                                        */}
-      {/* -------------------------------------------------------------- */}
+      {/* ================================================================== */}
+      {/* LOCATION + ACTIONS                                                 */}
+      {/* ================================================================== */}
 
       <View
         style={[
           styles.topRow,
+
           {
             minHeight: locationRowHeight,
           },
@@ -404,55 +434,77 @@ const UIHomeHeader = ({
         {renderVegArea()}
       </View>
 
-      {/* -------------------------------------------------------------- */}
-      {/* SEARCH                                                         */}
-      {/* -------------------------------------------------------------- */}
+      {/* ================================================================== */}
+      {/* SEARCH                                                              */}
+      {/* ================================================================== */}
 
       {renderSearchArea()}
 
-      {/* -------------------------------------------------------------- */}
-      {/* CUSTOM CONTENT                                                 */}
-      {/* -------------------------------------------------------------- */}
+      {/* ================================================================== */}
+      {/* CUSTOM CONTENT                                                      */}
+      {/* ================================================================== */}
 
       {children}
     </View>
   );
 };
 
+/* ==========================================================================
+   STYLES
+   ========================================================================== */
+
 const styles = StyleSheet.create({
   container: {
     width: "100%",
+
+    /*
+     * IMPORTANT:
+     * No background here.
+     */
+    backgroundColor: "transparent",
+
     zIndex: 100,
   },
 
   topRow: {
     width: "100%",
+
     flexDirection: "row",
+
     alignItems: "center",
   },
 
   locationArea: {
-    flexShrink: 1,
-    flexDirection: "row",
-    alignItems: "center",
+    flex: 1,
+
     minWidth: 0,
+
+    flexDirection: "row",
+
+    alignItems: "center",
   },
 
   locationContent: {
-    flexShrink: 1,
-    marginLeft: 8,
+    flex: 1,
+
+    minWidth: 0,
+
+    marginLeft: 7,
   },
 
   titleRow: {
     flexDirection: "row",
+
     alignItems: "center",
-    flexShrink: 1,
   },
 
   locationTitle: {
     color: "#FFF",
+
     fontSize: 25,
+
     fontWeight: "800",
+
     flexShrink: 1,
   },
 
@@ -462,48 +514,123 @@ const styles = StyleSheet.create({
 
   locationAddress: {
     color: "rgba(255,255,255,0.92)",
-    fontSize: 15,
-    marginTop: 2,
-    flexShrink: 1,
-  },
 
-  locationIconStyle: {
-    marginRight: 2,
+    fontSize: 15,
+
+    marginTop: 2,
+
+    flexShrink: 1,
   },
 
   rightActions: {
     flexDirection: "row",
+
     alignItems: "center",
-    marginLeft: "auto",
+
+    marginLeft: 7,
   },
 
   rightAction: {
     minWidth: 42,
+
     minHeight: 42,
+
     borderRadius: 24,
+
     alignItems: "center",
+
     justifyContent: "center",
   },
 
+  /* ====================================================================== */
+  /* SEARCH                                                                  */
+  /* ====================================================================== */
+
+  search: {
+    width: "100%",
+
+    flexDirection: "row",
+
+    alignItems: "center",
+
+    paddingHorizontal: 17,
+
+    backgroundColor: "rgba(15,15,18,0.92)",
+  },
+
+  searchText: {
+    flex: 1,
+
+    color: "#DDD",
+
+    fontSize: 18,
+
+    marginLeft: 12,
+  },
+
+  searchActions: {
+    flexDirection: "row",
+
+    alignItems: "center",
+
+    marginLeft: 5,
+  },
+
+  searchAction: {
+    minWidth: 36,
+
+    minHeight: 40,
+
+    alignItems: "center",
+
+    justifyContent: "center",
+  },
+
+  micButton: {
+    minWidth: 36,
+
+    minHeight: 40,
+
+    alignItems: "center",
+
+    justifyContent: "center",
+
+    marginLeft: 3,
+  },
+
+  /* ====================================================================== */
+  /* VEG                                                                     */
+  /* ====================================================================== */
+
   vegContainer: {
     alignItems: "center",
+
     justifyContent: "center",
-    marginLeft: 10,
+
+    marginLeft: 9,
   },
 
   vegLabel: {
     color: "#FFF",
+
     fontSize: 15,
+
     fontWeight: "800",
+
     marginBottom: 5,
   },
 
   vegTrack: {
     width: 48,
+
     height: 28,
+
     borderRadius: 20,
-    backgroundColor: "rgba(120,120,120,0.75)",
+
+    backgroundColor: "rgba(100,100,100,0.75)",
+
     justifyContent: "center",
+
     paddingHorizontal: 3,
   },
 
@@ -513,52 +640,22 @@ const styles = StyleSheet.create({
 
   vegThumb: {
     width: 22,
+
     height: 22,
+
     borderRadius: 11,
+
     backgroundColor: "#FFF",
-    alignSelf: "flex-start",
   },
 
   vegThumbActive: {
     alignSelf: "flex-end",
   },
-
-  search: {
-    width: "100%",
-    backgroundColor: "rgba(15,15,18,0.92)",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 17,
-  },
-
-  searchText: {
-    flex: 1,
-    color: "#DDD",
-    fontSize: 18,
-    marginLeft: 12,
-  },
-
-  searchActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginLeft: 8,
-  },
-
-  searchAction: {
-    minWidth: 36,
-    minHeight: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  micButton: {
-    minWidth: 36,
-    minHeight: 40,
-    alignItems: "center",
-    justifyContent: "center",
-    marginLeft: 4,
-  },
 });
+
+/* ==========================================================================
+   EXPORT
+   ========================================================================== */
 
 export default UIHomeHeader;
 
