@@ -5,18 +5,25 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 
 /**
- * Reusable home header.
+ * UIHomeHeader
  *
  * IMPORTANT:
- * This component does NOT add safe-area top padding by default.
+ * This component DOES NOT add safe-area top padding.
  *
- * When used inside UIBannerCarousel, the carousel owns the
- * status-bar safe area so the header starts immediately below it.
+ * UIBannerCarousel owns the status-bar inset.
+ *
+ * Therefore:
+ *
+ * Status Bar
+ *      ↓
+ * UIHomeHeader
+ *      ↓
+ * Banner
  */
 const UIHomeHeader = ({
-  /* ========================================================================
-     LOCATION
-     ======================================================================== */
+  // ========================================================================
+  // LOCATION
+  // ========================================================================
 
   locationMode = "location",
 
@@ -34,9 +41,9 @@ const UIHomeHeader = ({
 
   onBackPress,
 
-  /* ========================================================================
-     RIGHT ACTIONS
-     ======================================================================== */
+  // ========================================================================
+  // RIGHT ACTIONS
+  // ========================================================================
 
   rightActions = [],
 
@@ -48,9 +55,9 @@ const UIHomeHeader = ({
 
   rightActionsStyle,
 
-  /* ========================================================================
-     SEARCH
-     ======================================================================== */
+  // ========================================================================
+  // SEARCH
+  // ========================================================================
 
   showSearch = true,
 
@@ -80,16 +87,16 @@ const UIHomeHeader = ({
 
   onMicPress,
 
-  /* ========================================================================
-     VEG
-     ======================================================================== */
+  // ========================================================================
+  // VEG
+  // ========================================================================
 
   /**
    * Optional.
    *
-   * isVeg={true}  -> show VEG switch ON
-   * isVeg={false} -> show VEG switch OFF
-   * isVeg omitted -> hide VEG switch
+   * undefined -> hidden
+   * false     -> visible and OFF
+   * true      -> visible and ON
    */
   isVeg,
 
@@ -101,15 +108,16 @@ const UIHomeHeader = ({
 
   vegThumbStyle,
 
-  /* ========================================================================
-     LAYOUT
-     ======================================================================== */
+  // ========================================================================
+  // LAYOUT
+  // ========================================================================
 
   paddingHorizontal = 20,
 
   /**
-   * This is now ONLY header internal spacing.
-   * It does NOT include status-bar inset.
+   * Internal header padding only.
+   *
+   * Do NOT put insets.top here.
    */
   paddingTop = 0,
 
@@ -119,13 +127,15 @@ const UIHomeHeader = ({
 
   searchHeight = 58,
 
-  searchMarginTop = 10,
+  searchMarginTop = 8,
+
+  searchMarginBottom = 0,
 
   searchBorderRadius = 18,
 
-  /* ========================================================================
-     CUSTOM STYLES
-     ======================================================================== */
+  // ========================================================================
+  // CUSTOM STYLES
+  // ========================================================================
 
   style,
 
@@ -143,9 +153,9 @@ const UIHomeHeader = ({
 
   searchTextStyle,
 
-  /* ========================================================================
-     CUSTOM RENDERERS
-     ======================================================================== */
+  // ========================================================================
+  // CUSTOM RENDERERS
+  // ========================================================================
 
   renderLocation,
 
@@ -157,25 +167,11 @@ const UIHomeHeader = ({
 
   children,
 }) => {
-  /*
-   * VEG is displayed only when isVeg was actually supplied.
-   *
-   * This means:
-   *
-   * <UIHomeHeader />
-   * => no VEG
-   *
-   * <UIHomeHeader isVeg={false} />
-   * => VEG OFF
-   *
-   * <UIHomeHeader isVeg={true} />
-   * => VEG ON
-   */
   const showVeg = isVeg !== undefined;
 
-  /* ========================================================================
-     LOCATION
-     ======================================================================== */
+  // ========================================================================
+  // LOCATION
+  // ========================================================================
 
   const renderLocationArea = () => {
     if (renderLocation) {
@@ -230,9 +226,9 @@ const UIHomeHeader = ({
     );
   };
 
-  /* ========================================================================
-     RIGHT ACTIONS
-     ======================================================================== */
+  // ========================================================================
+  // RIGHT ACTIONS
+  // ========================================================================
 
   const renderActions = () => {
     if (renderRightActions) {
@@ -283,9 +279,9 @@ const UIHomeHeader = ({
     );
   };
 
-  /* ========================================================================
-     VEG
-     ======================================================================== */
+  // ========================================================================
+  // VEG
+  // ========================================================================
 
   const renderVegArea = () => {
     if (!showVeg) {
@@ -325,9 +321,9 @@ const UIHomeHeader = ({
     );
   };
 
-  /* ========================================================================
-     SEARCH
-     ======================================================================== */
+  // ========================================================================
+  // SEARCH
+  // ========================================================================
 
   const renderSearchArea = () => {
     if (!showSearch) {
@@ -349,6 +345,8 @@ const UIHomeHeader = ({
             height: searchHeight,
 
             marginTop: searchMarginTop,
+
+            marginBottom: searchMarginBottom,
 
             borderRadius: searchBorderRadius,
           },
@@ -423,27 +421,23 @@ const UIHomeHeader = ({
     );
   };
 
-  /* ========================================================================
-     RENDER
-     ======================================================================== */
+  // ========================================================================
+  // RENDER
+  // ========================================================================
 
   return (
     <View
       style={[
         styles.container,
-
         {
           paddingTop,
           paddingHorizontal,
           paddingBottom,
         },
-
         style,
       ]}
     >
-      {/* ================================================================ */}
-      {/* LOCATION + RIGHT ACTIONS + OPTIONAL VEG                          */}
-      {/* ================================================================ */}
+      {/* LOCATION / RIGHT ACTIONS / VEG */}
 
       <View
         style={[
@@ -460,73 +454,52 @@ const UIHomeHeader = ({
         {renderVegArea()}
       </View>
 
-      {/* ================================================================ */}
-      {/* SEARCH                                                            */}
-      {/* ================================================================ */}
+      {/* SEARCH */}
 
       {renderSearchArea()}
 
-      {/* ================================================================ */}
-      {/* CUSTOM CONTENT                                                    */}
-      {/* ================================================================ */}
+      {/* OPTIONAL CHILDREN */}
 
       {children}
     </View>
   );
 };
 
-/* ==========================================================================
-   STYLES
-   ========================================================================== */
-
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-
     backgroundColor: "transparent",
-
-    zIndex: 100,
+    zIndex: 1000,
   },
 
   topRow: {
     width: "100%",
-
     flexDirection: "row",
-
     alignItems: "center",
   },
 
   locationArea: {
     flex: 1,
-
     minWidth: 0,
-
     flexDirection: "row",
-
     alignItems: "center",
   },
 
   locationContent: {
     flex: 1,
-
     minWidth: 0,
-
     marginLeft: 7,
   },
 
   titleRow: {
     flexDirection: "row",
-
     alignItems: "center",
   },
 
   locationTitle: {
     color: "#FFF",
-
     fontSize: 25,
-
     fontWeight: "800",
-
     flexShrink: 1,
   },
 
@@ -536,71 +509,52 @@ const styles = StyleSheet.create({
 
   locationAddress: {
     color: "rgba(255,255,255,0.92)",
-
     fontSize: 15,
-
     marginTop: 2,
-
     flexShrink: 1,
   },
 
-  /* ====================================================================== */
-  /* RIGHT ACTIONS                                                          */
-  /* ====================================================================== */
+  // ========================================================================
+  // RIGHT ACTIONS
+  // ========================================================================
 
   rightActions: {
     flexDirection: "row",
-
     alignItems: "center",
-
     marginLeft: 7,
   },
 
   rightAction: {
     minWidth: 42,
-
     minHeight: 42,
-
     borderRadius: 24,
-
     alignItems: "center",
-
     justifyContent: "center",
   },
 
-  /* ====================================================================== */
-  /* VEG                                                                     */
-  /* ====================================================================== */
+  // ========================================================================
+  // VEG
+  // ========================================================================
 
   vegContainer: {
     alignItems: "center",
-
     justifyContent: "center",
-
     marginLeft: 8,
   },
 
   vegLabel: {
     color: "#FFF",
-
     fontSize: 15,
-
     fontWeight: "800",
-
     marginBottom: 4,
   },
 
   vegTrack: {
     width: 48,
-
     height: 28,
-
     borderRadius: 20,
-
     backgroundColor: "rgba(100,100,100,0.75)",
-
     justifyContent: "center",
-
     paddingHorizontal: 3,
   },
 
@@ -610,11 +564,8 @@ const styles = StyleSheet.create({
 
   vegThumb: {
     width: 22,
-
     height: 22,
-
     borderRadius: 11,
-
     backgroundColor: "#FFF",
   },
 
@@ -622,59 +573,43 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
   },
 
-  /* ====================================================================== */
-  /* SEARCH                                                                  */
-  /* ====================================================================== */
+  // ========================================================================
+  // SEARCH
+  // ========================================================================
 
   search: {
     width: "100%",
-
     flexDirection: "row",
-
     alignItems: "center",
-
     paddingHorizontal: 17,
-
     backgroundColor: "rgba(10,10,12,0.92)",
   },
 
   searchText: {
     flex: 1,
-
     color: "#DDD",
-
     fontSize: 18,
-
     marginLeft: 12,
   },
 
   searchActions: {
     flexDirection: "row",
-
     alignItems: "center",
-
     marginLeft: 5,
   },
 
   searchAction: {
     minWidth: 36,
-
     minHeight: 40,
-
     alignItems: "center",
-
     justifyContent: "center",
   },
 
   micButton: {
     minWidth: 36,
-
     minHeight: 40,
-
     marginLeft: 3,
-
     alignItems: "center",
-
     justifyContent: "center",
   },
 });

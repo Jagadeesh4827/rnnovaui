@@ -29,9 +29,9 @@ import Animated, {
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-/* ==========================================================================
-   EXPORT CONSTANTS
-   ========================================================================== */
+// ============================================================================
+// ANIMATION CONSTANTS
+// ============================================================================
 
 const BACKGROUND_ANIMATIONS = [
   "none",
@@ -68,12 +68,12 @@ const CONTENT_ANIMATIONS = [
   "bounce",
 ];
 
-/* ==========================================================================
-   BACKGROUND NORMALIZER
-   ========================================================================== */
+// ============================================================================
+// BACKGROUND NORMALIZER
+// ============================================================================
 
 const normalizeBackground = (banner) => {
-  if (banner.background) {
+  if (banner?.background) {
     if (typeof banner.background === "string") {
       return {
         type: "color",
@@ -88,23 +88,21 @@ const normalizeBackground = (banner) => {
     };
   }
 
-  if (banner.backgroundColor) {
+  if (banner?.backgroundColor) {
     return {
       type: "color",
-
       color: banner.backgroundColor,
     };
   }
 
-  if (banner.backgroundImage) {
+  if (banner?.backgroundImage) {
     return {
       type: "image",
-
       source: banner.backgroundImage,
     };
   }
 
-  if (banner.gradientColors) {
+  if (banner?.gradientColors) {
     return {
       type: "gradient",
 
@@ -128,9 +126,9 @@ const normalizeBackground = (banner) => {
   };
 };
 
-/* ==========================================================================
-   BACKGROUND ANIMATION
-   ========================================================================== */
+// ============================================================================
+// BACKGROUND ANIMATION
+// ============================================================================
 
 const useBackgroundAnimation = ({ animation, enabled, duration, width }) => {
   const progress = useSharedValue(0);
@@ -145,12 +143,9 @@ const useBackgroundAnimation = ({ animation, enabled, duration, width }) => {
     progress.value = withRepeat(
       withTiming(1, {
         duration,
-
         easing: Easing.inOut(Easing.ease),
       }),
-
       -1,
-
       true,
     );
 
@@ -216,7 +211,7 @@ const useBackgroundAnimation = ({ animation, enabled, duration, width }) => {
 
       case "shimmer":
         return {
-          opacity: interpolate(progress.value, [0, 0.5, 1], [0.7, 1, 0.7]),
+          opacity: interpolate(progress.value, [0, 0.5, 1], [0.75, 1, 0.75]),
         };
 
       default:
@@ -276,22 +271,26 @@ const useBackgroundAnimation = ({ animation, enabled, duration, width }) => {
   };
 };
 
-/* ==========================================================================
-   BANNER BACKGROUND
-   ========================================================================== */
+// ============================================================================
+// BANNER BACKGROUND
+// ============================================================================
 
 const BannerBackground = ({ banner, width, height, reanimated }) => {
   const background = normalizeBackground(banner);
 
+  const backgroundAnimation = banner?.backgroundAnimation || "none";
+
+  const animationDuration = banner?.backgroundAnimationDuration || 5000;
+
   /*
-   * Extract only primitive values.
+   * IMPORTANT:
    *
-   * This is important for Reanimated.
+   * Only primitive values are supplied to
+   * the animation hook.
+   *
+   * No React element / FiberNode is passed
+   * into a worklet.
    */
-  const backgroundAnimation = banner.backgroundAnimation || "none";
-
-  const animationDuration = banner.backgroundAnimationDuration || 5000;
-
   const { animatedStyle, raysStyle, glowStyle, shimmerStyle } =
     useBackgroundAnimation({
       animation: backgroundAnimation,
@@ -303,11 +302,11 @@ const BannerBackground = ({ banner, width, height, reanimated }) => {
       width,
     });
 
-  /* ========================================================================
-     MAIN BACKGROUND
-     ======================================================================== */
-
   let backgroundElement;
+
+  // ========================================================================
+  // IMAGE
+  // ========================================================================
 
   if (background.type === "image") {
     backgroundElement = (
@@ -326,7 +325,12 @@ const BannerBackground = ({ banner, width, height, reanimated }) => {
         />
       </Animated.View>
     );
-  } else if (background.type === "gradient") {
+  }
+
+  // ========================================================================
+  // GRADIENT
+  // ========================================================================
+  else if (background.type === "gradient") {
     backgroundElement = (
       <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
         <LinearGradient
@@ -348,7 +352,12 @@ const BannerBackground = ({ banner, width, height, reanimated }) => {
         />
       </Animated.View>
     );
-  } else {
+  }
+
+  // ========================================================================
+  // COLOR
+  // ========================================================================
+  else {
     backgroundElement = (
       <Animated.View
         style={[
@@ -363,17 +372,13 @@ const BannerBackground = ({ banner, width, height, reanimated }) => {
     );
   }
 
-  /* ========================================================================
-     DECORATION SETTINGS
-     ======================================================================== */
+  const showRings = banner?.rings !== false;
 
-  const showRings = banner.rings !== false;
+  const showRays = banner?.rays === true;
 
-  const showRays = banner.rays === true;
+  const showGlow = banner?.glow !== false;
 
-  const showGlow = banner.glow !== false;
-
-  const showDecorations = banner.decorations !== false;
+  const showDecorations = banner?.decorations !== false;
 
   return (
     <View
@@ -396,7 +401,6 @@ const BannerBackground = ({ banner, width, height, reanimated }) => {
           <View
             style={[
               styles.ring,
-
               {
                 width: width * 1.5,
 
@@ -406,9 +410,9 @@ const BannerBackground = ({ banner, width, height, reanimated }) => {
 
                 left: width * -0.25,
 
-                top: height * 0.25,
+                top: height * 0.15,
 
-                opacity: banner.ringsOpacity ?? 0.14,
+                opacity: banner?.ringsOpacity ?? 0.14,
               },
             ]}
           />
@@ -416,7 +420,6 @@ const BannerBackground = ({ banner, width, height, reanimated }) => {
           <View
             style={[
               styles.ring,
-
               {
                 width: width * 1.1,
 
@@ -426,9 +429,9 @@ const BannerBackground = ({ banner, width, height, reanimated }) => {
 
                 left: width * -0.05,
 
-                top: height * 0.35,
+                top: height * 0.28,
 
-                opacity: (banner.ringsOpacity ?? 0.14) * 0.75,
+                opacity: (banner?.ringsOpacity ?? 0.14) * 0.75,
               },
             ]}
           />
@@ -436,7 +439,6 @@ const BannerBackground = ({ banner, width, height, reanimated }) => {
           <View
             style={[
               styles.ring,
-
               {
                 width: width * 0.75,
 
@@ -446,9 +448,9 @@ const BannerBackground = ({ banner, width, height, reanimated }) => {
 
                 left: width * 0.125,
 
-                top: height * 0.45,
+                top: height * 0.4,
 
-                opacity: (banner.ringsOpacity ?? 0.14) * 0.5,
+                opacity: (banner?.ringsOpacity ?? 0.14) * 0.5,
               },
             ]}
           />
@@ -471,24 +473,23 @@ const BannerBackground = ({ banner, width, height, reanimated }) => {
 
               left: width * -0.3,
 
-              top: height * 0.18,
+              top: height * 0.05,
             },
 
             raysStyle,
           ]}
         >
           {Array.from({
-            length: banner.rayCount || 12,
+            length: banner?.rayCount || 12,
           }).map((_, index) => (
             <View
               key={index}
               style={[
                 styles.ray,
-
                 {
                   transform: [
                     {
-                      rotate: `${index * (360 / (banner.rayCount || 12))}deg`,
+                      rotate: `${index * (360 / (banner?.rayCount || 12))}deg`,
                     },
                   ],
                 },
@@ -516,7 +517,7 @@ const BannerBackground = ({ banner, width, height, reanimated }) => {
 
               left: width * 0.1,
 
-              top: height * 0.38,
+              top: height * 0.2,
             },
 
             glowStyle,
@@ -528,33 +529,32 @@ const BannerBackground = ({ banner, width, height, reanimated }) => {
       {/* SHIMMER                                                           */}
       {/* ================================================================ */}
 
-      {banner.shimmer ? (
+      {banner?.shimmer ? (
         <Animated.View style={[styles.shimmer, shimmerStyle]} />
       ) : null}
 
       {/* ================================================================ */}
-      {/* DECORATIONS                                                       */}
+      {/* DECORATIVE PARTICLES                                              */}
       {/* ================================================================ */}
 
       {showDecorations
         ? Array.from({
-            length: banner.decorationCount || 8,
+            length: banner?.decorationCount || 8,
           }).map((_, index) => (
             <View
               key={`decoration-${index}`}
               style={[
                 styles.decoration,
-
                 {
                   left: (index * 47) % Math.max(width - 20, 1),
 
-                  top: 25 + ((index * 61) % Math.max(height - 50, 1)),
+                  top: 20 + ((index * 61) % Math.max(height - 40, 1)),
 
                   width: 4 + (index % 3) * 3,
 
                   height: 4 + (index % 3) * 3,
 
-                  opacity: banner.decorationOpacity ?? 0.3,
+                  opacity: banner?.decorationOpacity ?? 0.3,
                 },
               ]}
             />
@@ -564,14 +564,23 @@ const BannerBackground = ({ banner, width, height, reanimated }) => {
   );
 };
 
-/* ==========================================================================
-   BANNER ASSET
-   ========================================================================== */
+// ============================================================================
+// BANNER ASSET
+// ============================================================================
 
-const BannerAsset = ({ asset, reanimated }) => {
-  const animation = asset.animation || "none";
+const BannerAsset = ({ asset, bannerHeight, reanimated }) => {
+  /*
+   * IMPORTANT:
+   *
+   * Only primitive asset values are used by the
+   * animation worklet.
+   *
+   * React elements are rendered outside worklets.
+   */
 
-  const duration = asset.animationDuration || 3000;
+  const animation = asset?.animation || "none";
+
+  const duration = asset?.animationDuration || 3000;
 
   const progress = useSharedValue(0);
 
@@ -701,7 +710,27 @@ const BannerAsset = ({ asset, reanimated }) => {
     }
   });
 
-  const source = asset.source || asset.image || asset.uri;
+  // ========================================================================
+  // RESPONSIVE SCALE
+  // ========================================================================
+
+  const responsive = asset?.responsive !== false;
+
+  const responsiveScale = responsive
+    ? Math.min(1, Math.max(0.72, bannerHeight / 350))
+    : 1;
+
+  const assetWidth = (asset?.width || 100) * responsiveScale;
+
+  const assetHeight = (asset?.height || 100) * responsiveScale;
+
+  const source = asset?.source || asset?.image || asset?.uri;
+
+  /*
+   * React render content is deliberately
+   * handled here, outside any worklet.
+   */
+  const renderAsset = asset?.render;
 
   return (
     <Animated.View
@@ -710,46 +739,46 @@ const BannerAsset = ({ asset, reanimated }) => {
         styles.asset,
 
         {
-          width: asset.width || 100,
+          width: assetWidth,
 
-          height: asset.height || 100,
+          height: assetHeight,
 
-          opacity: asset.opacity ?? 1,
+          opacity: asset?.opacity ?? 1,
 
-          zIndex: asset.zIndex ?? 1,
-        },
+          zIndex: asset?.zIndex ?? 1,
 
-        {
           transform: [
             {
-              rotate: `${asset.rotate || 0}deg`,
+              rotate: `${asset?.rotate || 0}deg`,
             },
           ],
         },
 
-        getPositionStyle(asset.position),
+        getPositionStyle(asset?.position),
 
         animatedStyle,
 
-        asset.style,
+        asset?.style,
       ]}
     >
-      {asset.render ? (
-        asset.render(asset)
+      {renderAsset ? (
+        renderAsset(asset)
       ) : source ? (
         <Image
           source={source}
-          resizeMode={asset.resizeMode || "contain"}
+          resizeMode={asset?.resizeMode || "contain"}
           style={styles.assetImage}
         />
+      ) : asset?.icon ? (
+        asset.icon
       ) : null}
     </Animated.View>
   );
 };
 
-/* ==========================================================================
-   POSITION
-   ========================================================================== */
+// ============================================================================
+// POSITION
+// ============================================================================
 
 const getPositionStyle = (position = {}) => {
   const result = {};
@@ -773,14 +802,14 @@ const getPositionStyle = (position = {}) => {
   return result;
 };
 
-/* ==========================================================================
-   BANNER CONTENT
-   ========================================================================== */
+// ============================================================================
+// BANNER CONTENT
+// ============================================================================
 
-const BannerContent = ({ banner, reanimated, onPress }) => {
-  const animation = banner.contentAnimation || "none";
+const BannerContent = ({ banner, bannerHeight, reanimated, onPress }) => {
+  const animation = banner?.contentAnimation || "none";
 
-  const duration = banner.contentAnimationDuration || 650;
+  const duration = banner?.contentAnimationDuration || 650;
 
   const progress = useSharedValue(0);
 
@@ -877,67 +906,238 @@ const BannerContent = ({ banner, reanimated, onPress }) => {
     }
   });
 
-  /*
-   * renderContent remains on JS.
-   * It is never passed into a Reanimated worklet.
-   */
-  if (banner.renderContent) {
+  // ========================================================================
+  // CUSTOM CONTENT
+  // ========================================================================
+
+  if (banner?.renderContent) {
     return (
       <Animated.View
-        style={[styles.content, banner.contentStyle, animatedStyle]}
+        style={[
+          styles.content,
+
+          getContentLayoutStyle(bannerHeight, banner),
+
+          banner.contentStyle,
+
+          animatedStyle,
+        ]}
       >
         {banner.renderContent()}
       </Animated.View>
     );
   }
 
-  return (
-    <Animated.View style={[styles.content, banner.contentStyle, animatedStyle]}>
-      {banner.badge ? (
-        <View style={[styles.badge, banner.badgeStyle]}>
-          {banner.badgeIcon}
+  // ========================================================================
+  // RESPONSIVE VALUES
+  // ========================================================================
 
-          <Text style={[styles.badgeText, banner.badgeTextStyle]}>
+  const compact = bannerHeight < 320;
+
+  const veryCompact = bannerHeight < 285;
+
+  const titleSize =
+    banner?.titleFontSize || (veryCompact ? 26 : compact ? 30 : 38);
+
+  const subtitleSize =
+    banner?.subtitleFontSize || (veryCompact ? 13 : compact ? 14 : 16);
+
+  const buttonHeight = veryCompact ? 38 : compact ? 42 : 46;
+
+  const contentLayout = getContentLayoutStyle(bannerHeight, banner);
+
+  return (
+    <Animated.View
+      style={[
+        styles.content,
+
+        contentLayout,
+
+        banner?.contentStyle,
+
+        animatedStyle,
+      ]}
+    >
+      {/* BADGE */}
+
+      {banner?.badge ? (
+        <View
+          style={[
+            styles.badge,
+
+            {
+              paddingVertical: veryCompact ? 5 : 7,
+            },
+
+            banner.badgeStyle,
+          ]}
+        >
+          {banner.badgeIcon ? (
+            <View style={styles.badgeIcon}>{banner.badgeIcon}</View>
+          ) : null}
+
+          <Text
+            style={[
+              styles.badgeText,
+
+              veryCompact && {
+                fontSize: 11,
+              },
+
+              banner.badgeTextStyle,
+            ]}
+          >
             {banner.badge}
           </Text>
         </View>
       ) : null}
 
-      {banner.eyebrow ? (
-        <Text style={[styles.eyebrow, banner.eyebrowStyle]}>
+      {/* EYEBROW */}
+
+      {banner?.eyebrow ? (
+        <Text
+          numberOfLines={veryCompact ? 1 : 2}
+          style={[
+            styles.eyebrow,
+
+            {
+              fontSize: veryCompact ? 12 : 15,
+            },
+
+            banner.eyebrowStyle,
+          ]}
+        >
           {banner.eyebrow}
         </Text>
       ) : null}
 
-      {banner.title ? (
-        <Text style={[styles.title, banner.titleStyle]}>{banner.title}</Text>
+      {/* TITLE */}
+
+      {banner?.title ? (
+        <Text
+          numberOfLines={
+            banner.titleNumberOfLines || (veryCompact ? 2 : compact ? 2 : 3)
+          }
+          adjustsFontSizeToFit={veryCompact}
+          minimumFontScale={0.75}
+          style={[
+            styles.title,
+
+            {
+              fontSize: titleSize,
+
+              lineHeight: titleSize + 4,
+            },
+
+            banner.titleStyle,
+          ]}
+        >
+          {banner.title}
+        </Text>
       ) : null}
 
-      {banner.subtitle ? (
-        <Text style={[styles.subtitle, banner.subtitleStyle]}>
+      {/* SUBTITLE */}
+
+      {banner?.subtitle ? (
+        <Text
+          numberOfLines={veryCompact ? 1 : 2}
+          style={[
+            styles.subtitle,
+
+            {
+              fontSize: subtitleSize,
+
+              lineHeight: subtitleSize + 5,
+
+              marginTop: veryCompact ? 3 : 7,
+            },
+
+            banner.subtitleStyle,
+          ]}
+        >
           {banner.subtitle}
         </Text>
       ) : null}
 
-      {banner.buttonText ? (
+      {/* BUTTON */}
+
+      {banner?.buttonText ? (
         <Pressable
           onPress={onPress}
-          style={[styles.button, banner.buttonStyle]}
+          style={[
+            styles.button,
+
+            {
+              minHeight: buttonHeight,
+
+              paddingHorizontal: veryCompact ? 14 : compact ? 17 : 21,
+
+              marginTop: veryCompact ? 8 : compact ? 11 : 16,
+            },
+
+            banner.buttonStyle,
+          ]}
         >
-          <Text style={[styles.buttonText, banner.buttonTextStyle]}>
+          <Text
+            style={[
+              styles.buttonText,
+
+              {
+                fontSize: veryCompact ? 13 : compact ? 15 : 16,
+              },
+
+              banner.buttonTextStyle,
+            ]}
+          >
             {banner.buttonText}
           </Text>
 
-          {banner.buttonIcon || <Text style={styles.arrow}>›</Text>}
+          {banner.buttonIcon ? (
+            <View style={styles.buttonIcon}>{banner.buttonIcon}</View>
+          ) : (
+            <Text
+              style={[
+                styles.arrow,
+
+                veryCompact && {
+                  fontSize: 22,
+                },
+              ]}
+            >
+              ›
+            </Text>
+          )}
         </Pressable>
       ) : null}
     </Animated.View>
   );
 };
 
-/* ==========================================================================
-   MAIN CAROUSEL
-   ========================================================================== */
+// ============================================================================
+// CONTENT LAYOUT
+// ============================================================================
+
+const getContentLayoutStyle = (bannerHeight, banner) => {
+  const compact = bannerHeight < 320;
+
+  const veryCompact = bannerHeight < 285;
+
+  const horizontal =
+    banner?.contentHorizontalPadding ?? (veryCompact ? 18 : compact ? 22 : 28);
+
+  const bottom =
+    banner?.contentBottom ?? (veryCompact ? 28 : compact ? 32 : 48);
+
+  return {
+    left: horizontal,
+    right: horizontal,
+    bottom,
+  };
+};
+
+// ============================================================================
+// MAIN COMPONENT
+// ============================================================================
 
 const UIBannerCarousel = ({
   banners = [],
@@ -945,20 +1145,27 @@ const UIBannerCarousel = ({
   width = SCREEN_WIDTH,
 
   /**
-   * Complete height:
+   * IMPORTANT:
    *
-   * status bar
-   * + header
-   * + search
-   * + banner body
+   * `height` is ONLY the banner height.
+   *
+   * It can be:
+   *
+   * 270
+   * 300
+   * 350
+   * 390
+   * 400
+   * 500
+   * etc.
    */
-  height = 590,
+  height = 350,
 
   /**
-   * Total vertical space occupied by the header,
-   * INCLUDING the status-bar safe area.
+   * There is NO headerHeight prop.
+   *
+   * Header is automatically measured.
    */
-  headerHeight = 190,
 
   coverStatusBar = true,
 
@@ -1002,27 +1209,39 @@ const UIBannerCarousel = ({
 }) => {
   const insets = useSafeAreaInsets();
 
-  const scrollRef = useRef(null);
+  // ========================================================================
+  // DYNAMIC HEADER HEIGHT
+  // ========================================================================
 
-  const timerRef = useRef(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  const bannerCount = banners.length;
 
   const [activeIndex, setActiveIndex] = useState(0);
 
-  const bannerCount = banners.length;
+  const scrollRef = useRef(null);
+
+  const timerRef = useRef(null);
 
   const safeIndex = Math.min(
     Math.max(activeIndex, 0),
     Math.max(bannerCount - 1, 0),
   );
 
-  /*
-   * Body height.
-   */
-  const bodyHeight = Math.max(height - headerHeight, 1);
+  const bannerHeight = Math.max(Number(height) || 1, 1);
 
-  /* ========================================================================
-     STATUS BAR
-     ======================================================================== */
+  /*
+   * TOTAL COMPONENT HEIGHT:
+   *
+   * Automatically measured header
+   * +
+   * user supplied banner height
+   */
+  const totalHeight = headerHeight + bannerHeight;
+
+  // ========================================================================
+  // STATUS BAR
+  // ========================================================================
 
   useEffect(() => {
     if (!coverStatusBar) {
@@ -1041,9 +1260,24 @@ const UIBannerCarousel = ({
     }
   }, [banners, safeIndex, coverStatusBar]);
 
-  /* ========================================================================
-     SCROLL
-     ======================================================================== */
+  // ========================================================================
+  // HEADER MEASUREMENT
+  // ========================================================================
+
+  const handleHeaderLayout = useCallback(
+    (event) => {
+      const measuredHeight = event.nativeEvent.layout.height;
+
+      if (measuredHeight !== headerHeight) {
+        setHeaderHeight(measuredHeight);
+      }
+    },
+    [headerHeight],
+  );
+
+  // ========================================================================
+  // SCROLL
+  // ========================================================================
 
   const scrollToIndex = useCallback(
     (requestedIndex, animated = true) => {
@@ -1078,9 +1312,9 @@ const UIBannerCarousel = ({
     [bannerCount, banners, gap, loop, onIndexChange, width],
   );
 
-  /* ========================================================================
-     AUTOPLAY
-     ======================================================================== */
+  // ========================================================================
+  // AUTOPLAY
+  // ========================================================================
 
   useEffect(() => {
     if (!autoplay || bannerCount <= 1) {
@@ -1098,9 +1332,9 @@ const UIBannerCarousel = ({
     };
   }, [autoplay, bannerCount, interval, safeIndex, scrollToIndex]);
 
-  /* ========================================================================
-     MOMENTUM
-     ======================================================================== */
+  // ========================================================================
+  // MOMENTUM
+  // ========================================================================
 
   const handleMomentumEnd = (event) => {
     const x = event.nativeEvent.contentOffset.x;
@@ -1116,19 +1350,19 @@ const UIBannerCarousel = ({
     }
   };
 
-  /* ========================================================================
-     PRESS
-     ======================================================================== */
+  // ========================================================================
+  // PRESS
+  // ========================================================================
 
   const handlePress = (banner, index) => {
     onPress?.(banner, index);
 
-    banner.onPress?.(banner, index);
+    banner?.onPress?.(banner, index);
   };
 
-  /* ========================================================================
-     PAGINATION
-     ======================================================================== */
+  // ========================================================================
+  // PAGINATION
+  // ========================================================================
 
   const renderPagination = () => {
     if (!showPagination || bannerCount <= 1) {
@@ -1136,7 +1370,15 @@ const UIBannerCarousel = ({
     }
 
     return (
-      <View style={[styles.pagination, paginationStyle]}>
+      <View
+        style={[
+          styles.pagination,
+
+          paginationPosition === "top" && styles.paginationTop,
+
+          paginationStyle,
+        ]}
+      >
         {banners.map((banner, index) => (
           <Pressable
             key={banner.id || `dot-${index}`}
@@ -1154,17 +1396,17 @@ const UIBannerCarousel = ({
     );
   };
 
-  /* ========================================================================
-     EMPTY
-     ======================================================================== */
+  // ========================================================================
+  // EMPTY
+  // ========================================================================
 
   if (!bannerCount) {
     return null;
   }
 
-  /* ========================================================================
-     RENDER
-     ======================================================================== */
+  // ========================================================================
+  // RENDER
+  // ========================================================================
 
   return (
     <View
@@ -1173,21 +1415,35 @@ const UIBannerCarousel = ({
 
         {
           width,
-          height,
+
+          /*
+           * Header is measured automatically.
+           *
+           * Banner height comes from `height`.
+           */
+          minHeight: totalHeight,
         },
 
         style,
       ]}
     >
       {/* ================================================================== */}
-      {/* FULL BANNER BACKGROUND                                              */}
+      {/* BACKGROUND                                                          */}
       {/* ================================================================== */}
 
       <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        {/*
+         * Background is rendered at root level so it covers:
+         *
+         * status bar
+         * header
+         * search
+         * banner
+         */}
         <BannerBackground
           banner={banners[safeIndex]}
           width={width}
-          height={height}
+          height={totalHeight || bannerHeight}
           reanimated={reanimated}
         />
       </View>
@@ -1196,24 +1452,20 @@ const UIBannerCarousel = ({
       {/* HEADER                                                              */}
       {/* ================================================================== */}
 
-      <View
-        style={[
-          styles.headerLayer,
+      <View style={styles.headerLayer} onLayout={handleHeaderLayout}>
+        {/*
+         * ONLY UIBannerCarousel adds safe-area
+         * top padding.
+         */}
+        <View
+          style={[
+            styles.headerSafeArea,
 
-          {
-            /*
-             * IMPORTANT:
-             *
-             * This is the ONLY place where the
-             * status-bar inset is added.
-             */
-            paddingTop: coverStatusBar ? insets.top : 0,
-
-            height: headerHeight,
-          },
-        ]}
-      >
-        <View style={styles.headerContent}>
+            {
+              paddingTop: coverStatusBar ? insets.top : 0,
+            },
+          ]}
+        >
           {renderHeader ? (
             renderHeader({
               insets,
@@ -1254,7 +1506,7 @@ const UIBannerCarousel = ({
       </View>
 
       {/* ================================================================== */}
-      {/* CAROUSEL BODY                                                       */}
+      {/* CAROUSEL                                                            */}
       {/* ================================================================== */}
 
       <View
@@ -1264,7 +1516,7 @@ const UIBannerCarousel = ({
           {
             top: headerHeight,
 
-            bottom: 0,
+            height: bannerHeight,
           },
         ]}
       >
@@ -1290,7 +1542,7 @@ const UIBannerCarousel = ({
                 {
                   width,
 
-                  height: bodyHeight,
+                  height: bannerHeight,
 
                   marginRight: index === bannerCount - 1 ? 0 : gap,
                 },
@@ -1301,35 +1553,38 @@ const UIBannerCarousel = ({
               ]}
             >
               {/* ====================================================== */}
-              {/* IMAGES                                                  */}
+              {/* FOREGROUND IMAGES                                      */}
               {/* ====================================================== */}
 
               {banner.images?.map((asset, assetIndex) => (
                 <BannerAsset
                   key={asset.id || `image-${assetIndex}`}
                   asset={asset}
+                  bannerHeight={bannerHeight}
                   reanimated={reanimated && index === safeIndex}
                 />
               ))}
 
               {/* ====================================================== */}
-              {/* ICONS                                                   */}
+              {/* FOREGROUND ICONS                                       */}
               {/* ====================================================== */}
 
               {banner.icons?.map((asset, assetIndex) => (
                 <BannerAsset
                   key={asset.id || `icon-${assetIndex}`}
                   asset={asset}
+                  bannerHeight={bannerHeight}
                   reanimated={reanimated && index === safeIndex}
                 />
               ))}
 
               {/* ====================================================== */}
-              {/* CONTENT                                                 */}
+              {/* TEXT / CTA                                             */}
               {/* ====================================================== */}
 
               <BannerContent
                 banner={banner}
+                bannerHeight={bannerHeight}
                 reanimated={reanimated && index === safeIndex}
                 onPress={() => handlePress(banner, index)}
               />
@@ -1369,39 +1624,35 @@ const UIBannerCarousel = ({
   );
 };
 
-/* ==========================================================================
-   STYLES
-   ========================================================================== */
+// ============================================================================
+// STYLES
+// ============================================================================
 
 const styles = StyleSheet.create({
   root: {
     position: "relative",
 
+    width: "100%",
+
     overflow: "hidden",
   },
 
-  /* ====================================================================== */
-  /* HEADER                                                                  */
-  /* ====================================================================== */
+  // ========================================================================
+  // HEADER
+  // ========================================================================
 
   headerLayer: {
-    position: "absolute",
+    width: "100%",
 
-    top: 0,
-    left: 0,
-    right: 0,
-
-    zIndex: 100,
+    zIndex: 1000,
   },
 
-  headerContent: {
-    flex: 1,
-
+  headerSafeArea: {
     width: "100%",
   },
 
   defaultHeader: {
-    flex: 1,
+    minHeight: 60,
 
     flexDirection: "row",
 
@@ -1428,9 +1679,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 
-  /* ====================================================================== */
-  /* CAROUSEL                                                               */
-  /* ====================================================================== */
+  // ========================================================================
+  // CAROUSEL
+  // ========================================================================
 
   carouselLayer: {
     position: "absolute",
@@ -1451,9 +1702,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 
-  /* ====================================================================== */
-  /* BACKGROUND                                                              */
-  /* ====================================================================== */
+  // ========================================================================
+  // BACKGROUND
+  // ========================================================================
 
   backgroundImage: {
     position: "absolute",
@@ -1515,9 +1766,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF",
   },
 
-  /* ====================================================================== */
-  /* ASSETS                                                                  */
-  /* ====================================================================== */
+  // ========================================================================
+  // ASSETS
+  // ========================================================================
 
   asset: {
     position: "absolute",
@@ -1525,22 +1776,18 @@ const styles = StyleSheet.create({
 
   assetImage: {
     width: "100%",
+
     height: "100%",
   },
 
-  /* ====================================================================== */
-  /* CONTENT                                                                 */
-  /* ====================================================================== */
+  // ========================================================================
+  // CONTENT
+  // ========================================================================
 
   content: {
     position: "absolute",
 
-    left: 28,
-    right: 28,
-
-    bottom: 48,
-
-    zIndex: 50,
+    zIndex: 100,
   },
 
   badge: {
@@ -1552,13 +1799,15 @@ const styles = StyleSheet.create({
 
     paddingHorizontal: 13,
 
-    paddingVertical: 7,
-
     borderRadius: 20,
 
     backgroundColor: "#FFD32A",
 
-    marginBottom: 8,
+    marginBottom: 6,
+  },
+
+  badgeIcon: {
+    marginRight: 5,
   },
 
   badgeText: {
@@ -1576,7 +1825,7 @@ const styles = StyleSheet.create({
 
     fontWeight: "700",
 
-    marginBottom: 4,
+    marginBottom: 3,
   },
 
   title: {
@@ -1596,9 +1845,7 @@ const styles = StyleSheet.create({
 
     fontSize: 16,
 
-    lineHeight: 22,
-
-    marginTop: 8,
+    lineHeight: 21,
   },
 
   button: {
@@ -1607,12 +1854,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
 
     alignItems: "center",
-
-    marginTop: 16,
-
-    minHeight: 46,
-
-    paddingHorizontal: 21,
 
     borderRadius: 25,
 
@@ -1631,6 +1872,10 @@ const styles = StyleSheet.create({
     fontWeight: "800",
   },
 
+  buttonIcon: {
+    marginLeft: 8,
+  },
+
   arrow: {
     color: "#FFF",
 
@@ -1638,12 +1883,12 @@ const styles = StyleSheet.create({
 
     lineHeight: 28,
 
-    marginLeft: 9,
+    marginLeft: 8,
   },
 
-  /* ====================================================================== */
-  /* PAGINATION                                                              */
-  /* ====================================================================== */
+  // ========================================================================
+  // PAGINATION
+  // ========================================================================
 
   pagination: {
     position: "absolute",
@@ -1651,7 +1896,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
 
-    bottom: 13,
+    bottom: 12,
 
     flexDirection: "row",
 
@@ -1659,7 +1904,13 @@ const styles = StyleSheet.create({
 
     justifyContent: "center",
 
-    zIndex: 200,
+    zIndex: 300,
+  },
+
+  paginationTop: {
+    top: 10,
+
+    bottom: undefined,
   },
 
   dot: {
@@ -1684,9 +1935,9 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.45)",
   },
 
-  /* ====================================================================== */
-  /* NAVIGATION                                                              */
-  /* ====================================================================== */
+  // ========================================================================
+  // NAVIGATION
+  // ========================================================================
 
   navigation: {
     position: "absolute",
@@ -1707,7 +1958,7 @@ const styles = StyleSheet.create({
 
     justifyContent: "center",
 
-    zIndex: 250,
+    zIndex: 400,
   },
 
   navigationLeft: {
@@ -1727,9 +1978,9 @@ const styles = StyleSheet.create({
   },
 });
 
-/* ==========================================================================
-   EXPORTS
-   ========================================================================== */
+// ============================================================================
+// EXPORT
+// ============================================================================
 
 export default UIBannerCarousel;
 
