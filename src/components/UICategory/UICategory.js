@@ -40,7 +40,6 @@ const SIZE_CONFIG = {
     font: 11,
 
     padding: 4,
-
     gap: 4,
   },
 
@@ -54,7 +53,6 @@ const SIZE_CONFIG = {
     font: 12,
 
     padding: 4,
-
     gap: 4,
   },
 
@@ -68,7 +66,6 @@ const SIZE_CONFIG = {
     font: 14,
 
     padding: 8,
-
     gap: 6,
   },
 };
@@ -116,8 +113,13 @@ const UICategoryItem = memo(
 
     reanimated = true,
   }) => {
-    const { colors, spacing, radius, typography, sizes, shadows, animation } =
-      useUITheme();
+    /* =====================================================
+       THEME
+    ===================================================== */
+
+    const { theme } = useUITheme();
+
+    const { colors, spacing, radius, typography, shadows, animation } = theme;
 
     /* =====================================================
        SIZE
@@ -126,7 +128,7 @@ const UICategoryItem = memo(
     const config = SIZE_CONFIG[size] || SIZE_CONFIG.md;
 
     /* =====================================================
-       PRESS SCALE
+       PRESS ANIMATION
     ===================================================== */
 
     const scale = useSharedValue(1);
@@ -217,10 +219,6 @@ const UICategoryItem = memo(
 
     const palette = useMemo(() => {
       switch (variant) {
-        /* -------------------------------------------------
-           FILLED
-        ------------------------------------------------- */
-
         case "filled":
           return {
             background: selected ? colors.primary : colors.surface,
@@ -231,10 +229,6 @@ const UICategoryItem = memo(
 
             label: selected ? colors.onPrimary : colors.text,
           };
-
-        /* -------------------------------------------------
-           OUTLINE
-        ------------------------------------------------- */
 
         case "outline":
           return {
@@ -247,10 +241,6 @@ const UICategoryItem = memo(
             label: colors.text,
           };
 
-        /* -------------------------------------------------
-           MINIMAL
-        ------------------------------------------------- */
-
         case "minimal":
           return {
             background: colors.transparent,
@@ -261,10 +251,6 @@ const UICategoryItem = memo(
 
             label: selected ? colors.primary : colors.text,
           };
-
-        /* -------------------------------------------------
-           SOFT
-        ------------------------------------------------- */
 
         case "soft":
         default:
@@ -281,7 +267,7 @@ const UICategoryItem = memo(
     }, [variant, selected, colors]);
 
     /* =====================================================
-       ITEM CONTAINER
+       CONTAINER STYLE
     ===================================================== */
 
     const containerStyle = useMemo(
@@ -325,7 +311,6 @@ const UICategoryItem = memo(
       [
         item,
         config,
-        spacing,
         itemRadius,
         flexDirection,
         palette,
@@ -342,7 +327,7 @@ const UICategoryItem = memo(
 
     const renderMedia = useCallback(() => {
       /* -------------------------------------------------
-           CUSTOM REACT ELEMENT
+           CUSTOM ELEMENT
         ------------------------------------------------- */
 
       if (item?.iconElement) {
@@ -417,7 +402,7 @@ const UICategoryItem = memo(
       }
 
       /* -------------------------------------------------
-           ICON NAME + CUSTOM RENDER
+           ICON NAME
         ------------------------------------------------- */
 
       if (
@@ -438,7 +423,7 @@ const UICategoryItem = memo(
       }
 
       /* -------------------------------------------------
-           SVG COMPONENT
+           SVG
         ------------------------------------------------- */
 
       if (item?.svg) {
@@ -531,20 +516,20 @@ const UICategoryItem = memo(
       const finalFontSize =
         item?.fontSize ??
         labelFontSize ??
-        typography.fontSize?.sm ??
+        typography.caption?.fontSize ??
         config.font;
 
       const finalFontWeight = selected
         ? (item?.activeLabelFontWeight ??
           activeLabelFontWeight ??
           item?.fontWeight ??
-          typography.fontWeights?.semibold ??
+          typography.label?.fontWeight ??
           "600")
         : (item?.labelFontWeight ??
           labelFontWeight ??
           item?.fontWeight ??
-          typography.fontWeights?.medium ??
-          "500");
+          typography.caption?.fontWeight ??
+          "400");
 
       return (
         <Text
@@ -557,8 +542,6 @@ const UICategoryItem = memo(
               color: finalLabelColor,
 
               fontSize: finalFontSize,
-
-              fontFamily: item?.fontFamily ?? undefined,
 
               fontWeight: finalFontWeight,
 
@@ -613,7 +596,10 @@ const UICategoryItem = memo(
               {
                 color: item.badgeTextColor ?? colors.onDanger,
 
-                fontSize: item.badgeFontSize ?? typography.fontSizes?.xs ?? 10,
+                fontSize:
+                  item.badgeFontSize ?? typography.overline?.fontSize ?? 10,
+
+                fontWeight: typography.overline?.fontWeight ?? "700",
               },
 
               item.badgeTextStyle,
@@ -678,7 +664,7 @@ const UICategoryItem = memo(
       "";
 
     /* =====================================================
-       PRESSABLE
+       COMPONENT
     ===================================================== */
 
     const PressableComponent = reanimated ? AnimatedPressable : Pressable;
@@ -723,20 +709,16 @@ const UICategoryItem = memo(
 const UICategory = ({
   data = [],
 
-  /* Alias */
   categories,
 
-  /* Selection */
   selectedId,
 
   onPress,
 
-  /* Layout */
   layout = "horizontal",
 
   columns = 4,
 
-  /* Appearance */
   variant = "soft",
 
   shape = "rounded",
@@ -747,7 +729,6 @@ const UICategory = ({
 
   titleAlign = "center",
 
-  /* Label */
   labelColor,
 
   activeLabelColor,
@@ -758,39 +739,32 @@ const UICategory = ({
 
   activeLabelFontWeight,
 
-  /* Image */
   imageSize,
 
   imageBorderRadius,
 
-  /* Badge */
   showBadge = true,
 
-  /* Scrolling */
   scrollEnabled = true,
 
   showsHorizontalScrollIndicator = false,
 
   showsVerticalScrollIndicator = false,
 
-  /* Container */
   contentContainerStyle,
 
   itemStyle,
 
   style,
 
-  /* Selection scrolling */
   initialScrollIndex = 0,
 
   scrollToSelected = true,
 
-  /* List components */
   ListHeaderComponent,
 
   ListFooterComponent,
 
-  /* Events */
   onScroll,
 
   onScrollBeginDrag,
@@ -805,7 +779,6 @@ const UICategory = ({
 
   onLayout,
 
-  /* FlatList */
   initialNumToRender = 8,
 
   maxToRenderPerBatch = 8,
@@ -816,21 +789,23 @@ const UICategory = ({
 
   removeClippedSubviews = true,
 
-  /* Custom render */
   renderItem,
 
   keyExtractor,
 
-  /* Empty */
   renderEmpty,
 
-  /* Animation */
   reanimated = true,
 
-  /* Remaining FlatList props */
   ...listProps
 }) => {
-  const { spacing } = useUITheme();
+  /* =======================================================
+     THEME
+  ======================================================= */
+
+  const { theme } = useUITheme();
+
+  const { spacing } = theme;
 
   /* =======================================================
      DATA
@@ -847,7 +822,7 @@ const UICategory = ({
   }, [data, categories]);
 
   /* =======================================================
-     FLATLIST REF
+     REF
   ======================================================= */
 
   const flatListRef = useRef(null);
@@ -927,10 +902,7 @@ const UICategory = ({
           viewPosition: 0.5,
         });
       } catch {
-        /*
-         * FlatList may not be
-         * measured yet.
-         */
+        // FlatList may not be measured yet.
       }
     });
   }, [selectedIndex, isGrid, scrollToSelected]);
@@ -999,9 +971,11 @@ const UICategory = ({
 
   const finalRenderItem = useCallback(
     ({ item, index }) => {
-      /* -----------------------------------------------
-           CUSTOM ITEM
-        ------------------------------------------------ */
+      const selected = String(item?.id) === String(selectedId);
+
+      /* -------------------------------------------------
+           CUSTOM
+        ------------------------------------------------- */
 
       if (typeof renderItem === "function") {
         return renderItem({
@@ -1009,19 +983,19 @@ const UICategory = ({
 
           index,
 
-          selected: String(item?.id) === String(selectedId),
+          selected,
         });
       }
 
-      /* -----------------------------------------------
-           DEFAULT ITEM
-        ------------------------------------------------ */
+      /* -------------------------------------------------
+           DEFAULT
+        ------------------------------------------------- */
 
       return (
         <UICategoryItem
           item={item}
           index={index}
-          selected={String(item?.id) === String(selectedId)}
+          selected={selected}
           onPress={handlePress}
           variant={item?.variant ?? variant}
           shape={item?.shape ?? shape}
