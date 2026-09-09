@@ -1,8 +1,14 @@
-import React, { forwardRef, useEffect, useRef, useState } from "react";
+import React, {
+  forwardRef,
+  useEffect,
+  useImperativeHandle,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
   Animated,
-  Easing,
   Pressable,
   StyleSheet,
   Text,
@@ -15,111 +21,96 @@ import { Ionicons } from "@expo/vector-icons";
 const UIHomeHeader = forwardRef(
   (
     {
-      // ====================================================================
+      // ============================================================
       // LOCATION
-      // ====================================================================
+      // ============================================================
 
       locationMode = "location",
 
-      locationIcon = "location",
+      locationIcon = "location-sharp",
+      locationIconSize = 22,
+      locationIconColor = "#FFFFFF",
 
       backIcon = "arrow-back",
+      backIconSize = 24,
+      backIconColor = "#FFFFFF",
 
       locationTitle = "Home",
-
       locationAddress = "",
 
       showLocationChevron = true,
 
       onLocationPress,
-
       onBackPress,
 
-      // ====================================================================
+      renderLocation,
+
+      // ============================================================
       // RIGHT ACTIONS
-      // ====================================================================
+      // ============================================================
 
       rightActions = [],
 
-      rightActionsGap = 5,
+      rightActionsGap = 6,
 
       rightActionStyle,
-
       rightActionIconStyle,
-
       rightActionsStyle,
 
-      // ====================================================================
+      renderRightActions,
+
+      // ============================================================
       // SEARCH
-      // ====================================================================
+      // ============================================================
 
       showSearch = true,
 
-      searchValue = "",
+      searchValue,
 
       onSearchChangeText,
-
       onSearchSubmit,
-
       onSearchFocus,
-
       onSearchBlur,
 
-      /**
-       * Static placeholder used when no
-       * animated suggestions are provided.
-       */
-      searchPlaceholder = 'Search "Biryani"',
+      searchPlaceholder = "Search restaurants, dishes, cuisines...",
 
-      /**
-       * Animated search suggestions.
-       *
-       * Example:
-       *
-       * [
-       *   "Biryani",
-       *   "Pizza Hut",
-       *   "Burger",
-       *   "Chinese Food"
-       * ]
-       */
-      searchSuggestions = [],
+      // Animated placeholder
+      searchSuggestions = ["Biryani", "Pizza Hut", "Burger", "Chinese Food"],
 
-      /**
-       * Time before changing suggestion.
-       */
       searchSuggestionInterval = 2500,
 
-      /**
-       * Animation duration.
-       */
       searchSuggestionAnimationDuration = 450,
 
-      searchIcon = "search",
+      // Search icon
+      searchIcon = "search-outline",
 
-      searchIconSize = 30,
+      searchIconSize = 24,
 
-      searchIconColor = "#FFF",
+      searchIconColor = "#333333",
 
-      searchMic = true,
+      // Search microphone
+      searchMic = false,
 
       searchMicIcon = "mic-outline",
 
-      searchMicSize = 28,
+      searchMicSize = 24,
 
-      searchMicColor = "#FFF",
+      searchMicColor = "#333333",
 
       onMicPress,
 
+      // Additional search actions
       searchActions = [],
 
-      searchActionsGap = 4,
+      searchActionsGap = 6,
 
       searchActionStyle,
 
-      // ====================================================================
+      renderSearch,
+
+      // ============================================================
       // SEARCH INPUT
-      // ====================================================================
+      // ============================================================
 
       searchAutoFocus = false,
 
@@ -141,15 +132,50 @@ const UIHomeHeader = forwardRef(
 
       searchInputStyle,
 
-      // ====================================================================
-      // VEG
-      // ====================================================================
+      // ============================================================
+      // SEARCH OUTER SPACING
+      // ============================================================
 
-      /**
-       * undefined = hidden
-       * false     = visible OFF
-       * true      = visible ON
-       */
+      searchHeight = 52,
+
+      searchMarginTop = 8,
+
+      searchMarginBottom = 0,
+
+      searchBorderRadius = 14,
+
+      // ============================================================
+      // SEARCH INNER PADDING
+      // ============================================================
+
+      searchPadding = 14,
+
+      searchPaddingHorizontal,
+
+      searchPaddingVertical,
+
+      searchPaddingLeft,
+
+      searchPaddingRight,
+
+      searchPaddingTop,
+
+      searchPaddingBottom,
+
+      // ============================================================
+      // SEARCH INTERNAL SPACING
+      // ============================================================
+
+      searchIconMarginRight = 9,
+
+      searchMicMarginLeft = 4,
+
+      searchActionsMarginLeft = 4,
+
+      // ============================================================
+      // VEG
+      // ============================================================
+
       isVeg,
 
       vegLabel = "VEG",
@@ -160,29 +186,23 @@ const UIHomeHeader = forwardRef(
 
       vegThumbStyle,
 
-      // ====================================================================
-      // LAYOUT
-      // ====================================================================
+      renderVeg,
+
+      // ============================================================
+      // GENERAL LAYOUT
+      // ============================================================
 
       paddingHorizontal = 20,
 
       paddingTop = 0,
 
-      paddingBottom = 10,
+      paddingBottom = 8,
 
-      locationRowHeight = 62,
+      locationRowHeight,
 
-      searchHeight = 58,
-
-      searchMarginTop = 8,
-
-      searchMarginBottom = 0,
-
-      searchBorderRadius = 18,
-
-      // ====================================================================
-      // STYLES
-      // ====================================================================
+      // ============================================================
+      // GENERAL STYLES
+      // ============================================================
 
       style,
 
@@ -200,135 +220,103 @@ const UIHomeHeader = forwardRef(
 
       searchTextStyle,
 
-      // ====================================================================
-      // CUSTOM RENDERERS
-      // ====================================================================
-
-      renderLocation,
-
-      renderRightActions,
-
-      renderSearch,
-
-      renderVeg,
-
       children,
     },
     ref,
   ) => {
-    const internalInputRef = useRef(null);
+    // ============================================================
+    // INPUT REF
+    // ============================================================
 
-    const inputRef = ref || internalInputRef;
+    const inputRef = useRef(null);
 
-    // ======================================================================
-    // SEARCH SUGGESTION STATE
-    // ======================================================================
+    // ============================================================
+    // SEARCH VALUE
+    // ============================================================
+
+    const [internalSearch, setInternalSearch] = useState(searchValue ?? "");
+
+    useEffect(() => {
+      if (searchValue !== undefined) {
+        setInternalSearch(searchValue);
+      }
+    }, [searchValue]);
+
+    const currentSearchValue =
+      searchValue !== undefined ? searchValue : internalSearch;
+
+    // ============================================================
+    // SEARCH SUGGESTIONS
+    // ============================================================
+
+    const suggestions = useMemo(() => {
+      if (!Array.isArray(searchSuggestions)) {
+        return [];
+      }
+
+      return searchSuggestions.filter(
+        (item) => typeof item === "string" && item.trim().length > 0,
+      );
+    }, [searchSuggestions]);
 
     const [suggestionIndex, setSuggestionIndex] = useState(0);
 
-    const suggestionTranslate = useRef(new Animated.Value(0)).current;
-
     const suggestionOpacity = useRef(new Animated.Value(1)).current;
 
-    // ======================================================================
-    // VALID SUGGESTIONS
-    // ======================================================================
-
-    const suggestions = Array.isArray(searchSuggestions)
-      ? searchSuggestions.filter(
-          (item) => typeof item === "string" && item.trim().length > 0,
-        )
-      : [];
-
-    const hasSuggestions = suggestions.length > 0;
-
-    const hasSearchText =
-      typeof searchValue === "string" && searchValue.length > 0;
-
-    // ======================================================================
-    // RESET SUGGESTION WHEN USER TYPES
-    // ======================================================================
+    const suggestionTranslateY = useRef(new Animated.Value(0)).current;
 
     useEffect(() => {
-      if (hasSearchText) {
-        suggestionTranslate.setValue(0);
+      setSuggestionIndex(0);
 
-        suggestionOpacity.setValue(1);
-      }
-    }, [hasSearchText, suggestionOpacity, suggestionTranslate]);
+      suggestionOpacity.setValue(1);
 
-    // ======================================================================
-    // ROTATING PLACEHOLDER
-    // ======================================================================
+      suggestionTranslateY.setValue(0);
+    }, [suggestions, suggestionOpacity, suggestionTranslateY]);
 
     useEffect(() => {
-      if (!showSearch || !hasSuggestions || hasSearchText) {
-        return;
-      }
-
       if (suggestions.length <= 1) {
-        return;
+        return undefined;
+      }
+
+      if (currentSearchValue) {
+        return undefined;
       }
 
       const timer = setInterval(() => {
-        /*
-         * Current suggestion slides upward.
-         */
         Animated.parallel([
-          Animated.timing(suggestionTranslate, {
-            toValue: -10,
-
-            duration: searchSuggestionAnimationDuration,
-
-            easing: Easing.out(Easing.cubic),
-
-            useNativeDriver: true,
-          }),
-
           Animated.timing(suggestionOpacity, {
             toValue: 0,
 
             duration: searchSuggestionAnimationDuration,
 
-            easing: Easing.out(Easing.cubic),
+            useNativeDriver: true,
+          }),
+
+          Animated.timing(suggestionTranslateY, {
+            toValue: -10,
+
+            duration: searchSuggestionAnimationDuration,
 
             useNativeDriver: true,
           }),
         ]).start(() => {
-          /*
-           * Change the text only after
-           * the old text has disappeared.
-           */
           setSuggestionIndex((previous) => (previous + 1) % suggestions.length);
 
-          /*
-           * Put new text below.
-           */
-          suggestionTranslate.setValue(10);
+          suggestionTranslateY.setValue(10);
 
-          suggestionOpacity.setValue(0);
-
-          /*
-           * New suggestion slides
-           * upward into position.
-           */
           Animated.parallel([
-            Animated.timing(suggestionTranslate, {
-              toValue: 0,
-
-              duration: searchSuggestionAnimationDuration,
-
-              easing: Easing.out(Easing.cubic),
-
-              useNativeDriver: true,
-            }),
-
             Animated.timing(suggestionOpacity, {
               toValue: 1,
 
               duration: searchSuggestionAnimationDuration,
 
-              easing: Easing.out(Easing.cubic),
+              useNativeDriver: true,
+            }),
+
+            Animated.timing(suggestionTranslateY, {
+              toValue: 0,
+
+              duration: searchSuggestionAnimationDuration,
 
               useNativeDriver: true,
             }),
@@ -336,166 +324,273 @@ const UIHomeHeader = forwardRef(
         });
       }, searchSuggestionInterval);
 
-      return () => {
-        clearInterval(timer);
-
-        suggestionTranslate.stopAnimation();
-
-        suggestionOpacity.stopAnimation();
-      };
+      return () => clearInterval(timer);
     }, [
-      hasSuggestions,
-      hasSearchText,
+      suggestions.length,
+      currentSearchValue,
       searchSuggestionInterval,
       searchSuggestionAnimationDuration,
-      showSearch,
-      suggestions.length,
       suggestionOpacity,
-      suggestionTranslate,
+      suggestionTranslateY,
     ]);
 
-    // ======================================================================
-    // CURRENT SUGGESTION
-    // ======================================================================
+    const activeSuggestion = suggestions[suggestionIndex] || "";
 
-    const currentSuggestion = hasSuggestions
-      ? suggestions[suggestionIndex % suggestions.length]
-      : null;
+    // ============================================================
+    // IMPERATIVE REF
+    // ============================================================
 
-    // ======================================================================
-    // LOCATION
-    // ======================================================================
+    useImperativeHandle(
+      ref,
+      () => ({
+        focusSearch: () => {
+          inputRef.current?.focus();
+        },
 
-    const renderLocationArea = () => {
-      if (renderLocation) {
-        return renderLocation();
+        blurSearch: () => {
+          inputRef.current?.blur();
+        },
+
+        clearSearch: () => {
+          handleSearchChange("");
+        },
+
+        getSearchValue: () => {
+          return currentSearchValue;
+        },
+      }),
+      [currentSearchValue],
+    );
+
+    // ============================================================
+    // SEARCH CHANGE
+    // ============================================================
+
+    const handleSearchChange = (text) => {
+      if (searchValue === undefined) {
+        setInternalSearch(text);
       }
 
-      const isBack = locationMode === "back";
+      onSearchChangeText?.(text);
+    };
+
+    // ============================================================
+    // SEARCH SUBMIT
+    // ============================================================
+
+    const handleSearchSubmit = () => {
+      onSearchSubmit?.(currentSearchValue);
+    };
+
+    // ============================================================
+    // RIGHT ACTION
+    // ============================================================
+
+    const renderRightAction = (action, index) => {
+      if (!action) {
+        return null;
+      }
+
+      if (action.render) {
+        return (
+          <View
+            key={action.id ?? index}
+            style={[
+              styles.actionWrapper,
+
+              index > 0 && {
+                marginLeft: rightActionsGap,
+              },
+            ]}
+          >
+            {action.render()}
+          </View>
+        );
+      }
+
+      const iconName = action.name || action.icon || "ellipse-outline";
+
+      const iconSize = action.size ?? action.iconSize ?? 24;
+
+      const iconColor = action.color ?? action.iconColor ?? "#FFFFFF";
 
       return (
         <Pressable
-          onPress={isBack ? onBackPress : onLocationPress}
-          disabled={isBack ? !onBackPress : !onLocationPress}
-          style={[styles.locationArea, locationRowStyle]}
+          key={action.id ?? index}
+          onPress={action.onPress}
+          disabled={!action.onPress}
+          style={[
+            styles.actionButton,
+
+            index > 0 && {
+              marginLeft: rightActionsGap,
+            },
+
+            rightActionStyle,
+
+            action.style,
+          ]}
         >
           <Ionicons
-            name={isBack ? backIcon : locationIcon}
-            size={isBack ? 28 : 30}
-            color="#FFF"
-            style={locationIconStyle}
+            name={iconName}
+            size={iconSize}
+            color={iconColor}
+            style={[rightActionIconStyle, action.iconStyle]}
           />
-
-          <View style={[styles.locationContent, locationContentStyle]}>
-            <View style={styles.titleRow}>
-              <Text
-                numberOfLines={1}
-                style={[styles.locationTitle, locationTitleStyle]}
-              >
-                {locationTitle}
-              </Text>
-
-              {!isBack && showLocationChevron ? (
-                <Ionicons
-                  name="chevron-down"
-                  size={20}
-                  color="#FFF"
-                  style={styles.chevron}
-                />
-              ) : null}
-            </View>
-
-            {locationAddress ? (
-              <Text
-                numberOfLines={1}
-                ellipsizeMode="tail"
-                style={[styles.locationAddress, locationAddressStyle]}
-              >
-                {locationAddress}
-              </Text>
-            ) : null}
-          </View>
         </Pressable>
       );
     };
 
-    // ======================================================================
-    // RIGHT ACTIONS
-    // ======================================================================
+    // ============================================================
+    // SEARCH ACTION
+    // ============================================================
 
-    const renderActions = () => {
-      if (renderRightActions) {
-        return renderRightActions();
+    const renderSearchAction = (action, index) => {
+      if (!action) {
+        return null;
       }
 
+      if (action.render) {
+        return (
+          <View
+            key={action.id ?? index}
+            style={[
+              styles.searchActionWrapper,
+
+              index > 0 && {
+                marginLeft: searchActionsGap,
+              },
+            ]}
+          >
+            {action.render()}
+          </View>
+        );
+      }
+
+      const iconName = action.name || action.icon || "ellipse-outline";
+
+      const iconSize = action.size ?? action.iconSize ?? 22;
+
+      const iconColor = action.color ?? action.iconColor ?? "#333333";
+
       return (
-        <View style={[styles.rightActions, rightActionsStyle]}>
-          {rightActions.map((action, index) => {
-            const horizontalPadding =
-              action.paddingHorizontal ?? action.horizontalPadding ?? 0;
+        <Pressable
+          key={action.id ?? index}
+          onPress={action.onPress}
+          disabled={!action.onPress}
+          style={[
+            styles.searchActionButton,
 
-            return (
-              <Pressable
-                key={action.id || `right-${index}`}
-                onPress={action.onPress}
-                disabled={action.disabled}
-                style={[
-                  styles.rightAction,
+            index > 0 && {
+              marginLeft: searchActionsGap,
+            },
 
-                  {
-                    marginLeft: index === 0 ? 0 : rightActionsGap,
+            searchActionStyle,
 
-                    paddingHorizontal: horizontalPadding,
-                  },
-
-                  rightActionStyle,
-
-                  action.style,
-                ]}
-              >
-                {action.render ? (
-                  action.render(action)
-                ) : action.icon ? (
-                  action.icon
-                ) : (
-                  <Ionicons
-                    name={action.name || "ellipse-outline"}
-                    size={action.size || 25}
-                    color={action.color || "#FFF"}
-                    style={rightActionIconStyle}
-                  />
-                )}
-              </Pressable>
-            );
-          })}
-        </View>
+            action.style,
+          ]}
+        >
+          <Ionicons
+            name={iconName}
+            size={iconSize}
+            color={iconColor}
+            style={action.iconStyle}
+          />
+        </Pressable>
       );
     };
 
-    // ======================================================================
-    // VEG
-    // ======================================================================
+    // ============================================================
+    // LOCATION
+    // ============================================================
 
-    const renderVegArea = () => {
+    const defaultLocation = (
+      <Pressable
+        onPress={locationMode === "back" ? onBackPress : onLocationPress}
+        disabled={locationMode === "back" ? !onBackPress : !onLocationPress}
+        style={[
+          styles.locationRow,
+
+          locationRowHeight
+            ? {
+                minHeight: locationRowHeight,
+              }
+            : null,
+
+          locationRowStyle,
+        ]}
+      >
+        {/* LOCATION / BACK ICON */}
+        <View style={[styles.locationIconContainer, locationIconStyle]}>
+          <Ionicons
+            name={locationMode === "back" ? backIcon : locationIcon}
+            size={locationMode === "back" ? backIconSize : locationIconSize}
+            color={locationMode === "back" ? backIconColor : locationIconColor}
+          />
+        </View>
+
+        {/* LOCATION TEXT */}
+        <View style={[styles.locationContent, locationContentStyle]}>
+          <View style={styles.locationTitleRow}>
+            <Text
+              numberOfLines={1}
+              style={[styles.locationTitle, locationTitleStyle]}
+            >
+              {locationTitle}
+            </Text>
+
+            {locationMode !== "back" && showLocationChevron && (
+              <Ionicons
+                name="chevron-down"
+                size={16}
+                color={locationIconColor}
+                style={styles.locationChevron}
+              />
+            )}
+          </View>
+
+          {!!locationAddress && (
+            <Text
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={[styles.locationAddress, locationAddressStyle]}
+            >
+              {locationAddress}
+            </Text>
+          )}
+        </View>
+      </Pressable>
+    );
+
+    // ============================================================
+    // VEG
+    // ============================================================
+
+    const renderVegToggle = () => {
+      // undefined = don't show VEG
       if (isVeg === undefined) {
         return null;
       }
 
       if (renderVeg) {
         return renderVeg({
-          value: isVeg,
+          isVeg,
           onChange: onVegChange,
         });
       }
 
       return (
-        <View style={styles.vegContainer}>
+        <Pressable
+          onPress={() => onVegChange?.(!isVeg)}
+          disabled={!onVegChange}
+          style={styles.vegContainer}
+        >
           <Text style={styles.vegLabel}>{vegLabel}</Text>
 
-          <Pressable
-            onPress={() => onVegChange?.(!isVeg)}
+          <View
             style={[
               styles.vegTrack,
+
               vegTrackStyle,
 
               isVeg && styles.vegTrackActive,
@@ -504,202 +599,175 @@ const UIHomeHeader = forwardRef(
             <View
               style={[
                 styles.vegThumb,
+
                 vegThumbStyle,
 
                 isVeg && styles.vegThumbActive,
               ]}
             />
-          </Pressable>
-        </View>
+          </View>
+        </Pressable>
       );
     };
 
-    // ======================================================================
+    // ============================================================
     // SEARCH
-    // ======================================================================
+    // ============================================================
 
-    const renderSearchArea = () => {
-      if (!showSearch) {
-        return null;
-      }
+    const defaultSearch = (
+      <View
+        style={[
+          styles.searchContainer,
 
-      if (renderSearch) {
-        return renderSearch({
-          value: searchValue,
+          // ------------------------------------------------
+          // OUTER SEARCH SPACING
+          // ------------------------------------------------
 
-          onChangeText: onSearchChangeText,
+          {
+            height: searchHeight,
 
-          inputRef,
-        });
-      }
+            marginTop: searchMarginTop,
 
-      return (
-        <View
-          style={[
-            styles.search,
+            marginBottom: searchMarginBottom,
 
-            {
-              height: searchHeight,
+            borderRadius: searchBorderRadius,
 
-              marginTop: searchMarginTop,
+            // ------------------------------------------------
+            // INNER SEARCH PADDING
+            // ------------------------------------------------
 
-              marginBottom: searchMarginBottom,
+            paddingLeft:
+              searchPaddingLeft ?? searchPaddingHorizontal ?? searchPadding,
 
-              borderRadius: searchBorderRadius,
-            },
+            paddingRight:
+              searchPaddingRight ?? searchPaddingHorizontal ?? searchPadding,
 
-            searchStyle,
-          ]}
-        >
-          {/* SEARCH ICON */}
+            paddingTop:
+              searchPaddingTop ?? searchPaddingVertical ?? searchPadding,
 
+            paddingBottom:
+              searchPaddingBottom ?? searchPaddingVertical ?? searchPadding,
+          },
+
+          searchStyle,
+        ]}
+      >
+        {/* ====================================================
+            SEARCH ICON
+        ==================================================== */}
+
+        <Ionicons
+          name={searchIcon}
+          size={searchIconSize}
+          color={searchIconColor}
+          style={{
+            marginRight: searchIconMarginRight,
+          }}
+        />
+
+        {/* ====================================================
+            INPUT AREA
+        ==================================================== */}
+
+        <View style={styles.searchInputContainer}>
+          {/* Animated Placeholder */}
+
+          {!currentSearchValue && activeSuggestion && (
+            <Animated.View
+              pointerEvents="none"
+              style={[
+                styles.animatedPlaceholder,
+
+                {
+                  opacity: suggestionOpacity,
+
+                  transform: [
+                    {
+                      translateY: suggestionTranslateY,
+                    },
+                  ],
+                },
+              ]}
+            >
+              <Text
+                numberOfLines={1}
+                style={[styles.searchPlaceholder, searchTextStyle]}
+              >
+                Search "{activeSuggestion}"
+              </Text>
+            </Animated.View>
+          )}
+
+          {/* REAL TEXT INPUT */}
+
+          <TextInput
+            ref={inputRef}
+            value={currentSearchValue}
+            onChangeText={handleSearchChange}
+            onSubmitEditing={handleSearchSubmit}
+            onFocus={onSearchFocus}
+            onBlur={onSearchBlur}
+            placeholder={suggestions.length === 0 ? searchPlaceholder : ""}
+            editable={searchEditable}
+            autoFocus={searchAutoFocus}
+            keyboardType={searchKeyboardType}
+            returnKeyType={searchReturnKeyType}
+            autoCapitalize={searchAutoCapitalize}
+            autoCorrect={searchAutoCorrect}
+            maxLength={searchMaxLength}
+            secureTextEntry={searchSecureTextEntry}
+            selectionColor={searchSelectionColor}
+            style={[styles.searchInput, searchTextStyle, searchInputStyle]}
+          />
+        </View>
+
+        {/* ====================================================
+            MICROPHONE
+        ==================================================== */}
+
+        {searchMic && (
           <Pressable
-            onPress={() => inputRef.current?.focus()}
-            style={styles.searchIconButton}
+            onPress={onMicPress}
+            disabled={!onMicPress}
+            style={[
+              styles.searchIconButton,
+
+              {
+                marginLeft: searchMicMarginLeft,
+              },
+            ]}
           >
             <Ionicons
-              name={searchIcon}
-              size={searchIconSize}
-              color={searchIconColor}
+              name={searchMicIcon}
+              size={searchMicSize}
+              color={searchMicColor}
             />
           </Pressable>
+        )}
 
-          {/* ========================================================== */}
-          {/* INPUT CONTAINER                                             */}
-          {/* ========================================================== */}
+        {/* ====================================================
+            EXTRA SEARCH ACTIONS
+        ==================================================== */}
 
-          <View style={styles.inputContainer}>
-            {/* ======================================================== */}
-            {/* ANIMATED PLACEHOLDER                                     */}
-            {/* ======================================================== */}
+        {searchActions.length > 0 && (
+          <View
+            style={[
+              styles.searchActions,
 
-            {!hasSearchText && hasSuggestions ? (
-              <Animated.View
-                pointerEvents="none"
-                style={[
-                  styles.animatedPlaceholder,
-
-                  {
-                    opacity: suggestionOpacity,
-
-                    transform: [
-                      {
-                        translateY: suggestionTranslate,
-                      },
-                    ],
-                  },
-                ]}
-              >
-                <Text
-                  numberOfLines={1}
-                  style={[styles.placeholderSearchText, searchTextStyle]}
-                >
-                  Search <Text style={styles.placeholderQuote}>"</Text>
-                  {currentSuggestion}
-                  <Text style={styles.placeholderQuote}>"</Text>
-                </Text>
-              </Animated.View>
-            ) : null}
-
-            {/* ======================================================== */}
-            {/* REAL TEXT INPUT                                          */}
-            {/* ======================================================== */}
-
-            <TextInput
-              ref={inputRef}
-              value={searchValue}
-              onChangeText={onSearchChangeText}
-              onSubmitEditing={onSearchSubmit}
-              onFocus={onSearchFocus}
-              onBlur={onSearchBlur}
-              /*
-               * When suggestions exist,
-               * we hide the native placeholder
-               * because our animated placeholder
-               * handles it.
-               */
-              placeholder={hasSuggestions ? "" : searchPlaceholder}
-              placeholderTextColor={"rgba(255,255,255,0.68)"}
-              editable={searchEditable}
-              autoFocus={searchAutoFocus}
-              keyboardType={searchKeyboardType}
-              returnKeyType={searchReturnKeyType}
-              autoCapitalize={searchAutoCapitalize}
-              autoCorrect={searchAutoCorrect}
-              maxLength={searchMaxLength}
-              secureTextEntry={searchSecureTextEntry}
-              selectionColor={searchSelectionColor || "#FFF"}
-              cursorColor={searchSelectionColor || "#FFF"}
-              style={[styles.searchInput, searchTextStyle, searchInputStyle]}
-            />
+              {
+                marginLeft: searchActionsMarginLeft,
+              },
+            ]}
+          >
+            {searchActions.map(renderSearchAction)}
           </View>
+        )}
+      </View>
+    );
 
-          {/* ========================================================== */}
-          {/* SEARCH ACTIONS                                             */}
-          {/* ========================================================== */}
-
-          <View style={styles.searchActions}>
-            {searchActions.map((action, index) => {
-              const horizontalPadding =
-                action.paddingHorizontal ?? action.horizontalPadding ?? 0;
-
-              return (
-                <Pressable
-                  key={action.id || `search-action-${index}`}
-                  onPress={action.onPress}
-                  disabled={action.disabled}
-                  style={[
-                    styles.searchAction,
-
-                    {
-                      marginLeft: index === 0 ? 0 : searchActionsGap,
-
-                      paddingHorizontal: horizontalPadding,
-                    },
-
-                    searchActionStyle,
-
-                    action.style,
-                  ]}
-                >
-                  {action.render ? (
-                    action.render(action)
-                  ) : action.icon ? (
-                    action.icon
-                  ) : (
-                    <Ionicons
-                      name={action.name || "ellipsis-horizontal"}
-                      size={action.size || 25}
-                      color={action.color || "#FFF"}
-                    />
-                  )}
-                </Pressable>
-              );
-            })}
-
-            {/* MIC */}
-
-            {searchMic ? (
-              <Pressable
-                onPress={onMicPress}
-                disabled={!onMicPress}
-                style={styles.micButton}
-              >
-                <Ionicons
-                  name={searchMicIcon}
-                  size={searchMicSize}
-                  color={searchMicColor}
-                />
-              </Pressable>
-            ) : null}
-          </View>
-        </View>
-      );
-    };
-
-    // ======================================================================
-    // RENDER
-    // ======================================================================
+    // ============================================================
+    // MAIN
+    // ============================================================
 
     return (
       <View
@@ -707,31 +775,91 @@ const UIHomeHeader = forwardRef(
           styles.container,
 
           {
-            paddingTop,
             paddingHorizontal,
+            paddingTop,
             paddingBottom,
           },
 
           style,
         ]}
       >
-        <View
-          style={[
-            styles.topRow,
+        {/* ======================================================
+            TOP ROW
+        ====================================================== */}
 
-            {
-              minHeight: locationRowHeight,
-            },
-          ]}
-        >
-          {renderLocationArea()}
+        <View style={styles.topRow}>
+          {/* LOCATION */}
 
-          {renderActions()}
+          <View style={styles.locationWrapper}>
+            {renderLocation
+              ? renderLocation({
+                  locationMode,
 
-          {renderVegArea()}
+                  locationTitle,
+
+                  locationAddress,
+
+                  locationIcon,
+
+                  locationIconSize,
+
+                  locationIconColor,
+
+                  backIcon,
+
+                  backIconSize,
+
+                  backIconColor,
+
+                  onLocationPress,
+
+                  onBackPress,
+                })
+              : defaultLocation}
+          </View>
+
+          {/* RIGHT ACTIONS */}
+
+          {renderRightActions ? (
+            renderRightActions({
+              actions: rightActions,
+            })
+          ) : (
+            <View style={[styles.rightActions, rightActionsStyle]}>
+              {rightActions.map(renderRightAction)}
+            </View>
+          )}
         </View>
 
-        {renderSearchArea()}
+        {/* ======================================================
+            SEARCH
+        ====================================================== */}
+
+        {showSearch && (
+          <View style={styles.searchRow}>
+            {renderSearch
+              ? renderSearch({
+                  value: currentSearchValue,
+
+                  onChangeText: handleSearchChange,
+
+                  onSubmitEditing: handleSearchSubmit,
+
+                  inputRef,
+                })
+              : defaultSearch}
+          </View>
+        )}
+
+        {/* ======================================================
+            VEG
+        ====================================================== */}
+
+        {renderVegToggle()}
+
+        {/* ======================================================
+            CHILDREN
+        ====================================================== */}
 
         {children}
       </View>
@@ -739,22 +867,20 @@ const UIHomeHeader = forwardRef(
   },
 );
 
-// ============================================================================
+UIHomeHeader.displayName = "UIHomeHeader";
+
+// ================================================================
 // STYLES
-// ============================================================================
+// ================================================================
 
 const styles = StyleSheet.create({
   container: {
     width: "100%",
-
-    backgroundColor: "transparent",
-
-    zIndex: 1000,
   },
 
-  // ========================================================================
-  // LOCATION
-  // ========================================================================
+  // ==============================================================
+  // TOP ROW
+  // ==============================================================
 
   topRow: {
     width: "100%",
@@ -762,168 +888,120 @@ const styles = StyleSheet.create({
     flexDirection: "row",
 
     alignItems: "center",
+
+    justifyContent: "space-between",
   },
 
-  locationArea: {
+  // ==============================================================
+  // LOCATION
+  // ==============================================================
+
+  locationWrapper: {
     flex: 1,
 
     minWidth: 0,
+  },
 
+  locationRow: {
     flexDirection: "row",
 
     alignItems: "center",
+
+    minWidth: 0,
+  },
+
+  locationIconContainer: {
+    width: 34,
+
+    alignItems: "flex-start",
+
+    justifyContent: "center",
+
+    marginRight: 6,
   },
 
   locationContent: {
     flex: 1,
 
     minWidth: 0,
-
-    marginLeft: 7,
   },
 
-  titleRow: {
+  locationTitleRow: {
     flexDirection: "row",
 
     alignItems: "center",
   },
 
   locationTitle: {
-    color: "#FFF",
+    color: "#FFFFFF",
 
-    fontSize: 25,
+    fontSize: 17,
 
-    fontWeight: "800",
-
-    flexShrink: 1,
+    fontWeight: "700",
   },
 
-  chevron: {
+  locationChevron: {
     marginLeft: 3,
   },
 
   locationAddress: {
-    color: "rgba(255,255,255,0.92)",
-
-    fontSize: 15,
-
     marginTop: 2,
 
-    flexShrink: 1,
+    color: "rgba(255,255,255,0.82)",
+
+    fontSize: 12,
+
+    fontWeight: "400",
   },
 
-  // ========================================================================
+  // ==============================================================
   // RIGHT ACTIONS
-  // ========================================================================
+  // ==============================================================
 
   rightActions: {
     flexDirection: "row",
 
     alignItems: "center",
 
-    marginLeft: 7,
+    justifyContent: "flex-end",
+
+    marginLeft: 10,
   },
 
-  rightAction: {
-    minWidth: 42,
-
-    minHeight: 42,
-
-    borderRadius: 24,
-
+  actionWrapper: {
     alignItems: "center",
 
     justifyContent: "center",
   },
 
-  // ========================================================================
-  // VEG
-  // ========================================================================
-
-  vegContainer: {
+  actionButton: {
     alignItems: "center",
 
     justifyContent: "center",
-
-    marginLeft: 8,
   },
 
-  vegLabel: {
-    color: "#FFF",
-
-    fontSize: 15,
-
-    fontWeight: "800",
-
-    marginBottom: 4,
-  },
-
-  vegTrack: {
-    width: 48,
-
-    height: 28,
-
-    borderRadius: 20,
-
-    backgroundColor: "rgba(100,100,100,0.75)",
-
-    justifyContent: "center",
-
-    paddingHorizontal: 3,
-  },
-
-  vegTrackActive: {
-    backgroundColor: "#20B45A",
-  },
-
-  vegThumb: {
-    width: 22,
-
-    height: 22,
-
-    borderRadius: 11,
-
-    backgroundColor: "#FFF",
-  },
-
-  vegThumbActive: {
-    alignSelf: "flex-end",
-  },
-
-  // ========================================================================
+  // ==============================================================
   // SEARCH
-  // ========================================================================
+  // ==============================================================
 
-  search: {
+  searchRow: {
+    width: "100%",
+  },
+
+  searchContainer: {
     width: "100%",
 
     flexDirection: "row",
 
     alignItems: "center",
 
-    paddingHorizontal: 8,
+    backgroundColor: "#FFFFFF",
 
-    backgroundColor: "rgba(10,10,12,0.92)",
+    overflow: "hidden",
   },
 
-  searchIconButton: {
-    width: 45,
-
-    height: 48,
-
-    alignItems: "center",
-
-    justifyContent: "center",
-  },
-
-  // ========================================================================
-  // INPUT
-  // ========================================================================
-
-  inputContainer: {
+  searchInputContainer: {
     flex: 1,
-
-    minWidth: 0,
 
     height: "100%",
 
@@ -931,10 +1009,26 @@ const styles = StyleSheet.create({
 
     position: "relative",
 
-    overflow: "hidden",
+    minWidth: 0,
   },
 
   searchInput: {
+    width: "100%",
+
+    height: "100%",
+
+    paddingHorizontal: 0,
+
+    paddingVertical: 0,
+
+    margin: 0,
+
+    color: "#222222",
+
+    fontSize: 15,
+  },
+
+  animatedPlaceholder: {
     position: "absolute",
 
     left: 0,
@@ -945,83 +1039,99 @@ const styles = StyleSheet.create({
 
     bottom: 0,
 
-    width: "100%",
-
-    height: "100%",
-
-    paddingHorizontal: 5,
-
-    paddingVertical: 0,
-
-    color: "#FFF",
-
-    fontSize: 18,
-
-    fontWeight: "400",
+    justifyContent: "center",
   },
 
-  // ========================================================================
-  // ANIMATED PLACEHOLDER
-  // ========================================================================
+  searchPlaceholder: {
+    color: "#777777",
 
-  animatedPlaceholder: {
-    position: "absolute",
+    fontSize: 15,
+  },
 
-    left: 5,
+  searchIconButton: {
+    width: 36,
 
-    right: 0,
+    height: 36,
 
-    top: 0,
-
-    bottom: 0,
+    alignItems: "center",
 
     justifyContent: "center",
-
-    zIndex: 1,
   },
-
-  placeholderSearchText: {
-    color: "rgba(255,255,255,0.68)",
-
-    fontSize: 18,
-
-    fontWeight: "400",
-  },
-
-  placeholderQuote: {
-    color: "rgba(255,255,255,0.68)",
-  },
-
-  // ========================================================================
-  // SEARCH ACTIONS
-  // ========================================================================
 
   searchActions: {
     flexDirection: "row",
 
     alignItems: "center",
-
-    marginLeft: 4,
   },
 
-  searchAction: {
-    minWidth: 36,
-
-    minHeight: 40,
-
+  searchActionWrapper: {
     alignItems: "center",
 
     justifyContent: "center",
   },
 
-  micButton: {
-    minWidth: 42,
-
-    minHeight: 44,
-
+  searchActionButton: {
     alignItems: "center",
 
     justifyContent: "center",
+  },
+
+  // ==============================================================
+  // VEG
+  // ==============================================================
+
+  vegContainer: {
+    flexDirection: "row",
+
+    alignItems: "center",
+
+    alignSelf: "flex-end",
+
+    marginTop: 8,
+  },
+
+  vegLabel: {
+    marginRight: 7,
+
+    color: "#FFFFFF",
+
+    fontSize: 12,
+
+    fontWeight: "700",
+  },
+
+  vegTrack: {
+    width: 38,
+
+    height: 21,
+
+    borderRadius: 11,
+
+    padding: 2,
+
+    justifyContent: "center",
+
+    backgroundColor: "rgba(255,255,255,0.35)",
+  },
+
+  vegTrackActive: {
+    backgroundColor: "#35A853",
+  },
+
+  vegThumb: {
+    width: 17,
+
+    height: 17,
+
+    borderRadius: 9,
+
+    backgroundColor: "#FFFFFF",
+
+    alignSelf: "flex-start",
+  },
+
+  vegThumbActive: {
+    alignSelf: "flex-end",
   },
 });
 
