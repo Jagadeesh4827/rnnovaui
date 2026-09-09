@@ -119,7 +119,7 @@ const UICategoryItem = memo(
 
     const { theme } = useUITheme();
 
-    const { colors, spacing, radius, typography, shadows, animation } = theme;
+    const { colors, radius, typography, shadows, animation } = theme;
 
     /* =====================================================
        SIZE
@@ -802,8 +802,6 @@ const UICategory = ({
   /* =======================================================
      THEME
   ======================================================= */
-
-  const { theme } = useUITheme();
 
   const { spacing } = theme;
 
