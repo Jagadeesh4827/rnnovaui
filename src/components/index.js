@@ -157,3 +157,4 @@ export {
   UICategoryItem,
   UICategorySizeConfig,
 } from "./UICategory";
+export { default as UIRestaurantCard } from "./UIRestaurantCard";

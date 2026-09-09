@@ -155,4 +155,5 @@ export {
   UICategory,
   UICategoryItem,
   UICategorySizeConfig,
+  UIRestaurantCard,
 } from "./components";
