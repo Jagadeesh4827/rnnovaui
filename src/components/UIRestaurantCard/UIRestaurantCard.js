@@ -18,7 +18,7 @@ import {
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
-import { useUITheme } from "../../UIProvider";
+import { useUITheme } from "../../theme";
 
 import Animated, {
   Easing,
