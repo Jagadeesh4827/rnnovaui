@@ -152,4 +152,9 @@ export {
   UICountDownVariants,
   UICountDownLabels,
   UICountDownDescriptions,
+  UICategory,
+  UICategoryItem,
+  UICategoryAnimations,
+  UICategoryActiveAnimations,
+  UICategoryPressAnimations,
 } from "./components";

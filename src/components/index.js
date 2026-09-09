@@ -152,3 +152,10 @@ export {
   UICountDownLabels,
   UICountDownDescriptions,
 } from "./UICountDown/UICountDown";
+export {
+  default as UICategory,
+  UICategoryItem,
+  UICategoryAnimations,
+  UICategoryActiveAnimations,
+  UICategoryPressAnimations,
+} from "./UICategory";
