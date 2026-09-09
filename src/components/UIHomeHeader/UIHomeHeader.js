@@ -69,26 +69,38 @@ const UIHomeHeader = forwardRef(
 
       onSearchChangeText,
       onSearchSubmit,
+
       onSearchFocus,
       onSearchBlur,
 
       searchPlaceholder = "Search restaurants, dishes, cuisines...",
 
-      // Animated placeholder
+      // ============================================================
+      // SEARCH SUGGESTIONS
+      // ============================================================
+
       searchSuggestions = ["Biryani", "Pizza Hut", "Burger", "Chinese Food"],
 
       searchSuggestionInterval = 2500,
 
       searchSuggestionAnimationDuration = 450,
 
-      // Search icon
+      // ============================================================
+      // SEARCH ICON
+      // ============================================================
+
       searchIcon = "search-outline",
 
       searchIconSize = 24,
 
       searchIconColor = "#333333",
 
-      // Search microphone
+      searchIconMarginRight = 10,
+
+      // ============================================================
+      // SEARCH MICROPHONE
+      // ============================================================
+
       searchMic = false,
 
       searchMicIcon = "mic-outline",
@@ -97,12 +109,19 @@ const UIHomeHeader = forwardRef(
 
       searchMicColor = "#333333",
 
+      searchMicMarginLeft = 4,
+
       onMicPress,
 
-      // Additional search actions
+      // ============================================================
+      // SEARCH ACTIONS
+      // ============================================================
+
       searchActions = [],
 
       searchActionsGap = 6,
+
+      searchActionsMarginLeft = 4,
 
       searchActionStyle,
 
@@ -133,26 +152,36 @@ const UIHomeHeader = forwardRef(
       searchInputStyle,
 
       // ============================================================
-      // SEARCH OUTER SPACING
+      // SEARCH SIZE
       // ============================================================
 
-      searchHeight = 52,
+      searchHeight = 54,
+
+      searchBorderRadius = 14,
+
+      // ============================================================
+      // SEARCH OUTER MARGIN
+      // ============================================================
 
       searchMarginTop = 8,
 
       searchMarginBottom = 0,
 
-      searchBorderRadius = 14,
+      // ============================================================
+      // SEARCH BACKGROUND
+      // ============================================================
+
+      searchBackgroundColor = "#FFFFFF",
 
       // ============================================================
       // SEARCH INNER PADDING
       // ============================================================
 
-      searchPadding = 14,
+      searchPadding = 0,
 
-      searchPaddingHorizontal,
+      searchPaddingHorizontal = 14,
 
-      searchPaddingVertical,
+      searchPaddingVertical = 0,
 
       searchPaddingLeft,
 
@@ -161,16 +190,6 @@ const UIHomeHeader = forwardRef(
       searchPaddingTop,
 
       searchPaddingBottom,
-
-      // ============================================================
-      // SEARCH INTERNAL SPACING
-      // ============================================================
-
-      searchIconMarginRight = 9,
-
-      searchMicMarginLeft = 4,
-
-      searchActionsMarginLeft = 4,
 
       // ============================================================
       // VEG
@@ -201,10 +220,8 @@ const UIHomeHeader = forwardRef(
       locationRowHeight,
 
       // ============================================================
-      // GENERAL STYLES
+      // LOCATION STYLES
       // ============================================================
-
-      style,
 
       locationRowStyle,
 
@@ -216,9 +233,19 @@ const UIHomeHeader = forwardRef(
 
       locationAddressStyle,
 
+      // ============================================================
+      // SEARCH STYLES
+      // ============================================================
+
       searchStyle,
 
       searchTextStyle,
+
+      // ============================================================
+      // ROOT STYLE
+      // ============================================================
+
+      style,
 
       children,
     },
@@ -265,6 +292,10 @@ const UIHomeHeader = forwardRef(
 
     const suggestionTranslateY = useRef(new Animated.Value(0)).current;
 
+    // ============================================================
+    // RESET SUGGESTION
+    // ============================================================
+
     useEffect(() => {
       setSuggestionIndex(0);
 
@@ -272,6 +303,10 @@ const UIHomeHeader = forwardRef(
 
       suggestionTranslateY.setValue(0);
     }, [suggestions, suggestionOpacity, suggestionTranslateY]);
+
+    // ============================================================
+    // SUGGESTION ANIMATION
+    // ============================================================
 
     useEffect(() => {
       if (suggestions.length <= 1) {
@@ -286,17 +321,13 @@ const UIHomeHeader = forwardRef(
         Animated.parallel([
           Animated.timing(suggestionOpacity, {
             toValue: 0,
-
             duration: searchSuggestionAnimationDuration,
-
             useNativeDriver: true,
           }),
 
           Animated.timing(suggestionTranslateY, {
             toValue: -10,
-
             duration: searchSuggestionAnimationDuration,
-
             useNativeDriver: true,
           }),
         ]).start(() => {
@@ -307,17 +338,13 @@ const UIHomeHeader = forwardRef(
           Animated.parallel([
             Animated.timing(suggestionOpacity, {
               toValue: 1,
-
               duration: searchSuggestionAnimationDuration,
-
               useNativeDriver: true,
             }),
 
             Animated.timing(suggestionTranslateY, {
               toValue: 0,
-
               duration: searchSuggestionAnimationDuration,
-
               useNativeDriver: true,
             }),
           ]).start();
@@ -502,6 +529,13 @@ const UIHomeHeader = forwardRef(
 
     // ============================================================
     // LOCATION
+    //
+    // ROW 1:
+    //       ICON + TITLE
+    //
+    // ROW 2:
+    // ADDRESS FROM LEFT EDGE
+    //
     // ============================================================
 
     const defaultLocation = (
@@ -509,7 +543,7 @@ const UIHomeHeader = forwardRef(
         onPress={locationMode === "back" ? onBackPress : onLocationPress}
         disabled={locationMode === "back" ? !onBackPress : !onLocationPress}
         style={[
-          styles.locationRow,
+          styles.locationBlock,
 
           locationRowHeight
             ? {
@@ -520,45 +554,60 @@ const UIHomeHeader = forwardRef(
           locationRowStyle,
         ]}
       >
-        {/* LOCATION / BACK ICON */}
-        <View style={[styles.locationIconContainer, locationIconStyle]}>
-          <Ionicons
-            name={locationMode === "back" ? backIcon : locationIcon}
-            size={locationMode === "back" ? backIconSize : locationIconSize}
-            color={locationMode === "back" ? backIconColor : locationIconColor}
-          />
-        </View>
+        {/* ======================================================
+            ICON + TITLE
+        ====================================================== */}
 
-        {/* LOCATION TEXT */}
-        <View style={[styles.locationContent, locationContentStyle]}>
-          <View style={styles.locationTitleRow}>
-            <Text
-              numberOfLines={1}
-              style={[styles.locationTitle, locationTitleStyle]}
-            >
-              {locationTitle}
-            </Text>
+        <View style={styles.locationTitleRowContainer}>
+          {/* LOCATION / BACK ICON */}
 
-            {locationMode !== "back" && showLocationChevron && (
-              <Ionicons
-                name="chevron-down"
-                size={16}
-                color={locationIconColor}
-                style={styles.locationChevron}
-              />
-            )}
+          <View style={[styles.locationIconContainer, locationIconStyle]}>
+            <Ionicons
+              name={locationMode === "back" ? backIcon : locationIcon}
+              size={locationMode === "back" ? backIconSize : locationIconSize}
+              color={
+                locationMode === "back" ? backIconColor : locationIconColor
+              }
+            />
           </View>
 
-          {!!locationAddress && (
-            <Text
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={[styles.locationAddress, locationAddressStyle]}
-            >
-              {locationAddress}
-            </Text>
-          )}
+          {/* TITLE */}
+
+          <View style={[styles.locationTitleWrapper, locationContentStyle]}>
+            <View style={styles.locationTitleRow}>
+              <Text
+                numberOfLines={1}
+                style={[styles.locationTitle, locationTitleStyle]}
+              >
+                {locationTitle}
+              </Text>
+
+              {locationMode !== "back" && showLocationChevron && (
+                <Ionicons
+                  name="chevron-down"
+                  size={16}
+                  color={locationIconColor}
+                  style={styles.locationChevron}
+                />
+              )}
+            </View>
+          </View>
         </View>
+
+        {/* ======================================================
+            ADDRESS
+            FULL WIDTH
+        ====================================================== */}
+
+        {!!locationAddress && (
+          <Text
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[styles.locationAddress, locationAddressStyle]}
+          >
+            {locationAddress}
+          </Text>
+        )}
       </Pressable>
     );
 
@@ -567,7 +616,6 @@ const UIHomeHeader = forwardRef(
     // ============================================================
 
     const renderVegToggle = () => {
-      // undefined = don't show VEG
       if (isVeg === undefined) {
         return null;
       }
@@ -611,6 +659,22 @@ const UIHomeHeader = forwardRef(
     };
 
     // ============================================================
+    // SEARCH PADDING
+    // ============================================================
+
+    const finalPaddingLeft =
+      searchPaddingLeft ?? searchPaddingHorizontal ?? searchPadding;
+
+    const finalPaddingRight =
+      searchPaddingRight ?? searchPaddingHorizontal ?? searchPadding;
+
+    const finalPaddingTop =
+      searchPaddingTop ?? searchPaddingVertical ?? searchPadding;
+
+    const finalPaddingBottom =
+      searchPaddingBottom ?? searchPaddingVertical ?? searchPadding;
+
+    // ============================================================
     // SEARCH
     // ============================================================
 
@@ -619,9 +683,7 @@ const UIHomeHeader = forwardRef(
         style={[
           styles.searchContainer,
 
-          // ------------------------------------------------
-          // OUTER SEARCH SPACING
-          // ------------------------------------------------
+          searchStyle,
 
           {
             height: searchHeight,
@@ -632,42 +694,45 @@ const UIHomeHeader = forwardRef(
 
             borderRadius: searchBorderRadius,
 
-            // ------------------------------------------------
-            // INNER SEARCH PADDING
-            // ------------------------------------------------
+            backgroundColor: searchBackgroundColor,
 
-            paddingLeft:
-              searchPaddingLeft ?? searchPaddingHorizontal ?? searchPadding,
+            paddingLeft: finalPaddingLeft,
 
-            paddingRight:
-              searchPaddingRight ?? searchPaddingHorizontal ?? searchPadding,
+            paddingRight: finalPaddingRight,
 
-            paddingTop:
-              searchPaddingTop ?? searchPaddingVertical ?? searchPadding,
+            paddingTop: finalPaddingTop,
 
-            paddingBottom:
-              searchPaddingBottom ?? searchPaddingVertical ?? searchPadding,
+            paddingBottom: finalPaddingBottom,
           },
-
-          searchStyle,
         ]}
       >
-        {/* ====================================================
+        {/* ======================================================
             SEARCH ICON
-        ==================================================== */}
+        ====================================================== */}
 
-        <Ionicons
-          name={searchIcon}
-          size={searchIconSize}
-          color={searchIconColor}
-          style={{
-            marginRight: searchIconMarginRight,
-          }}
-        />
+        <View
+          style={[
+            styles.searchIconContainer,
 
-        {/* ====================================================
-            INPUT AREA
-        ==================================================== */}
+            {
+              width: searchIconSize + 4,
+
+              height: searchIconSize + 8,
+
+              marginRight: searchIconMarginRight,
+            },
+          ]}
+        >
+          <Ionicons
+            name={searchIcon}
+            size={searchIconSize}
+            color={searchIconColor}
+          />
+        </View>
+
+        {/* ======================================================
+            INPUT
+        ====================================================== */}
 
         <View style={styles.searchInputContainer}>
           {/* Animated Placeholder */}
@@ -691,6 +756,7 @@ const UIHomeHeader = forwardRef(
             >
               <Text
                 numberOfLines={1}
+                ellipsizeMode="tail"
                 style={[styles.searchPlaceholder, searchTextStyle]}
               >
                 Search "{activeSuggestion}"
@@ -717,20 +783,22 @@ const UIHomeHeader = forwardRef(
             maxLength={searchMaxLength}
             secureTextEntry={searchSecureTextEntry}
             selectionColor={searchSelectionColor}
+            includeFontPadding={false}
+            textAlignVertical="center"
             style={[styles.searchInput, searchTextStyle, searchInputStyle]}
           />
         </View>
 
-        {/* ====================================================
+        {/* ======================================================
             MICROPHONE
-        ==================================================== */}
+        ====================================================== */}
 
         {searchMic && (
           <Pressable
             onPress={onMicPress}
             disabled={!onMicPress}
             style={[
-              styles.searchIconButton,
+              styles.searchMicButton,
 
               {
                 marginLeft: searchMicMarginLeft,
@@ -745,9 +813,9 @@ const UIHomeHeader = forwardRef(
           </Pressable>
         )}
 
-        {/* ====================================================
+        {/* ======================================================
             EXTRA SEARCH ACTIONS
-        ==================================================== */}
+        ====================================================== */}
 
         {searchActions.length > 0 && (
           <View
@@ -867,6 +935,10 @@ const UIHomeHeader = forwardRef(
   },
 );
 
+// ================================================================
+// DISPLAY NAME
+// ================================================================
+
 UIHomeHeader.displayName = "UIHomeHeader";
 
 // ================================================================
@@ -874,6 +946,10 @@ UIHomeHeader.displayName = "UIHomeHeader";
 // ================================================================
 
 const styles = StyleSheet.create({
+  // ==============================================================
+  // ROOT
+  // ==============================================================
+
   container: {
     width: "100%",
   },
@@ -887,7 +963,7 @@ const styles = StyleSheet.create({
 
     flexDirection: "row",
 
-    alignItems: "center",
+    alignItems: "flex-start",
 
     justifyContent: "space-between",
   },
@@ -902,7 +978,29 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
 
-  locationRow: {
+  /*
+   * Entire location block.
+   *
+   * Address is deliberately OUTSIDE the
+   * title row so it starts from the
+   * left edge of this block.
+   */
+
+  locationBlock: {
+    width: "100%",
+
+    minWidth: 0,
+  },
+
+  /*
+   * First row:
+   *
+   * 📍 Home ▼
+   */
+
+  locationTitleRowContainer: {
+    width: "100%",
+
     flexDirection: "row",
 
     alignItems: "center",
@@ -910,17 +1008,26 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
 
-  locationIconContainer: {
-    width: 34,
+  /*
+   * Location icon.
+   *
+   * locationIconSize controls the
+   * actual Ionicons size.
+   */
 
-    alignItems: "flex-start",
+  locationIconContainer: {
+    alignItems: "center",
 
     justifyContent: "center",
 
-    marginRight: 6,
+    marginRight: 8,
+
+    flexShrink: 0,
+
+    overflow: "visible",
   },
 
-  locationContent: {
+  locationTitleWrapper: {
     flex: 1,
 
     minWidth: 0,
@@ -930,6 +1037,10 @@ const styles = StyleSheet.create({
     flexDirection: "row",
 
     alignItems: "center",
+
+    minHeight: 26,
+
+    minWidth: 0,
   },
 
   locationTitle: {
@@ -938,20 +1049,48 @@ const styles = StyleSheet.create({
     fontSize: 17,
 
     fontWeight: "700",
+
+    includeFontPadding: false,
+
+    flexShrink: 1,
   },
 
   locationChevron: {
-    marginLeft: 3,
+    marginLeft: 4,
+
+    flexShrink: 0,
   },
 
+  /*
+   * Address is FULL WIDTH.
+   *
+   * It does NOT sit inside the title row.
+   *
+   * Therefore:
+   *
+   * 📍 Home
+   * Plot No 9...
+   *
+   * rather than:
+   *
+   * 📍 Home
+   *    Plot No 9...
+   */
+
   locationAddress: {
-    marginTop: 2,
+    width: "100%",
+
+    marginTop: 4,
 
     color: "rgba(255,255,255,0.82)",
 
-    fontSize: 12,
+    fontSize: 13,
 
     fontWeight: "400",
+
+    includeFontPadding: false,
+
+    flexShrink: 1,
   },
 
   // ==============================================================
@@ -966,27 +1105,39 @@ const styles = StyleSheet.create({
     justifyContent: "flex-end",
 
     marginLeft: 10,
+
+    flexShrink: 0,
   },
 
   actionWrapper: {
     alignItems: "center",
 
     justifyContent: "center",
+
+    overflow: "visible",
   },
 
   actionButton: {
     alignItems: "center",
 
     justifyContent: "center",
+
+    flexShrink: 0,
+
+    overflow: "visible",
   },
 
   // ==============================================================
-  // SEARCH
+  // SEARCH ROW
   // ==============================================================
 
   searchRow: {
     width: "100%",
   },
+
+  // ==============================================================
+  // SEARCH CONTAINER
+  // ==============================================================
 
   searchContainer: {
     width: "100%",
@@ -995,38 +1146,72 @@ const styles = StyleSheet.create({
 
     alignItems: "center",
 
-    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
 
-    overflow: "hidden",
+    /*
+     * Do not clip icons/text.
+     */
+
+    overflow: "visible",
   },
+
+  // ==============================================================
+  // SEARCH ICON
+  // ==============================================================
+
+  searchIconContainer: {
+    alignItems: "center",
+
+    justifyContent: "center",
+
+    flexShrink: 0,
+
+    overflow: "visible",
+  },
+
+  // ==============================================================
+  // SEARCH INPUT CONTAINER
+  // ==============================================================
 
   searchInputContainer: {
     flex: 1,
 
     height: "100%",
 
-    justifyContent: "center",
+    minWidth: 0,
 
     position: "relative",
 
-    minWidth: 0,
+    justifyContent: "center",
   },
+
+  // ==============================================================
+  // TEXT INPUT
+  // ==============================================================
 
   searchInput: {
     width: "100%",
 
     height: "100%",
 
+    margin: 0,
+
     paddingHorizontal: 0,
 
     paddingVertical: 0,
 
-    margin: 0,
-
     color: "#222222",
 
     fontSize: 15,
+
+    includeFontPadding: false,
+
+    textAlignVertical: "center",
   },
+
+  // ==============================================================
+  // ANIMATED PLACEHOLDER
+  // ==============================================================
 
   animatedPlaceholder: {
     position: "absolute",
@@ -1040,40 +1225,68 @@ const styles = StyleSheet.create({
     bottom: 0,
 
     justifyContent: "center",
+
+    overflow: "visible",
   },
 
   searchPlaceholder: {
     color: "#777777",
 
     fontSize: 15,
+
+    includeFontPadding: false,
+
+    textAlignVertical: "center",
   },
 
-  searchIconButton: {
-    width: 36,
+  // ==============================================================
+  // MICROPHONE
+  // ==============================================================
 
-    height: 36,
+  searchMicButton: {
+    minWidth: 40,
+
+    height: 40,
 
     alignItems: "center",
 
     justifyContent: "center",
+
+    flexShrink: 0,
+
+    overflow: "visible",
   },
+
+  // ==============================================================
+  // SEARCH ACTIONS
+  // ==============================================================
 
   searchActions: {
     flexDirection: "row",
 
     alignItems: "center",
+
+    flexShrink: 0,
+
+    overflow: "visible",
   },
 
   searchActionWrapper: {
     alignItems: "center",
 
     justifyContent: "center",
+
+    overflow: "visible",
   },
 
   searchActionButton: {
     alignItems: "center",
 
     justifyContent: "center",
+
+    flexShrink: 0,
+
+    overflow: "visible",
   },
 
   // ==============================================================
@@ -1134,6 +1347,10 @@ const styles = StyleSheet.create({
     alignSelf: "flex-end",
   },
 });
+
+// ================================================================
+// EXPORTS
+// ================================================================
 
 export default UIHomeHeader;
 
