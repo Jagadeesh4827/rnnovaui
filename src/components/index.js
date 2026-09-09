@@ -155,7 +155,5 @@ export {
 export {
   default as UICategory,
   UICategoryItem,
-  UICategoryAnimations,
-  UICategoryActiveAnimations,
-  UICategoryPressAnimations,
+  UICategorySizeConfig,
 } from "./UICategory";

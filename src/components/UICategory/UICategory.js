@@ -1,402 +1,64 @@
-import React, { memo, useCallback, useEffect, useRef, useState } from "react";
+import React, { memo, useCallback, useEffect, useMemo, useRef } from "react";
 
 import {
   FlatList,
-  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
+  Image,
 } from "react-native";
 
-import { Ionicons } from "@expo/vector-icons";
+import PropTypes from "prop-types";
 
 import Animated, {
-  Easing,
-  interpolate,
   useAnimatedStyle,
   useSharedValue,
-  withDelay,
-  withSequence,
   withSpring,
-  withTiming,
 } from "react-native-reanimated";
 
-/* =========================================================
-   CONSTANTS
-========================================================= */
-
-const DEFAULT_ITEM_WIDTH = 96;
-const DEFAULT_IMAGE_SIZE = 82;
-const DEFAULT_IMAGE_BORDER_RADIUS = 22;
-
-const DEFAULT_ACTIVE_COLOR = "#FF4B00";
-const DEFAULT_TEXT_COLOR = "#222222";
-const DEFAULT_INACTIVE_TEXT_COLOR = "#222222";
-
-const DEFAULT_GAP = 16;
-const DEFAULT_HORIZONTAL_PADDING = 16;
-
-const CATEGORY_ANIMATIONS = [
-  "none",
-
-  "fade",
-  "fadeUp",
-  "fadeDown",
-  "fadeLeft",
-  "fadeRight",
-
-  "slideUp",
-  "slideDown",
-  "slideLeft",
-  "slideRight",
-
-  "scale",
-  "scaleUp",
-  "scaleDown",
-
-  "zoomIn",
-  "zoomOut",
-
-  "bounce",
-  "elastic",
-
-  "rotate",
-  "flip",
-];
-
-const ACTIVE_ANIMATIONS = [
-  "none",
-  "scale",
-  "bounce",
-  "pulse",
-  "elastic",
-  "lift",
-  "rotate",
-];
-
-const PRESS_ANIMATIONS = ["none", "scale", "shrink", "bounce"];
+import { useUITheme } from "../../theme";
 
 /* =========================================================
-   CATEGORY ITEM ANIMATION
+   ANIMATED PRESSABLE
 ========================================================= */
 
-const useCategoryAnimation = ({
-  animation = "none",
-  duration = 600,
-  delay = 0,
-  reanimated = true,
-}) => {
-  const progress = useSharedValue(animation === "none" ? 1 : 0);
-
-  useEffect(() => {
-    if (!reanimated || !animation || animation === "none") {
-      progress.value = 1;
-      return;
-    }
-
-    progress.value = 0;
-
-    progress.value = withDelay(
-      delay,
-      withTiming(1, {
-        duration,
-        easing: Easing.out(Easing.cubic),
-      }),
-    );
-  }, [animation, duration, delay, reanimated, progress]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    if (!reanimated || !animation || animation === "none") {
-      return {};
-    }
-
-    const opacity = interpolate(progress.value, [0, 1], [0, 1]);
-
-    switch (animation) {
-      case "fade":
-        return {
-          opacity,
-        };
-
-      case "fadeUp":
-      case "slideUp":
-        return {
-          opacity,
-          transform: [
-            {
-              translateY: interpolate(progress.value, [0, 1], [35, 0]),
-            },
-          ],
-        };
-
-      case "fadeDown":
-      case "slideDown":
-        return {
-          opacity,
-          transform: [
-            {
-              translateY: interpolate(progress.value, [0, 1], [-35, 0]),
-            },
-          ],
-        };
-
-      case "fadeLeft":
-      case "slideLeft":
-        return {
-          opacity,
-          transform: [
-            {
-              translateX: interpolate(progress.value, [0, 1], [40, 0]),
-            },
-          ],
-        };
-
-      case "fadeRight":
-      case "slideRight":
-        return {
-          opacity,
-          transform: [
-            {
-              translateX: interpolate(progress.value, [0, 1], [-40, 0]),
-            },
-          ],
-        };
-
-      case "scale":
-      case "scaleUp":
-      case "zoomIn":
-        return {
-          opacity,
-          transform: [
-            {
-              scale: interpolate(progress.value, [0, 1], [0.7, 1]),
-            },
-          ],
-        };
-
-      case "scaleDown":
-      case "zoomOut":
-        return {
-          opacity,
-          transform: [
-            {
-              scale: interpolate(progress.value, [0, 1], [1.3, 1]),
-            },
-          ],
-        };
-
-      case "bounce":
-        return {
-          opacity,
-          transform: [
-            {
-              scale: interpolate(
-                progress.value,
-                [0, 0.65, 0.82, 1],
-                [0.7, 1.12, 0.96, 1],
-              ),
-            },
-          ],
-        };
-
-      case "elastic":
-        return {
-          opacity,
-          transform: [
-            {
-              scale: interpolate(
-                progress.value,
-                [0, 0.45, 0.7, 1],
-                [0.65, 1.15, 0.95, 1],
-              ),
-            },
-          ],
-        };
-
-      case "rotate":
-        return {
-          opacity,
-          transform: [
-            {
-              rotate: `${interpolate(progress.value, [0, 1], [-25, 0])}deg`,
-            },
-          ],
-        };
-
-      case "flip":
-        return {
-          opacity,
-          transform: [
-            {
-              rotateY: `${interpolate(progress.value, [0, 1], [90, 0])}deg`,
-            },
-          ],
-        };
-
-      default:
-        return {
-          opacity,
-        };
-    }
-  });
-
-  return animatedStyle;
-};
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 /* =========================================================
-   ACTIVE ANIMATION
+   SIZE CONFIG
 ========================================================= */
 
-const useActiveAnimation = ({
-  active,
-  animation = "none",
-  duration = 500,
-  reanimated = true,
-}) => {
-  const progress = useSharedValue(active ? 1 : 0);
+const SIZE_CONFIG = {
+  sm: {
+    width: 70,
+    height: 90,
 
-  useEffect(() => {
-    if (!reanimated || !active || !animation || animation === "none") {
-      progress.value = active ? 1 : 0;
-      return;
-    }
+    icon: 20,
+    image: 36,
 
-    progress.value = 0;
+    font: 11,
+  },
 
-    if (animation === "bounce" || animation === "elastic") {
-      progress.value = withSequence(
-        withSpring(1.08, {
-          damping: animation === "elastic" ? 5 : 10,
-          stiffness: 180,
-        }),
-        withSpring(1),
-      );
-    } else {
-      progress.value = withTiming(1, {
-        duration,
-        easing: Easing.out(Easing.cubic),
-      });
-    }
-  }, [active, animation, duration, reanimated, progress]);
+  md: {
+    width: 75,
+    height: 75,
 
-  const animatedStyle = useAnimatedStyle(() => {
-    if (!reanimated || !active || !animation || animation === "none") {
-      return {};
-    }
+    icon: 22,
+    image: 40,
 
-    switch (animation) {
-      case "scale":
-      case "bounce":
-      case "elastic":
-        return {
-          transform: [
-            {
-              scale: interpolate(progress.value, [0, 1], [1, 1.08]),
-            },
-          ],
-        };
+    font: 12,
+  },
 
-      case "pulse":
-        return {
-          transform: [
-            {
-              scale: interpolate(progress.value, [0, 1], [1, 1.06]),
-            },
-          ],
-        };
+  lg: {
+    width: 104,
+    height: 122,
 
-      case "lift":
-        return {
-          transform: [
-            {
-              translateY: interpolate(progress.value, [0, 1], [0, -5]),
-            },
-            {
-              scale: interpolate(progress.value, [0, 1], [1, 1.04]),
-            },
-          ],
-        };
+    icon: 34,
+    image: 62,
 
-      case "rotate":
-        return {
-          transform: [
-            {
-              rotate: `${interpolate(progress.value, [0, 1], [0, 8])}deg`,
-            },
-          ],
-        };
-
-      default:
-        return {};
-    }
-  });
-
-  return animatedStyle;
-};
-
-/* =========================================================
-   PRESS ANIMATION
-========================================================= */
-
-const usePressAnimation = ({ animation = "scale", reanimated = true }) => {
-  const pressed = useSharedValue(0);
-
-  const handlePressIn = () => {
-    if (!reanimated || animation === "none") {
-      return;
-    }
-
-    pressed.value = withTiming(1, {
-      duration: 100,
-    });
-  };
-
-  const handlePressOut = () => {
-    if (!reanimated || animation === "none") {
-      return;
-    }
-
-    pressed.value = withTiming(0, {
-      duration: 180,
-    });
-  };
-
-  const animatedStyle = useAnimatedStyle(() => {
-    if (!reanimated || animation === "none") {
-      return {};
-    }
-
-    switch (animation) {
-      case "scale":
-      case "shrink":
-        return {
-          transform: [
-            {
-              scale: interpolate(pressed.value, [0, 1], [1, 0.94]),
-            },
-          ],
-        };
-
-      case "bounce":
-        return {
-          transform: [
-            {
-              scale: interpolate(pressed.value, [0, 1], [1, 0.92]),
-            },
-          ],
-        };
-
-      default:
-        return {};
-    }
-  });
-
-  return {
-    animatedStyle,
-    handlePressIn,
-    handlePressOut,
-  };
+    font: 14,
+  },
 };
 
 /* =========================================================
@@ -408,290 +70,511 @@ const UICategoryItem = memo(
     item,
     index,
 
-    selected,
+    selected = false,
+
     onPress,
 
-    itemWidth,
-    imageSize,
-    imageBorderRadius,
+    variant = "soft",
 
-    gap,
+    shape = "rounded",
 
-    activeColor,
-    textColor,
-    inactiveTextColor,
+    size = "md",
 
-    imageBackgroundColor,
-    activeImageBackgroundColor,
+    iconPosition = "top",
 
-    imageResizeMode,
+    titleAlign = "center",
 
-    labelFontSize,
-    labelFontWeight,
-    activeLabelFontWeight,
+    showBadge = true,
 
-    imageStyle,
-    activeImageStyle,
-
-    imageContainerStyle,
-    activeImageContainerStyle,
-
-    labelStyle,
-    activeLabelStyle,
-
-    itemStyle,
-    activeItemStyle,
-
-    showActiveIndicator,
-    activeIndicatorStyle,
-
-    renderItem,
-    renderImage,
-
-    iconName,
-    iconSize,
-    iconColor,
-
-    reanimated,
-
-    animation,
-    animationDuration,
-    animationDelay,
-
-    activeAnimation,
-    activeAnimationDuration,
-
-    pressAnimation,
-
-    onItemPress,
+    style,
   }) => {
-    /*
-     * -------------------------------------------------------
-     * Custom renderer
-     * -------------------------------------------------------
-     */
+    const { colors, spacing, radius, typography, shadows } = useUITheme();
 
-    if (renderItem) {
-      return renderItem({
-        item,
-        index,
-        selected,
-        onPress: () => onPress?.(item, index),
+    /* =====================================================
+       SIZE
+    ===================================================== */
+
+    const config = SIZE_CONFIG[size] || SIZE_CONFIG.md;
+
+    /* =====================================================
+       PRESS ANIMATION
+    ===================================================== */
+
+    const scale = useSharedValue(1);
+
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [
+        {
+          scale: scale.value,
+        },
+      ],
+    }));
+
+    const handlePressIn = useCallback(() => {
+      scale.value = withSpring(0.95, {
+        damping: 14,
+        stiffness: 220,
       });
-    }
+    }, [scale]);
 
-    /*
-     * -------------------------------------------------------
-     * Primitive animation configuration
-     * -------------------------------------------------------
-     */
+    const handlePressOut = useCallback(() => {
+      scale.value = withSpring(1, {
+        damping: 14,
+        stiffness: 220,
+      });
+    }, [scale]);
 
-    const itemAnimation = item?.animation ?? animation ?? "none";
+    /* =====================================================
+       FLEX DIRECTION
+    ===================================================== */
 
-    const itemAnimationDuration =
-      item?.animationDuration ?? animationDuration ?? 600;
+    const flexDirection = useMemo(() => {
+      switch (iconPosition) {
+        case "left":
+          return "row";
 
-    const itemAnimationDelay =
-      item?.animationDelay ?? animationDelay ?? index * 70;
+        case "right":
+          return "row-reverse";
 
-    const itemActiveAnimation =
-      item?.activeAnimation ?? activeAnimation ?? "none";
+        case "bottom":
+          return "column-reverse";
 
-    const itemActiveAnimationDuration =
-      item?.activeAnimationDuration ?? activeAnimationDuration ?? 450;
+        case "top":
+        default:
+          return "column";
+      }
+    }, [iconPosition]);
 
-    const itemPressAnimation =
-      item?.pressAnimation ?? pressAnimation ?? "scale";
+    /* =====================================================
+       SHAPE
+    ===================================================== */
 
-    /*
-     * -------------------------------------------------------
-     * Hooks
-     * -------------------------------------------------------
-     */
+    const itemRadius = useMemo(() => {
+      switch (shape) {
+        case "square":
+          return radius.none || 0;
 
-    const entranceStyle = useCategoryAnimation({
-      animation: itemAnimation,
-      duration: itemAnimationDuration,
-      delay: itemAnimationDelay,
-      reanimated,
-    });
+        case "circle":
+          return radius.full;
 
-    const activeStyle = useActiveAnimation({
-      active: selected,
-      animation: itemActiveAnimation,
-      duration: itemActiveAnimationDuration,
-      reanimated,
-    });
+        case "pill":
+          return radius.full;
 
-    const {
-      animatedStyle: pressStyle,
-      handlePressIn,
-      handlePressOut,
-    } = usePressAnimation({
-      animation: itemPressAnimation,
-      reanimated,
-    });
+        case "rounded":
+        default:
+          return radius.lg || radius.md;
+      }
+    }, [shape, radius]);
 
-    /*
-     * -------------------------------------------------------
-     * Data
-     * -------------------------------------------------------
-     */
+    /* =====================================================
+       VARIANT / PALETTE
+    ===================================================== */
 
-    const itemLabel = item?.label ?? item?.name ?? "";
+    const palette = useMemo(() => {
+      switch (variant) {
+        case "filled":
+          return {
+            background: selected ? colors.primary : colors.surface.primary,
 
-    const itemImage = item?.image ?? item?.iconImage ?? item?.source;
+            border: "transparent",
 
-    const itemIcon = item?.icon ?? item?.iconName ?? iconName;
+            title: selected ? colors.button.text : colors.text.primary,
 
-    const finalIconColor =
-      item?.iconColor ?? iconColor ?? (selected ? activeColor : "#555555");
+            icon: selected ? colors.button.text : colors.primary,
+          };
 
-    const finalIconSize = item?.iconSize ?? iconSize ?? 34;
+        case "outline":
+          return {
+            background: colors.background.secondary,
 
-    const finalImageSize = item?.imageSize ?? imageSize;
+            border: selected ? colors.primary : colors.border.tertiary,
 
-    const finalImageRadius = item?.imageBorderRadius ?? imageBorderRadius;
+            title: colors.text.primary,
 
-    const finalBackgroundColor = selected
-      ? (item?.activeImageBackgroundColor ?? activeImageBackgroundColor)
-      : (item?.imageBackgroundColor ?? imageBackgroundColor);
+            icon: selected ? colors.primary : colors.icon.secondary,
+          };
 
-    const finalTextColor = selected
-      ? (item?.activeTextColor ?? activeColor)
-      : (item?.textColor ?? inactiveTextColor ?? textColor);
+        case "minimal":
+          return {
+            background: colors.transparent,
 
-    const finalResizeMode = item?.resizeMode ?? imageResizeMode;
+            border: colors.transparent,
 
-    /*
-     * -------------------------------------------------------
-     * Press handler
-     * -------------------------------------------------------
-     */
+            title: selected ? colors.primary : colors.text.primary,
 
-    const handlePress = () => {
+            icon: selected ? colors.primary : colors.icon.secondary,
+          };
+
+        case "soft":
+        default:
+          return {
+            background: selected
+              ? colors.category.background
+              : colors.surface.primary,
+
+            border: selected ? colors.border.card : colors.border.primary,
+
+            title: colors.text.primary,
+
+            icon: selected ? colors.category.selected : colors.primary,
+          };
+      }
+    }, [variant, selected, colors]);
+
+    /* =====================================================
+       CONTAINER STYLE
+    ===================================================== */
+
+    const containerStyle = useMemo(
+      () => [
+        styles.itemContainer,
+
+        {
+          width: config.width,
+
+          minHeight: config.height,
+
+          padding: spacing.xs,
+
+          gap: spacing.xs,
+
+          borderRadius: itemRadius,
+
+          flexDirection,
+
+          backgroundColor: palette.background,
+
+          borderColor: palette.border,
+
+          borderWidth:
+            variant === "outline" || selected ? 1 : StyleSheet.hairlineWidth,
+
+          alignItems: "center",
+
+          justifyContent: "center",
+
+          ...shadows.sm,
+        },
+
+        style,
+      ],
+      [
+        config,
+        spacing,
+        itemRadius,
+        flexDirection,
+        palette,
+        variant,
+        selected,
+        shadows,
+        style,
+      ],
+    );
+
+    /* =====================================================
+       MEDIA
+    ===================================================== */
+
+    const renderMedia = useCallback(() => {
+      /* -------------------------------------------------
+         CUSTOM REACT ELEMENT
+      ------------------------------------------------- */
+
+      if (item?.iconElement) {
+        return <View style={styles.mediaContainer}>{item.iconElement}</View>;
+      }
+
+      /* -------------------------------------------------
+         IMAGE
+      ------------------------------------------------- */
+
+      if (item?.image) {
+        const imageSource =
+          typeof item.image === "string"
+            ? {
+                uri: item.image,
+              }
+            : item.image;
+
+        return (
+          <Image
+            source={imageSource}
+            style={[
+              styles.image,
+
+              {
+                width: item.imageSize ?? config.image,
+
+                height: item.imageSize ?? config.image,
+
+                borderRadius: item.imageBorderRadius ?? radius.full,
+              },
+
+              item.imageStyle,
+            ]}
+            resizeMode={item.contentFit || "contain"}
+          />
+        );
+      }
+
+      /* -------------------------------------------------
+         ICON COMPONENT
+      ------------------------------------------------- */
+
+      if (item?.icon) {
+        const Icon = item.icon;
+
+        if (
+          typeof Icon === "function" ||
+          (typeof Icon === "object" && Icon !== null)
+        ) {
+          return (
+            <View style={styles.mediaContainer}>
+              <Icon
+                size={item.iconSize ?? config.icon}
+                color={item.iconColor ?? palette.icon}
+                strokeWidth={item.iconStrokeWidth ?? 2}
+              />
+            </View>
+          );
+        }
+      }
+
+      /* -------------------------------------------------
+         ICON NAME
+      ------------------------------------------------- */
+
+      if (typeof item?.iconName === "string") {
+        if (typeof item?.renderIcon === "function") {
+          return (
+            <View style={styles.mediaContainer}>
+              {item.renderIcon({
+                item,
+
+                size: item.iconSize ?? config.icon,
+
+                color: item.iconColor ?? palette.icon,
+              })}
+            </View>
+          );
+        }
+      }
+
+      /* -------------------------------------------------
+         SVG COMPONENT
+      ------------------------------------------------- */
+
+      if (item?.svg) {
+        const SvgIcon = item.svg;
+
+        if (
+          typeof SvgIcon === "function" ||
+          (typeof SvgIcon === "object" && SvgIcon !== null)
+        ) {
+          return (
+            <View style={styles.mediaContainer}>
+              <SvgIcon
+                width={item.svgWidth ?? config.icon}
+                height={item.svgHeight ?? config.icon}
+                color={item.iconColor ?? palette.icon}
+              />
+            </View>
+          );
+        }
+      }
+
+      /* -------------------------------------------------
+         CUSTOM MEDIA
+      ------------------------------------------------- */
+
+      if (typeof item?.renderMedia === "function") {
+        return item.renderMedia({
+          item,
+          index,
+          selected,
+
+          size: item.imageSize ?? config.image,
+
+          iconSize: item.iconSize ?? config.icon,
+
+          color: item.iconColor ?? palette.icon,
+        });
+      }
+
+      /* -------------------------------------------------
+         EMOJI
+      ------------------------------------------------- */
+
+      if (item?.emoji) {
+        return (
+          <Text
+            style={[
+              styles.emoji,
+
+              {
+                fontSize: item.emojiSize ?? config.icon,
+              },
+
+              item.emojiStyle,
+            ]}
+          >
+            {item.emoji}
+          </Text>
+        );
+      }
+
+      return null;
+    }, [item, index, selected, config, radius, palette]);
+
+    /* =====================================================
+       TITLE
+    ===================================================== */
+
+    const renderTitle = useCallback(() => {
+      const title = item?.title ?? item?.name ?? item?.label ?? "";
+
+      return (
+        <Text
+          numberOfLines={item?.titleNumberOfLines ?? 2}
+          ellipsizeMode={item?.titleEllipsizeMode ?? "tail"}
+          style={[
+            styles.title,
+
+            {
+              color: item?.titleColor ?? palette.title,
+
+              fontSize:
+                item?.fontSize ?? typography.fontSize?.xs ?? config.font,
+
+              fontFamily: item?.fontFamily ?? typography.fontFamily?.medium,
+
+              fontWeight:
+                item?.fontWeight ?? typography.fontWeight?.bold ?? "600",
+
+              textAlign: item?.titleAlign ?? titleAlign,
+            },
+
+            item?.titleStyle,
+          ]}
+        >
+          {title}
+        </Text>
+      );
+    }, [item, palette, typography, config, titleAlign]);
+
+    /* =====================================================
+       BADGE
+    ===================================================== */
+
+    const renderBadge = useCallback(() => {
+      if (!showBadge || !item?.badge) {
+        return null;
+      }
+
+      return (
+        <View
+          style={[
+            styles.badge,
+
+            {
+              backgroundColor: item.badgeColor || colors.status.error,
+            },
+
+            item.badgeStyle,
+          ]}
+        >
+          <Text
+            style={[
+              styles.badgeText,
+
+              {
+                color: item.badgeTextColor || colors.text.inverse,
+
+                fontSize: item.badgeFontSize || typography.fontSize?.xs || 10,
+              },
+
+              item.badgeTextStyle,
+            ]}
+            numberOfLines={1}
+          >
+            {item.badge}
+          </Text>
+        </View>
+      );
+    }, [item, showBadge, colors, typography]);
+
+    /* =====================================================
+       ACTIVE INDICATOR
+    ===================================================== */
+
+    const renderActiveIndicator = useCallback(() => {
+      if (!selected || item?.showActiveIndicator === false) {
+        return null;
+      }
+
+      return (
+        <View
+          style={[
+            styles.activeIndicator,
+
+            {
+              backgroundColor:
+                item?.activeIndicatorColor ?? colors.category.selected,
+            },
+
+            item?.activeIndicatorStyle,
+          ]}
+        />
+      );
+    }, [selected, item, colors]);
+
+    /* =====================================================
+       PRESS
+    ===================================================== */
+
+    const handlePress = useCallback(() => {
       onPress?.(item, index);
-      onItemPress?.(item, index);
-    };
+    }, [onPress, item, index]);
 
-    /*
-     * -------------------------------------------------------
-     * Render
-     * -------------------------------------------------------
-     */
+    /* =====================================================
+       ACCESSIBILITY
+    ===================================================== */
+
+    const accessibilityLabel =
+      item?.accessibilityLabel ??
+      item?.title ??
+      item?.name ??
+      item?.label ??
+      "";
+
+    /* =====================================================
+       RENDER
+    ===================================================== */
 
     return (
-      <Animated.View
-        style={[
-          {
-            width: itemWidth,
-            marginRight: index === 0 ? 0 : gap,
-          },
-          entranceStyle,
-          activeStyle,
-          pressStyle,
-        ]}
+      <AnimatedPressable
+        style={[animatedStyle, item?.pressableStyle]}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        onPress={handlePress}
+        disabled={item?.disabled ?? false}
+        accessibilityRole={item?.accessibilityRole ?? "button"}
+        accessibilityState={{
+          selected,
+          disabled: item?.disabled ?? false,
+        }}
+        accessibilityLabel={accessibilityLabel}
       >
-        <Pressable
-          onPress={handlePress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-          style={[styles.item, itemStyle, selected && activeItemStyle]}
-        >
-          {/* =================================================
-              IMAGE / ICON
-          ================================================= */}
+        <View style={containerStyle}>
+          {renderBadge()}
 
-          <View
-            style={[
-              styles.imageContainer,
-              {
-                width: finalImageSize,
-                height: finalImageSize,
-                borderRadius: finalImageRadius,
-                backgroundColor: finalBackgroundColor,
-              },
-              imageContainerStyle,
-              selected && activeImageContainerStyle,
-            ]}
-          >
-            {item?.renderImage ? (
-              item.renderImage({
-                item,
-                index,
-                selected,
-                size: finalImageSize,
-              })
-            ) : itemImage ? (
-              <Image
-                source={itemImage}
-                resizeMode={finalResizeMode}
-                style={[
-                  styles.image,
-                  {
-                    width: finalImageSize,
-                    height: finalImageSize,
-                    borderRadius: finalImageRadius,
-                  },
-                  imageStyle,
-                  selected && activeImageStyle,
-                ]}
-              />
-            ) : itemIcon ? (
-              typeof itemIcon === "string" ? (
-                <Ionicons
-                  name={itemIcon}
-                  size={finalIconSize}
-                  color={finalIconColor}
-                />
-              ) : (
-                itemIcon
-              )
-            ) : null}
-          </View>
+          {renderMedia()}
 
-          {/* =================================================
-              LABEL
-          ================================================= */}
+          {renderTitle()}
 
-          <Text
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            style={[
-              styles.label,
-              {
-                color: finalTextColor,
-
-                fontSize: item?.labelFontSize ?? labelFontSize,
-
-                fontWeight: selected
-                  ? (item?.activeLabelFontWeight ?? activeLabelFontWeight)
-                  : (item?.labelFontWeight ?? labelFontWeight),
-              },
-              labelStyle,
-              selected && activeLabelStyle,
-            ]}
-          >
-            {itemLabel}
-          </Text>
-
-          {/* =================================================
-              ACTIVE INDICATOR
-          ================================================= */}
-
-          {showActiveIndicator && selected ? (
-            <View
-              style={[
-                styles.activeIndicator,
-                {
-                  backgroundColor: activeColor,
-                },
-                activeIndicatorStyle,
-              ]}
-            />
-          ) : null}
-        </Pressable>
-      </Animated.View>
+          {renderActiveIndicator()}
+        </View>
+      </AnimatedPressable>
     );
   },
 );
@@ -701,136 +584,150 @@ const UICategoryItem = memo(
 ========================================================= */
 
 const UICategory = ({
-  categories = [],
+  data = [],
 
-  selectedCategory,
-  defaultSelectedCategory,
+  /* Alias */
+  categories,
 
-  onCategoryPress,
-  onChange,
+  selectedId,
 
-  horizontal = true,
+  onPress,
+
+  layout = "horizontal",
+
+  columns = 4,
+
+  variant = "soft",
+
+  shape = "rounded",
+
+  size = "md",
+
+  iconPosition = "top",
+
+  titleAlign = "center",
+
+  showBadge = true,
+
+  scrollEnabled = true,
+
   showsHorizontalScrollIndicator = false,
 
-  itemWidth = DEFAULT_ITEM_WIDTH,
-
-  imageSize = DEFAULT_IMAGE_SIZE,
-
-  imageBorderRadius = DEFAULT_IMAGE_BORDER_RADIUS,
-
-  gap = DEFAULT_GAP,
-
-  horizontalPadding = DEFAULT_HORIZONTAL_PADDING,
-
-  activeColor = DEFAULT_ACTIVE_COLOR,
-
-  textColor = DEFAULT_TEXT_COLOR,
-
-  inactiveTextColor = DEFAULT_INACTIVE_TEXT_COLOR,
-
-  imageBackgroundColor = "#FFF7F2",
-
-  activeImageBackgroundColor = "#FFF0E8",
-
-  imageResizeMode = "contain",
-
-  labelFontSize = 15,
-
-  labelFontWeight = "500",
-
-  activeLabelFontWeight = "600",
-
-  imageStyle,
-  activeImageStyle,
-
-  imageContainerStyle,
-  activeImageContainerStyle,
-
-  labelStyle,
-  activeLabelStyle,
-
-  itemStyle,
-  activeItemStyle,
-
-  showActiveIndicator = false,
-
-  activeIndicatorStyle,
-
-  pressableStyle,
+  showsVerticalScrollIndicator = false,
 
   contentContainerStyle,
 
+  itemStyle,
+
   style,
 
+  /* Scroll */
   initialScrollIndex = 0,
 
   scrollToSelected = true,
 
+  /* List */
   ListHeaderComponent,
+
   ListFooterComponent,
 
+  /* Events */
+  onScroll,
+
+  onScrollBeginDrag,
+
+  onScrollEndDrag,
+
+  onMomentumScrollBegin,
+
+  onMomentumScrollEnd,
+
+  onContentSizeChange,
+
+  onLayout,
+
+  /* FlatList performance */
+  initialNumToRender = 8,
+
+  maxToRenderPerBatch = 8,
+
+  updateCellsBatchingPeriod = 50,
+
+  windowSize = 7,
+
+  removeClippedSubviews = true,
+
+  /* Custom render */
   renderItem,
-
-  renderImage,
-
-  iconName,
-  iconSize = 34,
-  iconColor = "#555555",
 
   keyExtractor,
 
-  onScroll,
-  onScrollBeginDrag,
-  onScrollEndDrag,
-
-  testID,
-
-  /* =======================================================
-     ANIMATION PROPS
-  ======================================================= */
-
-  reanimated = true,
-
-  animation = "fadeUp",
-
-  animationDuration = 600,
-
-  animationDelay = 70,
-
-  animationStagger = 70,
-
-  activeAnimation = "bounce",
-
-  activeAnimationDuration = 500,
-
-  pressAnimation = "scale",
-
-  onItemPress,
-
-  ...flatListProps
-}) => {
-  const listRef = useRef(null);
-
-  const [internalSelected, setInternalSelected] = useState(
-    defaultSelectedCategory ?? categories?.[0]?.id ?? categories?.[0]?.key ?? 0,
-  );
+  /* Empty */
+  renderEmpty,
 
   /*
-   * Controlled selection
+   * Kept for API compatibility.
+   * Item animation still uses Reanimated.
    */
+  reanimated = true,
 
-  const isControlled = selectedCategory !== undefined;
-
-  const activeCategory = isControlled ? selectedCategory : internalSelected;
+  /* Remaining FlatList props */
+  ...listProps
+}) => {
+  const { spacing } = useUITheme();
 
   /* =======================================================
-     KEY
+     DATA
   ======================================================= */
 
-  const getCategoryKey = useCallback(
+  const listData = useMemo(() => {
+    const source = categories ?? data;
+
+    if (!Array.isArray(source)) {
+      return [];
+    }
+
+    return source;
+  }, [data, categories]);
+
+  /* =======================================================
+     LIST REF
+  ======================================================= */
+
+  const flatListRef = useRef(null);
+
+  /* =======================================================
+     LAYOUT
+  ======================================================= */
+
+  const horizontal = layout === "horizontal";
+
+  const isGrid = layout === "grid";
+
+  const numColumns = isGrid ? columns : 1;
+
+  /* =======================================================
+     SELECTED INDEX
+  ======================================================= */
+
+  const selectedIndex = useMemo(() => {
+    if (selectedId === undefined || selectedId === null) {
+      return -1;
+    }
+
+    return listData.findIndex(
+      (item) => String(item?.id) === String(selectedId),
+    );
+  }, [listData, selectedId]);
+
+  /* =======================================================
+     KEY EXTRACTOR
+  ======================================================= */
+
+  const finalKeyExtractor = useCallback(
     (item, index) => {
-      if (keyExtractor) {
-        return keyExtractor(item, index);
+      if (typeof keyExtractor === "function") {
+        return String(keyExtractor(item, index));
       }
 
       return String(item?.id ?? item?.key ?? item?.value ?? index);
@@ -842,32 +739,13 @@ const UICategory = ({
      PRESS
   ======================================================= */
 
-  const handleCategoryPress = useCallback(
+  const handlePress = useCallback(
     (item, index) => {
-      const categoryKey = getCategoryKey(item, index);
-
-      if (!isControlled) {
-        setInternalSelected(categoryKey);
+      if (typeof onPress === "function") {
+        onPress(item, index);
       }
-
-      onCategoryPress?.(item, index);
-
-      onChange?.(item, index);
     },
-    [getCategoryKey, isControlled, onCategoryPress, onChange],
-  );
-
-  /* =======================================================
-     SELECTED
-  ======================================================= */
-
-  const isItemSelected = useCallback(
-    (item, index) => {
-      const key = getCategoryKey(item, index);
-
-      return String(key) === String(activeCategory);
-    },
-    [getCategoryKey, activeCategory],
+    [onPress],
   );
 
   /* =======================================================
@@ -875,41 +753,33 @@ const UICategory = ({
   ======================================================= */
 
   useEffect(() => {
-    if (
-      !scrollToSelected ||
-      !categories?.length ||
-      activeCategory === undefined ||
-      activeCategory === null
-    ) {
+    if (!scrollToSelected || selectedIndex < 0 || isGrid) {
       return;
     }
 
-    const selectedIndex = categories.findIndex(
-      (item, index) =>
-        String(getCategoryKey(item, index)) === String(activeCategory),
-    );
+    const ref = flatListRef.current;
 
-    if (selectedIndex < 0 || !listRef.current) {
+    if (!ref?.scrollToIndex) {
       return;
     }
-
-    const offset = selectedIndex * (itemWidth + gap);
 
     requestAnimationFrame(() => {
-      listRef.current?.scrollToOffset({
-        offset: Math.max(0, offset - horizontalPadding),
-        animated: true,
-      });
+      try {
+        ref.scrollToIndex({
+          index: selectedIndex,
+
+          animated: true,
+
+          viewPosition: 0.5,
+        });
+      } catch {
+        /*
+         * Ignore until FlatList
+         * has been measured.
+         */
+      }
     });
-  }, [
-    activeCategory,
-    categories,
-    gap,
-    getCategoryKey,
-    horizontalPadding,
-    itemWidth,
-    scrollToSelected,
-  ]);
+  }, [selectedIndex, isGrid, scrollToSelected]);
 
   /* =======================================================
      INITIAL SCROLL
@@ -921,188 +791,208 @@ const UICategory = ({
     }
 
     requestAnimationFrame(() => {
-      listRef.current?.scrollToOffset({
-        offset: initialScrollIndex * (itemWidth + gap),
+      flatListRef.current?.scrollToIndex?.({
+        index: initialScrollIndex,
+
         animated: false,
       });
     });
-  }, [initialScrollIndex, itemWidth, gap]);
+  }, [initialScrollIndex]);
 
   /* =======================================================
      RENDER ITEM
   ======================================================= */
 
-  const renderCategoryItem = useCallback(
+  const finalRenderItem = useCallback(
     ({ item, index }) => {
-      const selected = isItemSelected(item, index);
-
       /*
-       * Individual category delay:
-       *
-       * global animationDelay
-       * +
-       * index * animationStagger
-       *
-       * This creates:
-       *
-       * All      → first
-       * Pizza    → next
-       * Biryani  → next
-       * Burgers  → next
+       * Custom rendering
        */
 
-      const itemDelay =
-        item?.animationDelay ?? animationDelay + index * animationStagger;
+      if (typeof renderItem === "function") {
+        return renderItem({
+          item,
+          index,
+
+          selected: String(item?.id) === String(selectedId),
+        });
+      }
+
+      /*
+       * Default category item
+       */
 
       return (
         <UICategoryItem
           item={item}
           index={index}
-          selected={selected}
-          onPress={handleCategoryPress}
-          itemWidth={itemWidth}
-          imageSize={imageSize}
-          imageBorderRadius={imageBorderRadius}
-          gap={gap}
-          activeColor={activeColor}
-          textColor={textColor}
-          inactiveTextColor={inactiveTextColor}
-          imageBackgroundColor={imageBackgroundColor}
-          activeImageBackgroundColor={activeImageBackgroundColor}
-          imageResizeMode={imageResizeMode}
-          labelFontSize={labelFontSize}
-          labelFontWeight={labelFontWeight}
-          activeLabelFontWeight={activeLabelFontWeight}
-          imageStyle={imageStyle}
-          activeImageStyle={activeImageStyle}
-          imageContainerStyle={imageContainerStyle}
-          activeImageContainerStyle={activeImageContainerStyle}
-          labelStyle={labelStyle}
-          activeLabelStyle={activeLabelStyle}
-          itemStyle={itemStyle}
-          activeItemStyle={activeItemStyle}
-          showActiveIndicator={showActiveIndicator}
-          activeIndicatorStyle={activeIndicatorStyle}
-          pressableStyle={pressableStyle}
-          renderItem={renderItem}
-          renderImage={renderImage}
-          iconName={iconName}
-          iconSize={iconSize}
-          iconColor={iconColor}
-          reanimated={reanimated}
-          animation={item?.animation ?? animation}
-          animationDuration={item?.animationDuration ?? animationDuration}
-          animationDelay={itemDelay}
-          activeAnimation={item?.activeAnimation ?? activeAnimation}
-          activeAnimationDuration={
-            item?.activeAnimationDuration ?? activeAnimationDuration
-          }
-          pressAnimation={item?.pressAnimation ?? pressAnimation}
-          onItemPress={onItemPress}
+          selected={String(item?.id) === String(selectedId)}
+          onPress={handlePress}
+          variant={item?.variant ?? variant}
+          shape={item?.shape ?? shape}
+          size={item?.size ?? size}
+          iconPosition={item?.iconPosition ?? iconPosition}
+          titleAlign={item?.titleAlign ?? titleAlign}
+          showBadge={item?.showBadge ?? showBadge}
+          style={[itemStyle, item?.itemStyle]}
         />
       );
     },
     [
-      isItemSelected,
-      handleCategoryPress,
-
-      itemWidth,
-      imageSize,
-      imageBorderRadius,
-
-      gap,
-
-      activeColor,
-      textColor,
-      inactiveTextColor,
-
-      imageBackgroundColor,
-      activeImageBackgroundColor,
-
-      imageResizeMode,
-
-      labelFontSize,
-      labelFontWeight,
-      activeLabelFontWeight,
-
-      imageStyle,
-      activeImageStyle,
-
-      imageContainerStyle,
-      activeImageContainerStyle,
-
-      labelStyle,
-      activeLabelStyle,
-
-      itemStyle,
-      activeItemStyle,
-
-      showActiveIndicator,
-      activeIndicatorStyle,
-
-      pressableStyle,
-
       renderItem,
-      renderImage,
-
-      iconName,
-      iconSize,
-      iconColor,
-
-      reanimated,
-
-      animation,
-      animationDuration,
-      animationDelay,
-      animationStagger,
-
-      activeAnimation,
-      activeAnimationDuration,
-
-      pressAnimation,
-      onItemPress,
+      selectedId,
+      handlePress,
+      variant,
+      shape,
+      size,
+      iconPosition,
+      titleAlign,
+      showBadge,
+      itemStyle,
     ],
   );
 
   /* =======================================================
-     KEY EXTRACTOR
+     CONTENT CONTAINER
   ======================================================= */
 
-  const finalKeyExtractor = useCallback(
-    (item, index) => getCategoryKey(item, index),
-    [getCategoryKey],
+  const finalContentContainerStyle = useMemo(
+    () => [
+      {
+        paddingHorizontal: horizontal ? spacing.xxs : 0,
+
+        paddingVertical: spacing.sm,
+
+        rowGap: spacing.md,
+
+        columnGap: spacing.md,
+      },
+
+      contentContainerStyle,
+    ],
+    [horizontal, spacing, contentContainerStyle],
   );
+
+  /* =======================================================
+     GET ITEM LAYOUT
+  ======================================================= */
+
+  const getItemLayout = useCallback(
+    (_, index) => {
+      const item = listData[index];
+
+      const itemSize =
+        item?.size === "sm"
+          ? 70
+          : item?.size === "lg"
+            ? 104
+            : SIZE_CONFIG.md.width;
+
+      return {
+        length: itemSize,
+
+        offset: itemSize * index,
+
+        index,
+      };
+    },
+    [listData],
+  );
+
+  /* =======================================================
+     SCROLL ERROR
+  ======================================================= */
+
+  const handleScrollToIndexFailed = useCallback((info) => {
+    requestAnimationFrame(() => {
+      const ref = flatListRef.current;
+
+      if (!ref) {
+        return;
+      }
+
+      ref.scrollToOffset?.({
+        offset: info.averageItemLength * info.index,
+
+        animated: true,
+      });
+    });
+  }, []);
+
+  /* =======================================================
+     EMPTY
+  ======================================================= */
+
+  if (listData.length === 0) {
+    if (typeof renderEmpty === "function") {
+      return (
+        <View
+          style={[
+            styles.emptyContainer,
+
+            {
+              padding: spacing.lg,
+            },
+
+            style,
+          ]}
+        >
+          {renderEmpty()}
+        </View>
+      );
+    }
+
+    return (
+      <View
+        style={[
+          styles.emptyContainer,
+
+          {
+            padding: spacing.lg,
+          },
+
+          style,
+        ]}
+      />
+    );
+  }
 
   /* =======================================================
      FLATLIST
   ======================================================= */
 
   return (
-    <View style={[styles.container, style]} testID={testID}>
-      <FlatList
-        ref={listRef}
-        data={categories}
-        horizontal={horizontal}
-        keyExtractor={finalKeyExtractor}
-        renderItem={renderCategoryItem}
-        showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
-        contentContainerStyle={[
-          {
-            paddingLeft: horizontalPadding,
-
-            paddingRight: horizontalPadding,
-          },
-          contentContainerStyle,
-        ]}
-        ListHeaderComponent={ListHeaderComponent}
-        ListFooterComponent={ListFooterComponent}
-        onScroll={onScroll}
-        onScrollBeginDrag={onScrollBeginDrag}
-        onScrollEndDrag={onScrollEndDrag}
-        removeClippedSubviews={false}
-        {...flatListProps}
-      />
-    </View>
+    <FlatList
+      ref={flatListRef}
+      data={listData}
+      renderItem={finalRenderItem}
+      keyExtractor={finalKeyExtractor}
+      horizontal={horizontal}
+      numColumns={numColumns}
+      scrollEnabled={scrollEnabled}
+      showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
+      showsVerticalScrollIndicator={showsVerticalScrollIndicator}
+      contentContainerStyle={finalContentContainerStyle}
+      ListHeaderComponent={ListHeaderComponent}
+      ListFooterComponent={ListFooterComponent}
+      onScroll={onScroll}
+      onScrollBeginDrag={onScrollBeginDrag}
+      onScrollEndDrag={onScrollEndDrag}
+      onMomentumScrollBegin={onMomentumScrollBegin}
+      onMomentumScrollEnd={onMomentumScrollEnd}
+      onContentSizeChange={onContentSizeChange}
+      onLayout={onLayout}
+      initialNumToRender={initialNumToRender}
+      maxToRenderPerBatch={maxToRenderPerBatch}
+      updateCellsBatchingPeriod={updateCellsBatchingPeriod}
+      windowSize={windowSize}
+      removeClippedSubviews={removeClippedSubviews}
+      initialScrollIndex={initialScrollIndex}
+      getItemLayout={getItemLayout}
+      onScrollToIndexFailed={handleScrollToIndexFailed}
+      style={style}
+      {...listProps}
+    />
   );
 };
 
@@ -1111,59 +1001,198 @@ const UICategory = ({
 ========================================================= */
 
 const styles = StyleSheet.create({
-  container: {
-    width: "100%",
-  },
-
-  item: {
-    width: "100%",
+  itemContainer: {
+    position: "relative",
 
     alignItems: "center",
-    justifyContent: "flex-start",
-  },
 
-  imageContainer: {
-    alignItems: "center",
     justifyContent: "center",
+  },
 
-    overflow: "hidden",
+  mediaContainer: {
+    alignItems: "center",
 
-    marginBottom: 9,
+    justifyContent: "center",
   },
 
   image: {
     alignItems: "center",
+
     justifyContent: "center",
   },
 
-  label: {
-    width: "100%",
-
+  emoji: {
     textAlign: "center",
+  },
 
-    includeFontPadding: false,
+  title: {
+    width: "100%",
+  },
+
+  badge: {
+    position: "absolute",
+
+    top: -4,
+
+    right: -4,
+
+    minWidth: 20,
+
+    height: 20,
+
+    paddingHorizontal: 6,
+
+    justifyContent: "center",
+
+    alignItems: "center",
+
+    borderRadius: 999,
+
+    zIndex: 10,
+  },
+
+  badgeText: {
+    fontWeight: "700",
   },
 
   activeIndicator: {
-    width: 24,
-    height: 3,
+    position: "absolute",
 
-    borderRadius: 2,
+    bottom: -8,
 
-    marginTop: 6,
+    width: 32,
+
+    height: 1,
+
+    borderRadius: 999,
+  },
+
+  emptyContainer: {
+    width: "100%",
+
+    alignItems: "center",
+
+    justifyContent: "center",
   },
 });
+
+/* =========================================================
+   PROP TYPES
+========================================================= */
+
+UICategory.propTypes = {
+  data: PropTypes.array,
+
+  categories: PropTypes.array,
+
+  selectedId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+
+  onPress: PropTypes.func,
+
+  layout: PropTypes.oneOf(["horizontal", "vertical", "grid"]),
+
+  columns: PropTypes.number,
+
+  variant: PropTypes.oneOf(["soft", "filled", "outline", "minimal"]),
+
+  shape: PropTypes.oneOf(["rounded", "square", "circle", "pill"]),
+
+  size: PropTypes.oneOf(["sm", "md", "lg"]),
+
+  iconPosition: PropTypes.oneOf(["top", "bottom", "left", "right"]),
+
+  titleAlign: PropTypes.oneOf(["left", "center", "right"]),
+
+  showBadge: PropTypes.bool,
+
+  scrollEnabled: PropTypes.bool,
+
+  showsHorizontalScrollIndicator: PropTypes.bool,
+
+  showsVerticalScrollIndicator: PropTypes.bool,
+
+  contentContainerStyle: PropTypes.oneOfType([
+    PropTypes.object,
+    PropTypes.array,
+  ]),
+
+  itemStyle: PropTypes.oneOfType([PropTypes.object, PropTypes.array]),
+
+  style: PropTypes.oneOfType([PropTypes.object, PropTypes.array]),
+
+  initialScrollIndex: PropTypes.number,
+
+  scrollToSelected: PropTypes.bool,
+
+  ListHeaderComponent: PropTypes.oneOfType([PropTypes.node, PropTypes.func]),
+
+  ListFooterComponent: PropTypes.oneOfType([PropTypes.node, PropTypes.func]),
+
+  onScroll: PropTypes.func,
+
+  onScrollBeginDrag: PropTypes.func,
+
+  onScrollEndDrag: PropTypes.func,
+
+  onMomentumScrollBegin: PropTypes.func,
+
+  onMomentumScrollEnd: PropTypes.func,
+
+  onContentSizeChange: PropTypes.func,
+
+  onLayout: PropTypes.func,
+
+  initialNumToRender: PropTypes.number,
+
+  maxToRenderPerBatch: PropTypes.number,
+
+  updateCellsBatchingPeriod: PropTypes.number,
+
+  windowSize: PropTypes.number,
+
+  removeClippedSubviews: PropTypes.bool,
+
+  renderItem: PropTypes.func,
+
+  keyExtractor: PropTypes.func,
+
+  renderEmpty: PropTypes.func,
+
+  reanimated: PropTypes.bool,
+};
+
+/* =========================================================
+   ITEM PROP TYPES
+========================================================= */
+
+UICategoryItem.propTypes = {
+  item: PropTypes.object.isRequired,
+
+  index: PropTypes.number,
+
+  selected: PropTypes.bool,
+
+  onPress: PropTypes.func,
+
+  variant: PropTypes.oneOf(["soft", "filled", "outline", "minimal"]),
+
+  shape: PropTypes.oneOf(["rounded", "square", "circle", "pill"]),
+
+  size: PropTypes.oneOf(["sm", "md", "lg"]),
+
+  iconPosition: PropTypes.oneOf(["top", "bottom", "left", "right"]),
+
+  titleAlign: PropTypes.oneOf(["left", "center", "right"]),
+
+  showBadge: PropTypes.bool,
+
+  style: PropTypes.oneOfType([PropTypes.object, PropTypes.array]),
+};
 
 /* =========================================================
    EXPORTS
 ========================================================= */
 
-export default UICategory;
+export { UICategory, UICategoryItem, SIZE_CONFIG as UICategorySizeConfig };
 
-export {
-  UICategory,
-  UICategoryItem,
-  CATEGORY_ANIMATIONS as UICategoryAnimations,
-  ACTIVE_ANIMATIONS as UICategoryActiveAnimations,
-  PRESS_ANIMATIONS as UICategoryPressAnimations,
-};
+export default memo(UICategory);

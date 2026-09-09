@@ -154,7 +154,5 @@ export {
   UICountDownDescriptions,
   UICategory,
   UICategoryItem,
-  UICategoryAnimations,
-  UICategoryActiveAnimations,
-  UICategoryPressAnimations,
+  UICategorySizeConfig,
 } from "./components";
