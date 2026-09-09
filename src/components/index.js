@@ -130,6 +130,7 @@ export {
   UIBannerCarouselAssetAnimations,
   UIBannerCarouselContentAnimations,
 } from "./UIBannerCarousel";
+export { default as UIHomeHeader } from "./UIHomeHeader";
 export {
   default as UIScratchCard,
   UIScratchCardThemes,

@@ -138,6 +138,7 @@ export {
   UIBannerCarouselBackgroundAnimations,
   UIBannerCarouselAssetAnimations,
   UIBannerCarouselContentAnimations,
+  UIHomeHeader,
   UIScratchCard,
   UIScratchCardThemes,
   UIScratchCardLabels,

@@ -1,30 +1,39 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
+  Dimensions,
   Image,
+  Platform,
   Pressable,
   ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   View,
-  useWindowDimensions,
 } from "react-native";
+
+import { LinearGradient } from "expo-linear-gradient";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Animated, {
   Easing,
   interpolate,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withRepeat,
   withSequence,
+  withSpring,
   withTiming,
 } from "react-native-reanimated";
 
-import { LinearGradient } from "expo-linear-gradient";
-
-/* =========================================================
-   PUBLIC CONSTANTS
-========================================================= */
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const BACKGROUND_ANIMATIONS = [
   "none",
@@ -33,1406 +42,1174 @@ const BACKGROUND_ANIMATIONS = [
   "float",
   "zoom",
   "kenBurns",
+  "glow",
+  "wave",
+  "shimmer",
 ];
 
-const ASSET_ANIMATIONS = ["none", "float", "pulse", "rotate", "zoom", "bounce"];
+const ASSET_ANIMATIONS = [
+  "none",
+  "float",
+  "pulse",
+  "rotate",
+  "zoom",
+  "bounce",
+  "slideUp",
+  "slideLeft",
+  "slideRight",
+  "fade",
+];
 
-const CONTENT_ANIMATIONS = ["none", "fade", "slideUp", "slideLeft", "scale"];
+const CONTENT_ANIMATIONS = [
+  "none",
+  "fade",
+  "slideUp",
+  "slideLeft",
+  "slideRight",
+  "scale",
+  "bounce",
+];
 
-/* =========================================================
-   HELPERS
-========================================================= */
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
 
-function getImageSource(source) {
-  if (!source) {
-    return null;
-  }
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
-  if (typeof source === "number") {
-    return source;
-  }
+const getPositionStyle = (position = {}) => {
+  const result = {};
 
-  if (typeof source === "string") {
+  if (position.top !== undefined) result.top = position.top;
+  if (position.bottom !== undefined) result.bottom = position.bottom;
+  if (position.left !== undefined) result.left = position.left;
+  if (position.right !== undefined) result.right = position.right;
+
+  return result;
+};
+
+const normalizeBackground = (banner) => {
+  if (banner.background) {
+    if (typeof banner.background === "string") {
+      return {
+        type: "color",
+        color: banner.background,
+      };
+    }
+
     return {
-      uri: source,
+      type: banner.background.type || "color",
+      ...banner.background,
     };
   }
 
-  if (source?.uri) {
-    return source;
+  if (banner.backgroundColor) {
+    return {
+      type: "color",
+      color: banner.backgroundColor,
+    };
   }
 
-  return source;
-}
+  if (banner.backgroundImage) {
+    return {
+      type: "image",
+      source: banner.backgroundImage,
+    };
+  }
 
-function isValidReactElement(value) {
-  return React.isValidElement(value);
-}
+  if (banner.gradientColors) {
+    return {
+      type: "gradient",
+      colors: banner.gradientColors,
+      start: banner.gradientStart || { x: 0, y: 0 },
+      end: banner.gradientEnd || { x: 1, y: 1 },
+    };
+  }
 
-/* =========================================================
-   BACKGROUND ANIMATION
-========================================================= */
+  return {
+    type: "color",
+    color: "#1976D2",
+  };
+};
 
-function BackgroundAnimation({ animation = "none", enabled = false }) {
+/* -------------------------------------------------------------------------- */
+/* Background Animation                                                       */
+/* -------------------------------------------------------------------------- */
+
+const useBackgroundAnimation = ({
+  animation = "none",
+  enabled = false,
+  duration = 5000,
+}) => {
   const progress = useSharedValue(0);
 
   useEffect(() => {
-    if (!enabled || animation === "none") {
-      progress.value = 0;
-      return;
-    }
-
-    if (animation === "pulse") {
-      progress.value = withRepeat(
-        withSequence(
-          withTiming(1, {
-            duration: 1800,
-            easing: Easing.inOut(Easing.ease),
-          }),
-          withTiming(0, {
-            duration: 1800,
-            easing: Easing.inOut(Easing.ease),
-          }),
-        ),
-        -1,
-        false,
-      );
-
-      return;
-    }
-
-    if (animation === "float") {
-      progress.value = withRepeat(
-        withSequence(
-          withTiming(1, {
-            duration: 2200,
-            easing: Easing.inOut(Easing.ease),
-          }),
-          withTiming(0, {
-            duration: 2200,
-            easing: Easing.inOut(Easing.ease),
-          }),
-        ),
-        -1,
-        false,
-      );
-
-      return;
-    }
-
-    if (animation === "zoom" || animation === "kenBurns") {
-      progress.value = withRepeat(
-        withSequence(
-          withTiming(1, {
-            duration: 5000,
-            easing: Easing.inOut(Easing.ease),
-          }),
-          withTiming(0, {
-            duration: 5000,
-            easing: Easing.inOut(Easing.ease),
-          }),
-        ),
-        -1,
-        false,
-      );
-
-      return;
-    }
-
     progress.value = 0;
-  }, [animation, enabled]);
+
+    if (!enabled || animation === "none") {
+      return;
+    }
+
+    progress.value = withRepeat(
+      withTiming(1, {
+        duration,
+        easing: Easing.inOut(Easing.ease),
+      }),
+      -1,
+      true,
+    );
+  }, [animation, duration, enabled, progress]);
 
   const animatedStyle = useAnimatedStyle(() => {
     if (!enabled || animation === "none") {
       return {};
     }
 
-    if (animation === "pulse") {
-      return {
-        opacity: interpolate(progress.value, [0, 1], [0.85, 1]),
-      };
-    }
+    switch (animation) {
+      case "pulse":
+        return {
+          opacity: interpolate(progress.value, [0, 0.5, 1], [0.92, 1, 0.92]),
+        };
 
-    if (animation === "float") {
-      return {
-        transform: [
-          {
-            translateY: interpolate(progress.value, [0, 1], [0, -6]),
-          },
-        ],
-      };
-    }
+      case "float":
+        return {
+          transform: [
+            {
+              translateY: interpolate(progress.value, [0, 0.5, 1], [0, -8, 0]),
+            },
+          ],
+        };
 
-    if (animation === "zoom") {
-      return {
-        transform: [
-          {
-            scale: interpolate(progress.value, [0, 1], [1, 1.06]),
-          },
-        ],
-      };
-    }
+      case "zoom":
+        return {
+          transform: [
+            {
+              scale: interpolate(progress.value, [0, 1], [1, 1.06]),
+            },
+          ],
+        };
 
-    if (animation === "kenBurns") {
-      return {
-        transform: [
-          {
-            scale: interpolate(progress.value, [0, 1], [1, 1.1]),
-          },
-          {
-            translateX: interpolate(progress.value, [0, 1], [0, -8]),
-          },
-        ],
-      };
-    }
+      case "kenBurns":
+        return {
+          transform: [
+            {
+              scale: interpolate(progress.value, [0, 1], [1, 1.1]),
+            },
+            {
+              translateX: interpolate(progress.value, [0, 1], [0, -10]),
+            },
+          ],
+        };
 
-    return {};
+      case "wave":
+        return {
+          transform: [
+            {
+              translateX: interpolate(progress.value, [0, 0.5, 1], [-8, 8, -8]),
+            },
+          ],
+        };
+
+      case "shimmer":
+        return {
+          opacity: interpolate(progress.value, [0, 0.5, 1], [0.75, 1, 0.75]),
+        };
+
+      case "glow":
+        return {
+          opacity: interpolate(progress.value, [0, 0.5, 1], [0.8, 1, 0.8]),
+        };
+
+      default:
+        return {};
+    }
   });
 
-  return animatedStyle;
-}
+  return {
+    progress,
+    animatedStyle,
+  };
+};
 
-/* =========================================================
-   RAYS
-========================================================= */
+/* -------------------------------------------------------------------------- */
+/* Background                                                                 */
+/* -------------------------------------------------------------------------- */
 
-function BannerRays({ enabled = false, color = "#FFFFFF", opacity = 0.12 }) {
-  const rotation = useSharedValue(0);
+const BannerBackground = ({ banner, width, height, reanimated }) => {
+  const background = normalizeBackground(banner);
 
-  useEffect(() => {
-    if (!enabled) {
-      rotation.value = 0;
-      return;
-    }
+  /*
+   * IMPORTANT:
+   * All hooks are called unconditionally.
+   * This fixes the previous Rules-of-Hooks problem.
+   */
+  const { progress, animatedStyle } = useBackgroundAnimation({
+    animation: banner.backgroundAnimation || "none",
+    enabled: reanimated,
+    duration: banner.backgroundAnimationDuration || 5000,
+  });
 
-    rotation.value = withRepeat(
-      withTiming(1, {
-        duration: 10000,
-        easing: Easing.linear,
-      }),
-      -1,
-      false,
-    );
-  }, [enabled]);
-
-  const animatedStyle = useAnimatedStyle(() => {
-    if (!enabled) {
+  const raysStyle = useAnimatedStyle(() => {
+    if (!reanimated || banner.backgroundAnimation !== "rays") {
       return {};
     }
 
     return {
       transform: [
         {
-          rotate: `${interpolate(rotation.value, [0, 1], [-8, 8])}deg`,
+          rotate: `${progress.value * 360}deg`,
         },
       ],
     };
   });
 
-  if (!enabled) {
-    return null;
-  }
-
-  return (
-    <Animated.View
-      pointerEvents="none"
-      style={[styles.raysContainer, animatedStyle]}
-    >
-      {Array.from({ length: 9 }).map((_, index) => (
-        <View
-          key={`ray-${index}`}
-          pointerEvents="none"
-          style={[
-            styles.ray,
-            {
-              backgroundColor: color,
-              opacity,
-              transform: [
-                {
-                  rotate: `${index * 20}deg`,
-                },
-              ],
-            },
-          ]}
-        />
-      ))}
-    </Animated.View>
-  );
-}
-
-/* =========================================================
-   BACKGROUND
-========================================================= */
-
-function BannerBackground({ banner, width, height, radius, reanimated }) {
-  const background = banner?.background || {};
-
-  /*
-   * -------------------------------------------------------
-   * BACKGROUND TYPE
-   * -------------------------------------------------------
-   *
-   * Supports:
-   *
-   * background: {
-   *   type: "color",
-   *   color: "#E91E63"
-   * }
-   *
-   * background: {
-   *   type: "gradient",
-   *   colors: [...]
-   * }
-   *
-   * background: {
-   *   type: "image",
-   *   source: ...
-   * }
-   *
-   * Also shortcuts:
-   *
-   * backgroundColor
-   * gradientColors
-   * backgroundImage
-   */
-
-  const backgroundType =
-    background?.type ||
-    (banner?.backgroundImage
-      ? "image"
-      : banner?.gradientColors
-        ? "gradient"
-        : "color");
-
-  const backgroundAnimation =
-    banner?.backgroundAnimation || background?.animation || "none";
-
-  const animatedStyle = BackgroundAnimation({
-    animation: backgroundAnimation,
-    enabled: reanimated,
-  });
-
-  /* =======================================================
-     COLOR
-  ======================================================= */
-
-  if (backgroundType === "color") {
-    const color = background?.color || banner?.backgroundColor || "#E91E63";
-
-    return (
-      <View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFillObject,
-          styles.backgroundContainer,
-          {
-            width,
-            height,
-            borderRadius: radius,
-            backgroundColor: color,
-          },
-        ]}
-      >
-        {backgroundAnimation === "rays" ? (
-          <BannerRays
-            enabled={reanimated}
-            color={background?.raysColor || banner?.raysColor || "#FFFFFF"}
-            opacity={background?.raysOpacity ?? banner?.raysOpacity ?? 0.12}
-          />
-        ) : null}
-
-        {reanimated && backgroundAnimation === "pulse" ? (
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.backgroundGlow, animatedStyle]}
-          />
-        ) : null}
-      </View>
-    );
-  }
-
-  /* =======================================================
-     GRADIENT
-  ======================================================= */
-
-  if (backgroundType === "gradient") {
-    const colors = background?.colors ||
-      banner?.gradientColors || ["#E91E63", "#9C27B0"];
-
-    return (
-      <View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFillObject,
-          styles.backgroundContainer,
-          {
-            width,
-            height,
-            borderRadius: radius,
-          },
-        ]}
-      >
-        <LinearGradient
-          colors={colors}
-          start={
-            background?.start ||
-            banner?.gradientStart || {
-              x: 0,
-              y: 0,
-            }
-          }
-          end={
-            background?.end ||
-            banner?.gradientEnd || {
-              x: 1,
-              y: 1,
-            }
-          }
-          locations={background?.locations || banner?.gradientLocations}
-          style={[
-            StyleSheet.absoluteFillObject,
-            {
-              width,
-              height,
-            },
-          ]}
-        />
-
-        {backgroundAnimation === "rays" ? (
-          <BannerRays
-            enabled={reanimated}
-            color={background?.raysColor || banner?.raysColor || "#FFFFFF"}
-            opacity={background?.raysOpacity ?? banner?.raysOpacity ?? 0.12}
-          />
-        ) : null}
-
-        {reanimated &&
-        backgroundAnimation !== "none" &&
-        backgroundAnimation !== "rays" ? (
-          <Animated.View
-            pointerEvents="none"
-            style={[styles.backgroundGlow, animatedStyle]}
-          />
-        ) : null}
-      </View>
-    );
-  }
-
-  /* =======================================================
-     IMAGE
-  ======================================================= */
-
-  if (backgroundType === "image") {
-    const source = getImageSource(
-      background?.source || background?.image || banner?.backgroundImage,
-    );
-
-    if (!source) {
-      return (
-        <View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFillObject,
-            styles.backgroundContainer,
-            {
-              width,
-              height,
-              borderRadius: radius,
-              backgroundColor:
-                background?.fallbackColor ||
-                banner?.backgroundColor ||
-                "#E91E63",
-            },
-          ]}
-        />
-      );
+  const glowStyle = useAnimatedStyle(() => {
+    if (!reanimated || banner.backgroundAnimation !== "glow") {
+      return {};
     }
 
-    return (
-      <View
-        pointerEvents="none"
-        style={[
-          StyleSheet.absoluteFillObject,
-          styles.backgroundContainer,
-          {
-            width,
-            height,
-            borderRadius: radius,
-          },
-        ]}
-      >
-        <Animated.View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFillObject,
-            reanimated ? animatedStyle : undefined,
-          ]}
-        >
+    return {
+      opacity: interpolate(progress.value, [0, 0.5, 1], [0.2, 0.65, 0.2]),
+      transform: [
+        {
+          scale: interpolate(progress.value, [0, 0.5, 1], [0.9, 1.15, 0.9]),
+        },
+      ],
+    };
+  });
+
+  const shimmerStyle = useAnimatedStyle(() => {
+    if (!reanimated || banner.backgroundAnimation !== "shimmer") {
+      return {};
+    }
+
+    return {
+      transform: [
+        {
+          translateX: interpolate(progress.value, [0, 1], [-width, width]),
+        },
+      ],
+    };
+  });
+
+  const renderBackground = () => {
+    if (background.type === "image") {
+      return (
+        <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
           <Image
-            source={source}
-            resizeMode={
-              background?.resizeMode ||
-              banner?.backgroundImageResizeMode ||
-              "cover"
-            }
+            source={background.source}
+            resizeMode={background.resizeMode || "cover"}
             style={[
-              StyleSheet.absoluteFillObject,
+              styles.backgroundImage,
               {
                 width,
                 height,
               },
+              background.imageStyle,
             ]}
           />
         </Animated.View>
+      );
+    }
 
-        {banner?.backgroundOverlay ? (
-          <View
-            pointerEvents="none"
-            style={[
-              StyleSheet.absoluteFillObject,
-              {
-                backgroundColor: banner.backgroundOverlay,
-              },
-            ]}
+    if (background.type === "gradient") {
+      return (
+        <Animated.View style={[StyleSheet.absoluteFill, animatedStyle]}>
+          <LinearGradient
+            colors={
+              background.colors?.length
+                ? background.colors
+                : ["#1976D2", "#42A5F5"]
+            }
+            start={background.start || { x: 0, y: 0 }}
+            end={background.end || { x: 1, y: 1 }}
+            locations={background.locations}
+            style={StyleSheet.absoluteFill}
           />
-        ) : null}
+        </Animated.View>
+      );
+    }
 
-        {backgroundAnimation === "rays" ? (
-          <BannerRays
-            enabled={reanimated}
-            color={background?.raysColor || banner?.raysColor || "#FFFFFF"}
-            opacity={background?.raysOpacity ?? banner?.raysOpacity ?? 0.12}
-          />
-        ) : null}
-      </View>
+    return (
+      <Animated.View
+        style={[
+          StyleSheet.absoluteFill,
+          animatedStyle,
+          {
+            backgroundColor: background.color || "#1976D2",
+          },
+        ]}
+      />
     );
-  }
-
-  /* =======================================================
-     FALLBACK
-  ======================================================= */
+  };
 
   return (
     <View
       pointerEvents="none"
       style={[
-        StyleSheet.absoluteFillObject,
+        StyleSheet.absoluteFill,
         {
-          width,
-          height,
-          borderRadius: radius,
-          backgroundColor: banner?.backgroundColor || "#E91E63",
+          overflow: "hidden",
         },
       ]}
-    />
+    >
+      {renderBackground()}
+
+      {/* Large circular rings */}
+      {banner.rings !== false && (
+        <>
+          <View
+            style={[
+              styles.ring,
+              {
+                width: width * 1.5,
+                height: width * 1.5,
+                borderRadius: width * 0.75,
+                left: width * -0.25,
+                top: height * 0.18,
+                opacity: banner.ringsOpacity ?? 0.15,
+              },
+            ]}
+          />
+
+          <View
+            style={[
+              styles.ring,
+              {
+                width: width * 1.1,
+                height: width * 1.1,
+                borderRadius: width * 0.55,
+                left: width * -0.05,
+                top: height * 0.28,
+                opacity: (banner.ringsOpacity ?? 0.15) * 0.8,
+              },
+            ]}
+          />
+
+          <View
+            style={[
+              styles.ring,
+              {
+                width: width * 0.75,
+                height: width * 0.75,
+                borderRadius: width * 0.375,
+                left: width * 0.125,
+                top: height * 0.37,
+                opacity: (banner.ringsOpacity ?? 0.15) * 0.65,
+              },
+            ]}
+          />
+        </>
+      )}
+
+      {/* Rotating rays */}
+      {banner.rays && (
+        <Animated.View
+          style={[
+            styles.rays,
+            {
+              width: width * 1.6,
+              height: width * 1.6,
+              left: width * -0.3,
+              top: height * 0.15,
+            },
+            raysStyle,
+          ]}
+        >
+          {Array.from({
+            length: banner.rayCount || 12,
+          }).map((_, index) => (
+            <View
+              key={index}
+              style={[
+                styles.ray,
+                {
+                  transform: [
+                    {
+                      rotate: `${index * 30}deg`,
+                    },
+                  ],
+                },
+              ]}
+            />
+          ))}
+        </Animated.View>
+      )}
+
+      {/* Glow */}
+      {banner.glow !== false && (
+        <Animated.View
+          style={[
+            styles.glow,
+            {
+              width: width * 0.8,
+              height: width * 0.8,
+              borderRadius: width * 0.4,
+              left: width * 0.1,
+              top: height * 0.32,
+            },
+            glowStyle,
+          ]}
+        />
+      )}
+
+      {/* Shimmer */}
+      {banner.shimmer && (
+        <Animated.View style={[styles.shimmer, shimmerStyle]} />
+      )}
+
+      {/* Decorative circles */}
+      {banner.decorations !== false &&
+        Array.from({
+          length: banner.decorationCount || 8,
+        }).map((_, index) => (
+          <View
+            key={`decoration-${index}`}
+            style={[
+              styles.decoration,
+              {
+                left: (index * 37) % Math.max(width - 20, 1),
+                top: 90 + ((index * 73) % Math.max(height - 120, 1)),
+                width: 5 + (index % 3) * 3,
+                height: 5 + (index % 3) * 3,
+                opacity: banner.decorationOpacity ?? 0.35,
+              },
+            ]}
+          />
+        ))}
+    </View>
   );
-}
+};
 
-/* =========================================================
-   ASSET ANIMATION
-========================================================= */
+/* -------------------------------------------------------------------------- */
+/* Asset Animation                                                            */
+/* -------------------------------------------------------------------------- */
 
-function BannerAsset({ item, type = "image", enabled = false }) {
+const BannerAsset = ({ asset, reanimated }) => {
+  const animation = asset.animation || "none";
+
   const progress = useSharedValue(0);
 
-  const animation = item?.animation || "none";
-
   useEffect(() => {
-    if (!enabled || animation === "none") {
-      progress.value = 0;
-      return;
-    }
+    progress.value = 0;
 
-    if (animation === "float") {
-      progress.value = withRepeat(
-        withSequence(
-          withTiming(1, {
-            duration: 1800,
-            easing: Easing.inOut(Easing.ease),
-          }),
-          withTiming(0, {
-            duration: 1800,
-            easing: Easing.inOut(Easing.ease),
-          }),
-        ),
-        -1,
-        false,
-      );
-
-      return;
-    }
-
-    if (animation === "pulse") {
-      progress.value = withRepeat(
-        withSequence(
-          withTiming(1, {
-            duration: 900,
-            easing: Easing.inOut(Easing.ease),
-          }),
-          withTiming(0, {
-            duration: 900,
-            easing: Easing.inOut(Easing.ease),
-          }),
-        ),
-        -1,
-        false,
-      );
-
-      return;
-    }
-
-    if (animation === "rotate") {
-      progress.value = withRepeat(
-        withTiming(1, {
-          duration: 3000,
-          easing: Easing.linear,
-        }),
-        -1,
-        false,
-      );
-
-      return;
-    }
-
-    if (animation === "zoom") {
-      progress.value = withRepeat(
-        withSequence(
-          withTiming(1, {
-            duration: 1800,
-            easing: Easing.inOut(Easing.ease),
-          }),
-          withTiming(0, {
-            duration: 1800,
-            easing: Easing.inOut(Easing.ease),
-          }),
-        ),
-        -1,
-        false,
-      );
-
+    if (!reanimated || animation === "none") {
       return;
     }
 
     if (animation === "bounce") {
       progress.value = withRepeat(
-        withSequence(
-          withTiming(1, {
-            duration: 500,
-            easing: Easing.out(Easing.ease),
-          }),
-          withTiming(0, {
-            duration: 500,
-            easing: Easing.in(Easing.ease),
-          }),
-        ),
+        withSequence(withSpring(1), withSpring(0)),
         -1,
         false,
       );
+      return;
     }
-  }, [animation, enabled]);
+
+    progress.value = withRepeat(
+      withTiming(1, {
+        duration: asset.animationDuration || 3000,
+        easing: Easing.inOut(Easing.ease),
+      }),
+      -1,
+      true,
+    );
+  }, [animation, asset.animationDuration, reanimated, progress]);
 
   const animatedStyle = useAnimatedStyle(() => {
-    if (!enabled || animation === "none") {
+    if (!reanimated || animation === "none") {
       return {};
     }
 
-    if (animation === "float") {
-      return {
-        transform: [
-          {
-            translateY: interpolate(progress.value, [0, 1], [0, -8]),
-          },
-        ],
-      };
-    }
+    switch (animation) {
+      case "float":
+        return {
+          transform: [
+            {
+              translateY: interpolate(progress.value, [0, 0.5, 1], [0, -12, 0]),
+            },
+          ],
+        };
 
-    if (animation === "pulse") {
-      return {
-        opacity: interpolate(progress.value, [0, 1], [1, 0.75]),
-        transform: [
-          {
-            scale: interpolate(progress.value, [0, 1], [1, 1.05]),
-          },
-        ],
-      };
-    }
+      case "pulse":
+        return {
+          transform: [
+            {
+              scale: interpolate(progress.value, [0, 0.5, 1], [1, 1.08, 1]),
+            },
+          ],
+        };
 
-    if (animation === "rotate") {
-      return {
-        transform: [
-          {
-            rotate: `${interpolate(progress.value, [0, 1], [0, 360])}deg`,
-          },
-        ],
-      };
-    }
+      case "rotate":
+        return {
+          transform: [
+            {
+              rotate: `${progress.value * 360}deg`,
+            },
+          ],
+        };
 
-    if (animation === "zoom") {
-      return {
-        transform: [
-          {
-            scale: interpolate(progress.value, [0, 1], [1, 1.08]),
-          },
-        ],
-      };
-    }
+      case "zoom":
+        return {
+          transform: [
+            {
+              scale: interpolate(progress.value, [0, 1], [1, 1.12]),
+            },
+          ],
+        };
 
-    if (animation === "bounce") {
-      return {
-        transform: [
-          {
-            translateY: interpolate(progress.value, [0, 1], [0, -12]),
-          },
-        ],
-      };
-    }
+      case "bounce":
+        return {
+          transform: [
+            {
+              translateY: interpolate(progress.value, [0, 1], [0, -16]),
+            },
+          ],
+        };
 
-    return {};
+      case "slideUp":
+        return {
+          opacity: interpolate(progress.value, [0, 0.25], [0, 1]),
+          transform: [
+            {
+              translateY: interpolate(progress.value, [0, 1], [30, 0]),
+            },
+          ],
+        };
+
+      case "slideLeft":
+        return {
+          opacity: interpolate(progress.value, [0, 0.25], [0, 1]),
+          transform: [
+            {
+              translateX: interpolate(progress.value, [0, 1], [40, 0]),
+            },
+          ],
+        };
+
+      case "slideRight":
+        return {
+          opacity: interpolate(progress.value, [0, 0.25], [0, 1]),
+          transform: [
+            {
+              translateX: interpolate(progress.value, [0, 1], [-40, 0]),
+            },
+          ],
+        };
+
+      case "fade":
+        return {
+          opacity: progress.value,
+        };
+
+      default:
+        return {};
+    }
   });
 
-  const position = item?.position || {};
-
-  const assetStyle = {
-    position: "absolute",
-
-    left: position.left,
-    right: position.right,
-    top: position.top,
-    bottom: position.bottom,
-
-    width: item?.width || (type === "icon" ? 36 : 120),
-
-    height: item?.height || (type === "icon" ? 36 : 120),
-
-    opacity: item?.opacity ?? 1,
-
-    zIndex: item?.zIndex ?? 5,
-
-    transform: [
-      {
-        rotate: `${item?.rotate || 0}deg`,
-      },
-    ],
-
-    ...item?.style,
-  };
-
-  /* =======================================================
-     ICON
-  ======================================================= */
-
-  if (type === "icon" && isValidReactElement(item?.icon)) {
-    return (
-      <Animated.View
-        pointerEvents="none"
-        style={[
-          assetStyle,
-          enabled ? animatedStyle : undefined,
-          {
-            justifyContent: "center",
-            alignItems: "center",
-          },
-        ]}
-      >
-        {item.icon}
-      </Animated.View>
-    );
-  }
-
-  /* =======================================================
-     IMAGE
-  ======================================================= */
-
-  const source = getImageSource(item?.source || item?.image);
-
-  if (!source) {
-    return null;
-  }
+  const source = asset.source || asset.image || asset.uri;
 
   return (
     <Animated.View
       pointerEvents="none"
-      style={[assetStyle, enabled ? animatedStyle : undefined]}
+      style={[
+        styles.asset,
+        getPositionStyle(asset.position),
+        {
+          width: asset.width || 100,
+          height: asset.height || 100,
+          opacity: asset.opacity ?? 1,
+          zIndex: asset.zIndex || 1,
+        },
+        animatedStyle,
+        asset.style,
+      ]}
     >
-      <Image
-        source={source}
-        resizeMode={item?.resizeMode || "contain"}
-        style={StyleSheet.absoluteFillObject}
-      />
+      {asset.render ? (
+        asset.render(asset)
+      ) : source ? (
+        <Image
+          source={source}
+          resizeMode={asset.resizeMode || "contain"}
+          style={styles.assetImage}
+        />
+      ) : null}
     </Animated.View>
   );
-}
+};
 
-/* =========================================================
-   CONTENT
-========================================================= */
+/* -------------------------------------------------------------------------- */
+/* Content Animation                                                          */
+/* -------------------------------------------------------------------------- */
 
-function BannerContent({ banner, enabled }) {
-  const animation = banner?.contentAnimation || "none";
+const BannerContent = ({ banner, reanimated, onPress }) => {
+  const animation = banner.contentAnimation || "none";
 
   const progress = useSharedValue(0);
 
   useEffect(() => {
-    if (!enabled || animation === "none") {
-      progress.value = 0;
+    progress.value = 0;
+
+    if (!reanimated || animation === "none") {
       return;
     }
 
-    progress.value = 0;
-
     progress.value = withTiming(1, {
-      duration: banner?.contentAnimationDuration || 650,
+      duration: banner.contentAnimationDuration || 650,
       easing: Easing.out(Easing.cubic),
     });
-  }, [animation, enabled, banner?.contentAnimationDuration]);
+  }, [animation, banner.contentAnimationDuration, reanimated, progress]);
 
   const animatedStyle = useAnimatedStyle(() => {
-    if (!enabled || animation === "none") {
+    if (!reanimated || animation === "none") {
       return {};
     }
 
-    if (animation === "fade") {
-      return {
-        opacity: progress.value,
-      };
-    }
+    switch (animation) {
+      case "fade":
+        return {
+          opacity: progress.value,
+        };
 
-    if (animation === "slideUp") {
-      return {
-        opacity: progress.value,
-        transform: [
-          {
-            translateY: interpolate(progress.value, [0, 1], [25, 0]),
-          },
-        ],
-      };
-    }
+      case "slideUp":
+        return {
+          opacity: progress.value,
+          transform: [
+            {
+              translateY: interpolate(progress.value, [0, 1], [35, 0]),
+            },
+          ],
+        };
 
-    if (animation === "slideLeft") {
-      return {
-        opacity: progress.value,
-        transform: [
-          {
-            translateX: interpolate(progress.value, [0, 1], [35, 0]),
-          },
-        ],
-      };
-    }
+      case "slideLeft":
+        return {
+          opacity: progress.value,
+          transform: [
+            {
+              translateX: interpolate(progress.value, [0, 1], [50, 0]),
+            },
+          ],
+        };
 
-    if (animation === "scale") {
-      return {
-        opacity: progress.value,
-        transform: [
-          {
-            scale: interpolate(progress.value, [0, 1], [0.85, 1]),
-          },
-        ],
-      };
-    }
+      case "slideRight":
+        return {
+          opacity: progress.value,
+          transform: [
+            {
+              translateX: interpolate(progress.value, [0, 1], [-50, 0]),
+            },
+          ],
+        };
 
-    return {};
+      case "scale":
+        return {
+          opacity: progress.value,
+          transform: [
+            {
+              scale: interpolate(progress.value, [0, 1], [0.85, 1]),
+            },
+          ],
+        };
+
+      case "bounce":
+        return {
+          opacity: progress.value,
+          transform: [
+            {
+              translateY: interpolate(progress.value, [0, 1], [30, 0]),
+            },
+            {
+              scale: interpolate(progress.value, [0, 0.7, 1], [0.8, 1.05, 1]),
+            },
+          ],
+        };
+
+      default:
+        return {};
+    }
   });
 
-  /* =======================================================
-     CUSTOM CONTENT
-  ======================================================= */
-
-  if (typeof banner?.renderContent === "function") {
+  if (banner.renderContent) {
     return (
       <Animated.View
-        style={[
-          styles.content,
-          banner?.contentStyle,
-          enabled ? animatedStyle : undefined,
-        ]}
+        style={[styles.content, banner.contentStyle, animatedStyle]}
       >
-        {banner.renderContent(banner)}
+        {banner.renderContent()}
       </Animated.View>
     );
   }
 
   return (
-    <Animated.View
-      style={[
-        styles.content,
-        banner?.contentStyle,
-        enabled ? animatedStyle : undefined,
-      ]}
-    >
-      {/* BADGE */}
+    <Animated.View style={[styles.content, banner.contentStyle, animatedStyle]}>
+      {banner.badge ? (
+        <View style={[styles.badge, banner.badgeStyle]}>
+          {banner.badgeIcon}
 
-      {banner?.badge ? (
-        <View style={[styles.badge, banner?.badgeStyle]}>
-          {isValidReactElement(banner?.badgeIcon) ? (
-            <View style={styles.badgeIcon}>{banner.badgeIcon}</View>
-          ) : null}
-
-          <Text style={[styles.badgeText, banner?.badgeTextStyle]}>
+          <Text style={[styles.badgeText, banner.badgeTextStyle]}>
             {banner.badge}
           </Text>
         </View>
       ) : null}
 
-      {/* EYEBROW */}
-
-      {banner?.eyebrow ? (
-        <Text style={[styles.eyebrow, banner?.eyebrowStyle]}>
+      {banner.eyebrow ? (
+        <Text style={[styles.eyebrow, banner.eyebrowStyle]}>
           {banner.eyebrow}
         </Text>
       ) : null}
 
-      {/* TITLE */}
-
-      {banner?.title ? (
-        <Text
-          numberOfLines={banner?.titleNumberOfLines || 2}
-          style={[styles.title, banner?.titleStyle]}
-        >
-          {banner.title}
-        </Text>
+      {banner.title ? (
+        <Text style={[styles.title, banner.titleStyle]}>{banner.title}</Text>
       ) : null}
 
-      {/* SUBTITLE */}
-
-      {banner?.subtitle ? (
-        <Text
-          numberOfLines={banner?.subtitleNumberOfLines || 2}
-          style={[styles.subtitle, banner?.subtitleStyle]}
-        >
+      {banner.subtitle ? (
+        <Text style={[styles.subtitle, banner.subtitleStyle]}>
           {banner.subtitle}
         </Text>
       ) : null}
 
-      {/* BUTTON */}
-
-      {banner?.buttonText ? (
+      {banner.buttonText ? (
         <Pressable
-          onPress={banner?.onButtonPress}
-          disabled={typeof banner?.onButtonPress !== "function"}
-          style={[styles.button, banner?.buttonStyle]}
+          onPress={onPress}
+          style={[styles.button, banner.buttonStyle]}
         >
-          {isValidReactElement(banner?.buttonIcon) ? (
-            <View style={styles.buttonIcon}>{banner.buttonIcon}</View>
-          ) : null}
-
-          <Text style={[styles.buttonText, banner?.buttonTextStyle]}>
+          <Text style={[styles.buttonText, banner.buttonTextStyle]}>
             {banner.buttonText}
           </Text>
+
+          {banner.buttonIcon || <Text style={styles.arrow}>›</Text>}
         </Pressable>
       ) : null}
     </Animated.View>
   );
-}
+};
 
-/* =========================================================
-   BANNER SLIDE
-========================================================= */
+/* -------------------------------------------------------------------------- */
+/* Header                                                                     */
+/* -------------------------------------------------------------------------- */
 
-function BannerSlide({
-  banner,
-  index,
-  width,
-  height,
-  radius,
-  reanimated,
-  onPress,
-}) {
-  const handlePress =
-    typeof onPress === "function"
-      ? () => onPress(banner, index)
-      : typeof banner?.onPress === "function"
-        ? () => banner.onPress(banner, index)
-        : undefined;
-
-  return (
-    <Pressable
-      onPress={handlePress}
-      disabled={!handlePress}
-      style={[
-        styles.slide,
-        {
+const BannerHeader = ({ renderHeader, header, insets, width }) => {
+  if (renderHeader) {
+    return (
+      <View
+        style={[
+          styles.headerContainer,
+          {
+            paddingTop: insets.top,
+          },
+        ]}
+      >
+        {renderHeader({
+          insets,
           width,
-          height,
-          borderRadius: radius,
-        },
-        banner?.slideStyle,
-      ]}
-    >
-      {/* BACKGROUND */}
-
-      <BannerBackground
-        banner={banner}
-        width={width}
-        height={height}
-        radius={radius}
-        reanimated={reanimated}
-      />
-
-      {/* GENERAL OVERLAY */}
-
-      {banner?.overlay ? (
-        <View
-          pointerEvents="none"
-          style={[
-            StyleSheet.absoluteFillObject,
-            {
-              backgroundColor: banner.overlay,
-              borderRadius: radius,
-            },
-          ]}
-        />
-      ) : null}
-
-      {/* FOREGROUND IMAGES */}
-
-      {Array.isArray(banner?.images)
-        ? banner.images.map((item, imageIndex) => (
-            <BannerAsset
-              key={item?.id || `image-${index}-${imageIndex}`}
-              item={item}
-              type="image"
-              enabled={reanimated}
-            />
-          ))
-        : null}
-
-      {/* FOREGROUND ICONS */}
-
-      {Array.isArray(banner?.icons)
-        ? banner.icons.map((item, iconIndex) => (
-            <BannerAsset
-              key={item?.id || `icon-${index}-${iconIndex}`}
-              item={item}
-              type="icon"
-              enabled={reanimated}
-            />
-          ))
-        : null}
-
-      {/* TEXT CONTENT */}
-
-      <BannerContent banner={banner} enabled={reanimated} />
-    </Pressable>
-  );
-}
-
-/* =========================================================
-   MAIN COMPONENT
-========================================================= */
-
-function UIBannerCarousel({
-  banners = [],
-
-  width,
-  height = 190,
-
-  radius = 18,
-  gap = 0,
-
-  autoplay = true,
-  interval = 3500,
-
-  loop = true,
-  swipe = true,
-
-  pagination = true,
-  navigation = false,
-
-  initialIndex = 0,
-
-  reanimated = false,
-
-  style,
-  containerStyle,
-  contentContainerStyle,
-
-  paginationStyle,
-  dotStyle,
-  activeDotStyle,
-
-  navigationButtonStyle,
-  navigationTextStyle,
-
-  leftArrow,
-  rightArrow,
-
-  onIndexChange,
-  onPress,
-}) {
-  const { width: windowWidth } = useWindowDimensions();
-
-  const scrollRef = useRef(null);
-
-  const timerRef = useRef(null);
-
-  const currentIndexRef = useRef(0);
-
-  const [layoutWidth, setLayoutWidth] = useState(width || windowWidth);
-
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  const total = Array.isArray(banners) ? banners.length : 0;
-
-  const carouselWidth = width || layoutWidth || windowWidth;
-
-  /*
-   * The actual slide width.
-   *
-   * When gap = 0:
-   * slide width = carousel width
-   *
-   * When gap > 0:
-   * slide width = carousel width - gap
-   */
-
-  const itemWidth = Math.max(carouselWidth - gap, 1);
-
-  /* =======================================================
-     UPDATE INDEX
-  ======================================================= */
-
-  const updateIndex = useCallback(
-    (index) => {
-      if (total <= 0) {
-        return;
-      }
-
-      const safeIndex = Math.max(0, Math.min(index, total - 1));
-
-      currentIndexRef.current = safeIndex;
-
-      setCurrentIndex(safeIndex);
-
-      if (typeof onIndexChange === "function") {
-        onIndexChange(safeIndex);
-      }
-    },
-    [total, onIndexChange],
-  );
-
-  /* =======================================================
-     CLEAR AUTOPLAY
-  ======================================================= */
-
-  const clearAutoplay = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-
-      timerRef.current = null;
-    }
-  }, []);
-
-  /* =======================================================
-     SCROLL TO INDEX
-  ======================================================= */
-
-  const scrollToIndex = useCallback(
-    (requestedIndex, animated = true) => {
-      if (!scrollRef.current || total <= 0) {
-        return;
-      }
-
-      let nextIndex = requestedIndex;
-
-      if (loop) {
-        if (nextIndex < 0) {
-          nextIndex = total - 1;
-        }
-
-        if (nextIndex >= total) {
-          nextIndex = 0;
-        }
-      } else {
-        nextIndex = Math.max(0, Math.min(nextIndex, total - 1));
-      }
-
-      scrollRef.current.scrollTo({
-        x: nextIndex * itemWidth,
-        y: 0,
-        animated,
-      });
-
-      updateIndex(nextIndex);
-    },
-    [total, loop, itemWidth, updateIndex],
-  );
-
-  /* =======================================================
-     START AUTOPLAY
-  ======================================================= */
-
-  const startAutoplay = useCallback(() => {
-    clearAutoplay();
-
-    if (!autoplay || total <= 1) {
-      return;
-    }
-
-    timerRef.current = setInterval(() => {
-      const current = currentIndexRef.current;
-
-      if (!loop && current >= total - 1) {
-        clearAutoplay();
-        return;
-      }
-
-      scrollToIndex(current + 1, true);
-    }, interval);
-  }, [autoplay, total, loop, interval, clearAutoplay, scrollToIndex]);
-
-  /* =======================================================
-     AUTOPLAY EFFECT
-  ======================================================= */
-
-  useEffect(() => {
-    startAutoplay();
-
-    return () => {
-      clearAutoplay();
-    };
-  }, [startAutoplay, clearAutoplay]);
-
-  /* =======================================================
-     INITIAL INDEX
-  ======================================================= */
-
-  useEffect(() => {
-    if (total <= 0) {
-      return;
-    }
-
-    const safeIndex = Math.max(0, Math.min(initialIndex, total - 1));
-
-    currentIndexRef.current = safeIndex;
-
-    setCurrentIndex(safeIndex);
-
-    const timeout = setTimeout(() => {
-      scrollRef.current?.scrollTo({
-        x: safeIndex * itemWidth,
-        y: 0,
-        animated: false,
-      });
-    }, 100);
-
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [initialIndex, total, itemWidth]);
-
-  /* =======================================================
-     LAYOUT
-  ======================================================= */
-
-  const handleLayout = useCallback(
-    (event) => {
-      if (width) {
-        return;
-      }
-
-      const measuredWidth = event.nativeEvent.layout.width;
-
-      if (measuredWidth > 0 && measuredWidth !== layoutWidth) {
-        setLayoutWidth(measuredWidth);
-      }
-    },
-    [width, layoutWidth],
-  );
-
-  /* =======================================================
-     MOMENTUM END
-  ======================================================= */
-
-  const handleMomentumEnd = useCallback(
-    (event) => {
-      const x = event.nativeEvent.contentOffset.x;
-
-      const index = Math.round(x / itemWidth);
-
-      updateIndex(index);
-
-      if (autoplay) {
-        startAutoplay();
-      }
-    },
-    [itemWidth, updateIndex, autoplay, startAutoplay],
-  );
-
-  /* =======================================================
-     DRAG START
-  ======================================================= */
-
-  const handleDragStart = useCallback(() => {
-    clearAutoplay();
-  }, [clearAutoplay]);
-
-  /* =======================================================
-     PREVIOUS
-  ======================================================= */
-
-  const handlePrevious = useCallback(() => {
-    clearAutoplay();
-
-    scrollToIndex(currentIndexRef.current - 1, true);
-
-    startAutoplay();
-  }, [clearAutoplay, scrollToIndex, startAutoplay]);
-
-  /* =======================================================
-     NEXT
-  ======================================================= */
-
-  const handleNext = useCallback(() => {
-    clearAutoplay();
-
-    scrollToIndex(currentIndexRef.current + 1, true);
-
-    startAutoplay();
-  }, [clearAutoplay, scrollToIndex, startAutoplay]);
-
-  /* =======================================================
-     EMPTY
-  ======================================================= */
-
-  if (total === 0) {
+        })}
+      </View>
+    );
+  }
+
+  if (!header) {
     return null;
   }
 
-  /* =======================================================
-     RENDER
-  ======================================================= */
-
   return (
     <View
-      onLayout={handleLayout}
       style={[
-        styles.container,
+        styles.headerContainer,
         {
-          width: width || "100%",
+          paddingTop: insets.top,
         },
-        containerStyle,
-        style,
+        header.style,
       ]}
     >
-      {/* =================================================
-          CAROUSEL
-      ================================================= */}
+      <View style={styles.headerRow}>
+        {header.left ? (
+          <View style={styles.headerLeft}>{header.left}</View>
+        ) : null}
 
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        scrollEnabled={swipe}
-        showsHorizontalScrollIndicator={false}
-        bounces={false}
-        pagingEnabled={gap === 0}
-        decelerationRate="fast"
-        snapToInterval={gap > 0 ? itemWidth : undefined}
-        snapToAlignment="start"
-        disableIntervalMomentum
-        contentContainerStyle={[
-          gap > 0
-            ? {
-                paddingHorizontal: gap / 2,
-              }
-            : undefined,
-          contentContainerStyle,
-        ]}
-        onScrollBeginDrag={handleDragStart}
-        onMomentumScrollEnd={handleMomentumEnd}
-      >
-        {banners.map((banner, index) => (
-          <View
-            key={banner?.id || `banner-${index}`}
-            style={{
-              width: itemWidth,
-              marginHorizontal: gap > 0 ? gap / 2 : 0,
-            }}
+        <View style={styles.headerCenter}>
+          {header.title ? (
+            <Text style={[styles.headerTitle, header.titleStyle]}>
+              {header.title}
+            </Text>
+          ) : null}
+
+          {header.subtitle ? (
+            <Text
+              numberOfLines={1}
+              style={[styles.headerSubtitle, header.subtitleStyle]}
+            >
+              {header.subtitle}
+            </Text>
+          ) : null}
+        </View>
+
+        {header.right ? (
+          <View style={styles.headerRight}>{header.right}</View>
+        ) : null}
+      </View>
+
+      {header.search ? (
+        <View style={[styles.headerSearch, header.searchStyle]}>
+          {header.searchIcon}
+
+          <Text
+            numberOfLines={1}
+            style={[styles.headerSearchText, header.searchTextStyle]}
           >
-            <BannerSlide
-              banner={banner}
-              index={index}
-              width={itemWidth}
-              height={height}
-              radius={radius}
-              reanimated={reanimated}
-              onPress={onPress}
-            />
-          </View>
-        ))}
-      </ScrollView>
+            {header.searchPlaceholder || 'Search "burger"'}
+          </Text>
 
-      {/* =================================================
-          NAVIGATION
-      ================================================= */}
-
-      {navigation && total > 1 ? (
-        <>
-          <Pressable
-            onPress={handlePrevious}
-            style={[
-              styles.navigationButton,
-              styles.navigationLeft,
-              navigationButtonStyle,
-            ]}
-          >
-            {leftArrow || (
-              <Text style={[styles.navigationText, navigationTextStyle]}>
-                ‹
-              </Text>
-            )}
-          </Pressable>
-
-          <Pressable
-            onPress={handleNext}
-            style={[
-              styles.navigationButton,
-              styles.navigationRight,
-              navigationButtonStyle,
-            ]}
-          >
-            {rightArrow || (
-              <Text style={[styles.navigationText, navigationTextStyle]}>
-                ›
-              </Text>
-            )}
-          </Pressable>
-        </>
-      ) : null}
-
-      {/* =================================================
-          PAGINATION
-      ================================================= */}
-
-      {pagination && total > 1 ? (
-        <View pointerEvents="none" style={[styles.pagination, paginationStyle]}>
-          {banners.map((_, index) => {
-            const active = index === currentIndex;
-
-            return (
-              <View
-                key={`dot-${index}`}
-                style={[
-                  styles.dot,
-                  dotStyle,
-                  active && styles.activeDot,
-                  active && activeDotStyle,
-                ]}
-              />
-            );
-          })}
+          {header.searchRight}
         </View>
       ) : null}
     </View>
   );
-}
+};
 
-/* =========================================================
-   STYLES
-========================================================= */
+/* -------------------------------------------------------------------------- */
+/* Main Component                                                             */
+/* -------------------------------------------------------------------------- */
+
+const UIBannerCarousel = ({
+  banners = [],
+
+  width = SCREEN_WIDTH,
+
+  height = 500,
+
+  /*
+   * This is the important option:
+   *
+   * Background fills behind status bar + header.
+   */
+  coverStatusBar = true,
+
+  header,
+  renderHeader,
+
+  autoplay = true,
+  interval = 4500,
+  loop = true,
+
+  swipe = true,
+
+  showPagination = true,
+  paginationPosition = "bottom",
+
+  showNavigation = false,
+
+  gap = 0,
+
+  borderRadius = 0,
+
+  reanimated = false,
+
+  style,
+  slideStyle,
+  contentContainerStyle,
+
+  onIndexChange,
+  onPress,
+
+  paginationStyle,
+  activeDotStyle,
+  inactiveDotStyle,
+}) => {
+  const insets = useSafeAreaInsets();
+
+  const scrollRef = useRef(null);
+  const timerRef = useRef(null);
+
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const bannerCount = banners.length;
+
+  const safeIndex = clamp(activeIndex, 0, Math.max(bannerCount - 1, 0));
+
+  const scrollToIndex = useCallback(
+    (index, animated = true) => {
+      if (!bannerCount) return;
+
+      let nextIndex = index;
+
+      if (loop) {
+        if (nextIndex >= bannerCount) {
+          nextIndex = 0;
+        }
+
+        if (nextIndex < 0) {
+          nextIndex = bannerCount - 1;
+        }
+      } else {
+        nextIndex = clamp(nextIndex, 0, bannerCount - 1);
+      }
+
+      scrollRef.current?.scrollTo({
+        x: nextIndex * (width + gap),
+        animated,
+      });
+
+      setActiveIndex(nextIndex);
+      onIndexChange?.(nextIndex, banners[nextIndex]);
+    },
+    [bannerCount, banners, gap, loop, onIndexChange, width],
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* Autoplay                                                               */
+  /* ---------------------------------------------------------------------- */
+
+  useEffect(() => {
+    if (!autoplay || bannerCount <= 1) {
+      return;
+    }
+
+    timerRef.current = setInterval(() => {
+      scrollToIndex(safeIndex + 1, true);
+    }, interval);
+
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, [autoplay, bannerCount, interval, safeIndex, scrollToIndex]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Status Bar                                                             */
+  /* ---------------------------------------------------------------------- */
+
+  useEffect(() => {
+    if (!coverStatusBar) {
+      return;
+    }
+
+    StatusBar.setBarStyle(
+      banners[safeIndex]?.statusBarStyle || "light-content",
+      true,
+    );
+
+    if (Platform.OS === "android") {
+      StatusBar.setTranslucent(true);
+      StatusBar.setBackgroundColor("transparent");
+    }
+  }, [banners, coverStatusBar, safeIndex]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Scroll                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  const handleMomentumEnd = (event) => {
+    const x = event.nativeEvent.contentOffset.x;
+
+    const index = Math.round(x / (width + gap));
+
+    const nextIndex = clamp(index, 0, bannerCount - 1);
+
+    if (nextIndex !== activeIndex) {
+      setActiveIndex(nextIndex);
+      onIndexChange?.(nextIndex, banners[nextIndex]);
+    }
+  };
+
+  const handlePress = (banner, index) => {
+    onPress?.(banner, index);
+    banner.onPress?.(banner, index);
+  };
+
+  const renderPagination = () => {
+    if (!showPagination || bannerCount <= 1) {
+      return null;
+    }
+
+    return (
+      <View
+        style={[
+          styles.pagination,
+          paginationPosition === "bottom"
+            ? styles.paginationBottom
+            : styles.paginationCenter,
+          paginationStyle,
+        ]}
+      >
+        {banners.map((banner, index) => (
+          <Pressable
+            key={banner.id || `dot-${index}`}
+            onPress={() => scrollToIndex(index, true)}
+            style={[
+              styles.dot,
+              index === safeIndex
+                ? [styles.activeDot, activeDotStyle]
+                : [styles.inactiveDot, inactiveDotStyle],
+            ]}
+          />
+        ))}
+      </View>
+    );
+  };
+
+  if (!bannerCount) {
+    return null;
+  }
+
+  return (
+    <View
+      style={[
+        styles.root,
+        {
+          width,
+          height,
+          borderRadius,
+        },
+        style,
+      ]}
+    >
+      {/* -------------------------------------------------------------- */}
+      {/* FULL BLEED BACKGROUND                                          */}
+      {/* -------------------------------------------------------------- */}
+
+      <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+        <BannerBackground
+          banner={banners[safeIndex]}
+          width={width}
+          height={height}
+          reanimated={reanimated}
+        />
+      </View>
+
+      {/* -------------------------------------------------------------- */}
+      {/* HEADER                                                          */}
+      {/* -------------------------------------------------------------- */}
+
+      <BannerHeader
+        renderHeader={renderHeader}
+        header={header}
+        insets={insets}
+        width={width}
+      />
+
+      {/* -------------------------------------------------------------- */}
+      {/* CAROUSEL                                                        */}
+      {/* -------------------------------------------------------------- */}
+
+      <ScrollView
+        ref={scrollRef}
+        horizontal
+        pagingEnabled={gap === 0}
+        snapToInterval={gap > 0 ? width + gap : undefined}
+        decelerationRate="fast"
+        showsHorizontalScrollIndicator={false}
+        scrollEnabled={swipe}
+        bounces={false}
+        onMomentumScrollEnd={handleMomentumEnd}
+        contentContainerStyle={[styles.scrollContent, contentContainerStyle]}
+      >
+        {banners.map((banner, index) => (
+          <Pressable
+            key={banner.id || `banner-${index}`}
+            onPress={() => handlePress(banner, index)}
+            style={[
+              styles.slide,
+              {
+                width,
+                height,
+                marginRight: index === bannerCount - 1 ? 0 : gap,
+              },
+              slideStyle,
+              banner.style,
+            ]}
+          >
+            {/* ---------------------------------------------------- */}
+            {/* Per-slide background                                 */}
+            {/* ---------------------------------------------------- */}
+
+            <BannerBackground
+              banner={banner}
+              width={width}
+              height={height}
+              reanimated={reanimated && index === safeIndex}
+            />
+
+            {/* ---------------------------------------------------- */}
+            {/* Assets                                                */}
+            {/* ---------------------------------------------------- */}
+
+            {banner.images?.map((asset, assetIndex) => (
+              <BannerAsset
+                key={asset.id || `image-${assetIndex}`}
+                asset={asset}
+                reanimated={reanimated && index === safeIndex}
+              />
+            ))}
+
+            {banner.icons?.map((asset, assetIndex) => (
+              <BannerAsset
+                key={asset.id || `icon-${assetIndex}`}
+                asset={asset}
+                reanimated={reanimated && index === safeIndex}
+              />
+            ))}
+
+            {/* ---------------------------------------------------- */}
+            {/* Content                                               */}
+            {/* ---------------------------------------------------- */}
+
+            <BannerContent
+              banner={banner}
+              reanimated={reanimated && index === safeIndex}
+              onPress={() => handlePress(banner, index)}
+            />
+          </Pressable>
+        ))}
+      </ScrollView>
+
+      {/* -------------------------------------------------------------- */}
+      {/* PAGINATION                                                     */}
+      {/* -------------------------------------------------------------- */}
+
+      {renderPagination()}
+
+      {/* -------------------------------------------------------------- */}
+      {/* NAVIGATION                                                     */}
+      {/* -------------------------------------------------------------- */}
+
+      {showNavigation && bannerCount > 1 ? (
+        <>
+          <Pressable
+            style={[styles.navigation, styles.navigationLeft]}
+            onPress={() => scrollToIndex(safeIndex - 1)}
+          >
+            <Text style={styles.navigationText}>‹</Text>
+          </Pressable>
+
+          <Pressable
+            style={[styles.navigation, styles.navigationRight]}
+            onPress={() => scrollToIndex(safeIndex + 1)}
+          >
+            <Text style={styles.navigationText}>›</Text>
+          </Pressable>
+        </>
+      ) : null}
+    </View>
+  );
+};
+
+/* -------------------------------------------------------------------------- */
+/* Styles                                                                     */
+/* -------------------------------------------------------------------------- */
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
+    overflow: "hidden",
     position: "relative",
+  },
+
+  backgroundImage: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+  },
+
+  scrollContent: {
+    alignItems: "stretch",
   },
 
   slide: {
@@ -1440,225 +1217,266 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
 
-  backgroundContainer: {
-    overflow: "hidden",
+  asset: {
+    position: "absolute",
   },
 
-  backgroundGlow: {
-    position: "absolute",
-
-    width: 190,
-    height: 190,
-
-    right: -35,
-    top: -35,
-
-    borderRadius: 100,
-
-    backgroundColor: "rgba(255,255,255,0.08)",
-  },
-
-  /* =======================================================
-     RAYS
-  ======================================================= */
-
-  raysContainer: {
-    position: "absolute",
-
-    width: "150%",
-    height: "200%",
-
-    left: "-25%",
-    top: "-50%",
-
-    justifyContent: "center",
-    alignItems: "center",
-  },
-
-  ray: {
-    position: "absolute",
-
-    width: 18,
+  assetImage: {
+    width: "100%",
     height: "100%",
-
-    borderRadius: 20,
   },
-
-  /* =======================================================
-     CONTENT
-  ======================================================= */
 
   content: {
-    position: "relative",
-
-    zIndex: 30,
-
-    width: "68%",
-
-    paddingHorizontal: 20,
-    paddingVertical: 18,
-
-    justifyContent: "center",
-    alignItems: "flex-start",
+    position: "absolute",
+    left: 28,
+    right: 28,
+    bottom: 55,
+    zIndex: 50,
   },
 
   badge: {
+    alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-
-    marginBottom: 7,
-
+    paddingHorizontal: 13,
+    paddingVertical: 7,
     borderRadius: 20,
-
-    backgroundColor: "rgba(255,255,255,0.20)",
-  },
-
-  badgeIcon: {
-    marginRight: 5,
+    backgroundColor: "#FFD32A",
+    marginBottom: 9,
   },
 
   badgeText: {
-    color: "#FFFFFF",
-
-    fontSize: 11,
-    fontWeight: "700",
+    color: "#111",
+    fontSize: 13,
+    fontWeight: "800",
   },
 
   eyebrow: {
-    color: "#FFFFFF",
-
-    fontSize: 12,
+    color: "#FFF",
+    fontSize: 16,
     fontWeight: "700",
-
     marginBottom: 4,
   },
 
   title: {
-    color: "#FFFFFF",
-
-    fontSize: 25,
-    lineHeight: 29,
-
-    fontWeight: "800",
+    color: "#FFF",
+    fontSize: 38,
+    lineHeight: 42,
+    fontWeight: "900",
+    letterSpacing: -1,
   },
 
   subtitle: {
-    color: "rgba(255,255,255,0.90)",
-
-    fontSize: 13,
-    lineHeight: 18,
-
-    marginTop: 6,
+    color: "#FFF",
+    fontSize: 16,
+    lineHeight: 22,
+    marginTop: 8,
+    fontWeight: "500",
   },
 
   button: {
+    marginTop: 16,
+    minHeight: 46,
+    paddingHorizontal: 20,
+    borderRadius: 25,
+    backgroundColor: "#111",
+    borderWidth: 1.5,
+    borderColor: "#FFF",
+    alignSelf: "flex-start",
     flexDirection: "row",
     alignItems: "center",
-
-    marginTop: 12,
-
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-
-    borderRadius: 20,
-
-    backgroundColor: "#FFFFFF",
-  },
-
-  buttonIcon: {
-    marginRight: 6,
   },
 
   buttonText: {
-    color: "#222222",
-
-    fontSize: 12,
+    color: "#FFF",
+    fontSize: 16,
     fontWeight: "800",
   },
 
-  /* =======================================================
-     PAGINATION
-  ======================================================= */
+  arrow: {
+    color: "#FFF",
+    fontSize: 28,
+    lineHeight: 25,
+    marginLeft: 10,
+  },
+
+  /* Background decorations */
+
+  ring: {
+    position: "absolute",
+    borderWidth: 1.5,
+    borderColor: "rgba(255,255,255,0.8)",
+  },
+
+  rays: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  ray: {
+    position: "absolute",
+    width: 3,
+    height: "50%",
+    top: 0,
+    backgroundColor: "rgba(255,255,255,0.08)",
+    transformOrigin: "center bottom",
+  },
+
+  glow: {
+    position: "absolute",
+    backgroundColor: "rgba(255,255,255,0.35)",
+  },
+
+  shimmer: {
+    position: "absolute",
+    top: 0,
+    bottom: 0,
+    width: 100,
+    backgroundColor: "rgba(255,255,255,0.10)",
+    transform: [
+      {
+        skewX: "-15deg",
+      },
+    ],
+  },
+
+  decoration: {
+    position: "absolute",
+    borderRadius: 100,
+    backgroundColor: "#FFF",
+  },
+
+  /* Header */
+
+  headerContainer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 100,
+    paddingHorizontal: 20,
+    paddingBottom: 10,
+  },
+
+  headerRow: {
+    minHeight: 62,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  headerLeft: {
+    marginRight: 12,
+  },
+
+  headerCenter: {
+    flex: 1,
+  },
+
+  headerRight: {
+    marginLeft: 12,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+
+  headerTitle: {
+    color: "#FFF",
+    fontSize: 25,
+    fontWeight: "800",
+  },
+
+  headerSubtitle: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 14,
+    marginTop: 3,
+  },
+
+  headerSearch: {
+    height: 58,
+    borderRadius: 18,
+    backgroundColor: "rgba(10,10,15,0.90)",
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 18,
+  },
+
+  headerSearchText: {
+    flex: 1,
+    color: "#FFF",
+    fontSize: 18,
+    marginLeft: 12,
+  },
+
+  /* Pagination */
 
   pagination: {
     position: "absolute",
-
     left: 0,
     right: 0,
-    bottom: 9,
-
-    zIndex: 50,
-
+    zIndex: 150,
     flexDirection: "row",
-
-    alignItems: "center",
     justifyContent: "center",
+    alignItems: "center",
+  },
+
+  paginationBottom: {
+    bottom: 14,
+  },
+
+  paginationCenter: {
+    bottom: "50%",
   },
 
   dot: {
-    width: 6,
-    height: 6,
-
-    marginHorizontal: 3,
-
-    borderRadius: 3,
-
-    backgroundColor: "rgba(255,255,255,0.55)",
+    marginHorizontal: 4,
+    borderRadius: 20,
   },
 
   activeDot: {
-    width: 18,
-
-    backgroundColor: "#FFFFFF",
+    width: 9,
+    height: 9,
+    backgroundColor: "#FFF",
   },
 
-  /* =======================================================
-     NAVIGATION
-  ======================================================= */
+  inactiveDot: {
+    width: 7,
+    height: 7,
+    backgroundColor: "rgba(255,255,255,0.45)",
+  },
 
-  navigationButton: {
+  /* Navigation */
+
+  navigation: {
     position: "absolute",
-
     top: "50%",
-    marginTop: -18,
-
-    width: 36,
-    height: 36,
-
-    borderRadius: 18,
-
-    justifyContent: "center",
+    width: 42,
+    height: 42,
+    marginTop: -21,
+    borderRadius: 21,
+    backgroundColor: "rgba(0,0,0,0.35)",
     alignItems: "center",
-
-    backgroundColor: "rgba(0,0,0,0.25)",
-
-    zIndex: 60,
+    justifyContent: "center",
+    zIndex: 200,
   },
 
   navigationLeft: {
-    left: 10,
+    left: 12,
   },
 
   navigationRight: {
-    right: 10,
+    right: 12,
   },
 
   navigationText: {
-    color: "#FFFFFF",
-
-    fontSize: 30,
-    lineHeight: 32,
-
-    fontWeight: "400",
+    color: "#FFF",
+    fontSize: 32,
+    lineHeight: 34,
   },
 });
 
-/* =========================================================
-   EXPORTS
-========================================================= */
+/* -------------------------------------------------------------------------- */
+/* Exports                                                                    */
+/* -------------------------------------------------------------------------- */
 
 export default UIBannerCarousel;
 
