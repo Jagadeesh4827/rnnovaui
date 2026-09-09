@@ -71,6 +71,28 @@ const SIZE_CONFIG = {
 };
 
 /* =========================================================
+   SAFE THEME RESOLVER
+========================================================= */
+
+function resolveTheme(theme) {
+  return {
+    colors: theme?.colors ?? {},
+
+    spacing: theme?.spacing ?? {},
+
+    radius: theme?.radius ?? {},
+
+    typography: theme?.typography ?? {},
+
+    sizes: theme?.sizes ?? {},
+
+    shadows: theme?.shadows ?? {},
+
+    animation: theme?.animation ?? {},
+  };
+}
+
+/* =========================================================
    CATEGORY ITEM
 ========================================================= */
 
@@ -119,13 +141,84 @@ const UICategoryItem = memo(
 
     const { theme } = useUITheme();
 
-    const { colors, radius, typography, shadows, animation } = theme;
+    const { colors, spacing, radius, typography, shadows, animation } =
+      resolveTheme(theme);
+
+    /* =====================================================
+       SAFE THEME VALUES
+    ===================================================== */
+
+    const safeColors = {
+      transparent: colors.transparent ?? "transparent",
+
+      primary: colors.primary ?? "#FF5A1F",
+
+      primarySoft: colors.primarySoft ?? "#FFF0EA",
+
+      primaryMuted: colors.primaryMuted ?? "#FFE1D5",
+
+      onPrimary: colors.onPrimary ?? "#FFFFFF",
+
+      background: colors.background ?? "#FFFFFF",
+
+      surface: colors.surface ?? "#F8F8F8",
+
+      card: colors.card ?? "#FFFFFF",
+
+      text: colors.text ?? "#111111",
+
+      textSecondary: colors.textSecondary ?? "#525252",
+
+      textMuted: colors.textMuted ?? "#737373",
+
+      textInverse: colors.textInverse ?? "#FFFFFF",
+
+      border: colors.border ?? "#E5E5E5",
+
+      borderSubtle: colors.borderSubtle ?? "#F0F0F0",
+
+      danger: colors.danger ?? "#DC2626",
+
+      onDanger: colors.onDanger ?? "#FFFFFF",
+    };
+
+    const safeSpacing = {
+      xxs: spacing.xxs ?? 2,
+
+      xs: spacing.xs ?? 4,
+
+      sm: spacing.sm ?? 8,
+
+      md: spacing.md ?? 12,
+    };
+
+    const safeRadius = {
+      none: radius.none ?? 0,
+
+      lg: radius.lg ?? 14,
+
+      pill: radius.pill ?? 999,
+
+      circle: radius.circle ?? 9999,
+    };
+
+    const safeShadows = {
+      sm: shadows.sm ?? {},
+    };
+
+    const safeAnimation = {
+      spring: animation.spring ?? {
+        damping: 18,
+        stiffness: 180,
+        mass: 0.8,
+      },
+    };
 
     /* =====================================================
        SIZE
     ===================================================== */
 
-    const config = SIZE_CONFIG[size] || SIZE_CONFIG.md;
+    const config = SIZE_CONFIG[size] ?? SIZE_CONFIG.md;
 
     /* =====================================================
        PRESS ANIMATION
@@ -156,8 +249,8 @@ const UICategoryItem = memo(
         return;
       }
 
-      scale.value = withSpring(0.95, animation.spring);
-    }, [reanimated, scale, animation]);
+      scale.value = withSpring(0.95, safeAnimation.spring);
+    }, [reanimated, scale, safeAnimation.spring]);
 
     /* =====================================================
        PRESS OUT
@@ -168,8 +261,8 @@ const UICategoryItem = memo(
         return;
       }
 
-      scale.value = withSpring(1, animation.spring);
-    }, [reanimated, scale, animation]);
+      scale.value = withSpring(1, safeAnimation.spring);
+    }, [reanimated, scale, safeAnimation.spring]);
 
     /* =====================================================
        FLEX DIRECTION
@@ -199,19 +292,25 @@ const UICategoryItem = memo(
     const itemRadius = useMemo(() => {
       switch (shape) {
         case "square":
-          return radius.none;
+          return safeRadius.none;
 
         case "circle":
-          return radius.circle;
+          return safeRadius.circle;
 
         case "pill":
-          return radius.pill;
+          return safeRadius.pill;
 
         case "rounded":
         default:
-          return radius.lg;
+          return safeRadius.lg;
       }
-    }, [shape, radius]);
+    }, [
+      shape,
+      safeRadius.none,
+      safeRadius.circle,
+      safeRadius.pill,
+      safeRadius.lg,
+    ]);
 
     /* =====================================================
        PALETTE
@@ -221,50 +320,67 @@ const UICategoryItem = memo(
       switch (variant) {
         case "filled":
           return {
-            background: selected ? colors.primary : colors.surface,
+            background: selected ? safeColors.primary : safeColors.surface,
 
-            borderColor: colors.transparent,
+            borderColor: safeColors.transparent,
 
-            icon: selected ? colors.onPrimary : colors.primary,
+            icon: selected ? safeColors.onPrimary : safeColors.primary,
 
-            label: selected ? colors.onPrimary : colors.text,
+            label: selected ? safeColors.onPrimary : safeColors.text,
           };
 
         case "outline":
           return {
-            background: colors.background,
+            background: safeColors.background,
 
-            borderColor: selected ? colors.primary : colors.border,
+            borderColor: selected ? safeColors.primary : safeColors.border,
 
-            icon: selected ? colors.primary : colors.textSecondary,
+            icon: selected ? safeColors.primary : safeColors.textSecondary,
 
-            label: colors.text,
+            label: safeColors.text,
           };
 
         case "minimal":
           return {
-            background: colors.transparent,
+            background: safeColors.transparent,
 
-            borderColor: colors.transparent,
+            borderColor: safeColors.transparent,
 
-            icon: selected ? colors.primary : colors.textSecondary,
+            icon: selected ? safeColors.primary : safeColors.textSecondary,
 
-            label: selected ? colors.primary : colors.text,
+            label: selected ? safeColors.primary : safeColors.text,
           };
 
         case "soft":
         default:
           return {
-            background: selected ? colors.primarySoft : colors.card,
+            background: selected ? safeColors.primarySoft : safeColors.card,
 
-            borderColor: selected ? colors.primaryMuted : colors.borderSubtle,
+            borderColor: selected
+              ? safeColors.primaryMuted
+              : safeColors.borderSubtle,
 
-            icon: selected ? colors.primary : colors.textSecondary,
+            icon: selected ? safeColors.primary : safeColors.textSecondary,
 
-            label: colors.text,
+            label: safeColors.text,
           };
       }
-    }, [variant, selected, colors]);
+    }, [
+      variant,
+      selected,
+      safeColors.primary,
+      safeColors.primarySoft,
+      safeColors.primaryMuted,
+      safeColors.onPrimary,
+      safeColors.surface,
+      safeColors.card,
+      safeColors.background,
+      safeColors.text,
+      safeColors.textSecondary,
+      safeColors.border,
+      safeColors.borderSubtle,
+      safeColors.transparent,
+    ]);
 
     /* =====================================================
        CONTAINER STYLE
@@ -275,9 +391,9 @@ const UICategoryItem = memo(
         styles.itemContainer,
 
         {
-          width: config.width,
+          width: item?.width ?? config.width,
 
-          minHeight: config.height,
+          minHeight: item?.height ?? config.height,
 
           padding: item?.padding ?? config.padding,
 
@@ -301,7 +417,7 @@ const UICategoryItem = memo(
         },
 
         variant !== "minimal" && item?.disableShadow !== true
-          ? shadows.sm
+          ? safeShadows.sm
           : null,
 
         item?.containerStyle,
@@ -316,7 +432,7 @@ const UICategoryItem = memo(
         palette,
         variant,
         selected,
-        shadows,
+        safeShadows.sm,
         style,
       ],
     );
@@ -327,7 +443,7 @@ const UICategoryItem = memo(
 
     const renderMedia = useCallback(() => {
       /* -------------------------------------------------
-           CUSTOM ELEMENT
+           CUSTOM REACT ELEMENT
         ------------------------------------------------- */
 
       if (item?.iconElement) {
@@ -368,7 +484,7 @@ const UICategoryItem = memo(
                   borderRadius:
                     item.imageBorderRadius ??
                     imageBorderRadius ??
-                    radius.circle,
+                    safeRadius.circle,
                 },
 
                 item.imageStyle,
@@ -493,7 +609,7 @@ const UICategoryItem = memo(
       index,
       selected,
       config,
-      radius,
+      safeRadius.circle,
       palette,
       imageSize,
       imageBorderRadius,
@@ -506,6 +622,10 @@ const UICategoryItem = memo(
     const renderTitle = useCallback(() => {
       const title = item?.title ?? item?.name ?? item?.label ?? "";
 
+      const caption = typography.caption ?? {};
+
+      const label = typography.label ?? {};
+
       const finalLabelColor = selected
         ? (item?.activeLabelColor ??
           activeLabelColor ??
@@ -515,20 +635,21 @@ const UICategoryItem = memo(
 
       const finalFontSize =
         item?.fontSize ??
+        item?.labelFontSize ??
         labelFontSize ??
-        typography.caption?.fontSize ??
+        caption.fontSize ??
         config.font;
 
       const finalFontWeight = selected
         ? (item?.activeLabelFontWeight ??
           activeLabelFontWeight ??
           item?.fontWeight ??
-          typography.label?.fontWeight ??
+          label.fontWeight ??
           "600")
         : (item?.labelFontWeight ??
           labelFontWeight ??
           item?.fontWeight ??
-          typography.caption?.fontWeight ??
+          caption.fontWeight ??
           "400");
 
       return (
@@ -577,13 +698,15 @@ const UICategoryItem = memo(
         return null;
       }
 
+      const overline = typography.overline ?? {};
+
       return (
         <View
           style={[
             styles.badge,
 
             {
-              backgroundColor: item.badgeColor ?? colors.danger,
+              backgroundColor: item.badgeColor ?? safeColors.danger,
             },
 
             item.badgeStyle,
@@ -594,12 +717,11 @@ const UICategoryItem = memo(
               styles.badgeText,
 
               {
-                color: item.badgeTextColor ?? colors.onDanger,
+                color: item.badgeTextColor ?? safeColors.onDanger,
 
-                fontSize:
-                  item.badgeFontSize ?? typography.overline?.fontSize ?? 10,
+                fontSize: item.badgeFontSize ?? overline.fontSize ?? 10,
 
-                fontWeight: typography.overline?.fontWeight ?? "700",
+                fontWeight: overline.fontWeight ?? "700",
               },
 
               item.badgeTextStyle,
@@ -610,7 +732,7 @@ const UICategoryItem = memo(
           </Text>
         </View>
       );
-    }, [item, showBadge, colors, typography]);
+    }, [item, showBadge, typography, safeColors.danger, safeColors.onDanger]);
 
     /* =====================================================
        ACTIVE INDICATOR
@@ -627,7 +749,7 @@ const UICategoryItem = memo(
             styles.activeIndicator,
 
             {
-              backgroundColor: item?.activeIndicatorColor ?? colors.primary,
+              backgroundColor: item?.activeIndicatorColor ?? safeColors.primary,
 
               width: item?.activeIndicatorWidth ?? 32,
 
@@ -638,7 +760,7 @@ const UICategoryItem = memo(
           ]}
         />
       );
-    }, [selected, item, colors]);
+    }, [selected, item, safeColors.primary]);
 
     /* =====================================================
        PRESS
@@ -664,7 +786,7 @@ const UICategoryItem = memo(
       "";
 
     /* =====================================================
-       COMPONENT
+       PRESSABLE COMPONENT
     ===================================================== */
 
     const PressableComponent = reanimated ? AnimatedPressable : Pressable;
@@ -803,7 +925,25 @@ const UICategory = ({
      THEME
   ======================================================= */
 
-  const { spacing } = theme;
+  const { theme } = useUITheme();
+
+  const { spacing } = resolveTheme(theme);
+
+  /* =======================================================
+     SAFE SPACING
+  ======================================================= */
+
+  const safeSpacing = {
+    xxs: spacing.xxs ?? 2,
+
+    xs: spacing.xs ?? 4,
+
+    sm: spacing.sm ?? 8,
+
+    md: spacing.md ?? 12,
+
+    lg: spacing.lg ?? 16,
+  };
 
   /* =======================================================
      DATA
@@ -820,7 +960,7 @@ const UICategory = ({
   }, [data, categories]);
 
   /* =======================================================
-     REF
+     FLATLIST REF
   ======================================================= */
 
   const flatListRef = useRef(null);
@@ -833,7 +973,7 @@ const UICategory = ({
 
   const isGrid = layout === "grid";
 
-  const numColumns = isGrid ? columns : 1;
+  const numColumns = isGrid ? Math.max(1, columns) : 1;
 
   /* =======================================================
      SELECTED INDEX
@@ -931,22 +1071,17 @@ const UICategory = ({
     (_, index) => {
       const item = listData[index];
 
-      const itemSize =
-        item?.size === "sm"
-          ? SIZE_CONFIG.sm.width
-          : item?.size === "lg"
-            ? SIZE_CONFIG.lg.width
-            : SIZE_CONFIG.md.width;
+      const config = SIZE_CONFIG[item?.size ?? size] ?? SIZE_CONFIG.md;
 
       return {
-        length: itemSize,
+        length: config.width,
 
-        offset: itemSize * index,
+        offset: config.width * index,
 
         index,
       };
     },
-    [listData],
+    [listData, size],
   );
 
   /* =======================================================
@@ -971,9 +1106,9 @@ const UICategory = ({
     ({ item, index }) => {
       const selected = String(item?.id) === String(selectedId);
 
-      /* -------------------------------------------------
-           CUSTOM
-        ------------------------------------------------- */
+      /* -----------------------------------------------
+           CUSTOM RENDER
+        ------------------------------------------------ */
 
       if (typeof renderItem === "function") {
         return renderItem({
@@ -985,9 +1120,9 @@ const UICategory = ({
         });
       }
 
-      /* -------------------------------------------------
-           DEFAULT
-        ------------------------------------------------- */
+      /* -----------------------------------------------
+           DEFAULT ITEM
+        ------------------------------------------------ */
 
       return (
         <UICategoryItem
@@ -1044,18 +1179,24 @@ const UICategory = ({
   const finalContentContainerStyle = useMemo(
     () => [
       {
-        paddingHorizontal: horizontal ? spacing.xxs : 0,
+        paddingHorizontal: horizontal ? safeSpacing.xxs : 0,
 
-        paddingVertical: spacing.sm,
+        paddingVertical: safeSpacing.sm,
 
-        rowGap: spacing.md,
+        rowGap: safeSpacing.md,
 
-        columnGap: spacing.md,
+        columnGap: safeSpacing.md,
       },
 
       contentContainerStyle,
     ],
-    [horizontal, spacing, contentContainerStyle],
+    [
+      horizontal,
+      safeSpacing.xxs,
+      safeSpacing.sm,
+      safeSpacing.md,
+      contentContainerStyle,
+    ],
   );
 
   /* =======================================================
@@ -1069,7 +1210,7 @@ const UICategory = ({
           styles.emptyContainer,
 
           {
-            padding: spacing.lg,
+            padding: safeSpacing.lg,
           },
 
           style,
