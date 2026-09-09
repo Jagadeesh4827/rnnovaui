@@ -2,11 +2,11 @@ import React, { memo, useCallback, useEffect, useMemo, useRef } from "react";
 
 import {
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
-  Image,
 } from "react-native";
 
 import PropTypes from "prop-types";
@@ -34,30 +34,42 @@ const SIZE_CONFIG = {
     width: 70,
     height: 90,
 
-    icon: 20,
     image: 36,
+    icon: 20,
 
     font: 11,
+
+    padding: 4,
+
+    gap: 4,
   },
 
   md: {
     width: 75,
     height: 75,
 
-    icon: 22,
     image: 40,
+    icon: 22,
 
     font: 12,
+
+    padding: 4,
+
+    gap: 4,
   },
 
   lg: {
     width: 104,
     height: 122,
 
-    icon: 34,
     image: 62,
+    icon: 34,
 
     font: 14,
+
+    padding: 8,
+
+    gap: 6,
   },
 };
 
@@ -86,9 +98,26 @@ const UICategoryItem = memo(
 
     showBadge = true,
 
+    labelColor,
+
+    activeLabelColor,
+
+    labelFontSize,
+
+    labelFontWeight,
+
+    activeLabelFontWeight,
+
+    imageSize,
+
+    imageBorderRadius,
+
     style,
+
+    reanimated = true,
   }) => {
-    const { colors, spacing, radius, typography, shadows } = useUITheme();
+    const { colors, spacing, radius, typography, sizes, shadows, animation } =
+      useUITheme();
 
     /* =====================================================
        SIZE
@@ -97,32 +126,48 @@ const UICategoryItem = memo(
     const config = SIZE_CONFIG[size] || SIZE_CONFIG.md;
 
     /* =====================================================
-       PRESS ANIMATION
+       PRESS SCALE
     ===================================================== */
 
     const scale = useSharedValue(1);
 
-    const animatedStyle = useAnimatedStyle(() => ({
-      transform: [
-        {
-          scale: scale.value,
-        },
-      ],
-    }));
+    const animatedStyle = useAnimatedStyle(() => {
+      if (!reanimated) {
+        return {};
+      }
+
+      return {
+        transform: [
+          {
+            scale: scale.value,
+          },
+        ],
+      };
+    }, [reanimated]);
+
+    /* =====================================================
+       PRESS IN
+    ===================================================== */
 
     const handlePressIn = useCallback(() => {
-      scale.value = withSpring(0.95, {
-        damping: 14,
-        stiffness: 220,
-      });
-    }, [scale]);
+      if (!reanimated) {
+        return;
+      }
+
+      scale.value = withSpring(0.95, animation.spring);
+    }, [reanimated, scale, animation]);
+
+    /* =====================================================
+       PRESS OUT
+    ===================================================== */
 
     const handlePressOut = useCallback(() => {
-      scale.value = withSpring(1, {
-        damping: 14,
-        stiffness: 220,
-      });
-    }, [scale]);
+      if (!reanimated) {
+        return;
+      }
+
+      scale.value = withSpring(1, animation.spring);
+    }, [reanimated, scale, animation]);
 
     /* =====================================================
        FLEX DIRECTION
@@ -152,77 +197,91 @@ const UICategoryItem = memo(
     const itemRadius = useMemo(() => {
       switch (shape) {
         case "square":
-          return radius.none || 0;
+          return radius.none;
 
         case "circle":
-          return radius.full;
+          return radius.circle;
 
         case "pill":
-          return radius.full;
+          return radius.pill;
 
         case "rounded":
         default:
-          return radius.lg || radius.md;
+          return radius.lg;
       }
     }, [shape, radius]);
 
     /* =====================================================
-       VARIANT / PALETTE
+       PALETTE
     ===================================================== */
 
     const palette = useMemo(() => {
       switch (variant) {
+        /* -------------------------------------------------
+           FILLED
+        ------------------------------------------------- */
+
         case "filled":
           return {
-            background: selected ? colors.primary : colors.surface.primary,
+            background: selected ? colors.primary : colors.surface,
 
-            border: "transparent",
+            borderColor: colors.transparent,
 
-            title: selected ? colors.button.text : colors.text.primary,
+            icon: selected ? colors.onPrimary : colors.primary,
 
-            icon: selected ? colors.button.text : colors.primary,
+            label: selected ? colors.onPrimary : colors.text,
           };
+
+        /* -------------------------------------------------
+           OUTLINE
+        ------------------------------------------------- */
 
         case "outline":
           return {
-            background: colors.background.secondary,
+            background: colors.background,
 
-            border: selected ? colors.primary : colors.border.tertiary,
+            borderColor: selected ? colors.primary : colors.border,
 
-            title: colors.text.primary,
+            icon: selected ? colors.primary : colors.textSecondary,
 
-            icon: selected ? colors.primary : colors.icon.secondary,
+            label: colors.text,
           };
+
+        /* -------------------------------------------------
+           MINIMAL
+        ------------------------------------------------- */
 
         case "minimal":
           return {
             background: colors.transparent,
 
-            border: colors.transparent,
+            borderColor: colors.transparent,
 
-            title: selected ? colors.primary : colors.text.primary,
+            icon: selected ? colors.primary : colors.textSecondary,
 
-            icon: selected ? colors.primary : colors.icon.secondary,
+            label: selected ? colors.primary : colors.text,
           };
+
+        /* -------------------------------------------------
+           SOFT
+        ------------------------------------------------- */
 
         case "soft":
         default:
           return {
-            background: selected
-              ? colors.category.background
-              : colors.surface.primary,
+            background: selected ? colors.primarySoft : colors.card,
 
-            border: selected ? colors.border.card : colors.border.primary,
+            borderColor: selected ? colors.primaryMuted : colors.borderSubtle,
 
-            title: colors.text.primary,
+            icon: selected ? colors.primary : colors.textSecondary,
 
-            icon: selected ? colors.category.selected : colors.primary,
+            label: colors.text,
           };
       }
     }, [variant, selected, colors]);
 
     /* =====================================================
-       CONTAINER STYLE
+       ITEM CONTAINER
     ===================================================== */
 
     const containerStyle = useMemo(
@@ -234,31 +293,37 @@ const UICategoryItem = memo(
 
           minHeight: config.height,
 
-          padding: spacing.xs,
+          padding: item?.padding ?? config.padding,
 
-          gap: spacing.xs,
+          gap: item?.gap ?? config.gap,
 
-          borderRadius: itemRadius,
+          borderRadius: item?.borderRadius ?? itemRadius,
 
           flexDirection,
 
-          backgroundColor: palette.background,
+          backgroundColor: item?.backgroundColor ?? palette.background,
 
-          borderColor: palette.border,
+          borderColor: item?.borderColor ?? palette.borderColor,
 
           borderWidth:
-            variant === "outline" || selected ? 1 : StyleSheet.hairlineWidth,
+            item?.borderWidth ??
+            (variant === "outline" || selected ? 1 : StyleSheet.hairlineWidth),
 
-          alignItems: "center",
+          alignItems: item?.alignItems ?? "center",
 
-          justifyContent: "center",
-
-          ...shadows.sm,
+          justifyContent: item?.justifyContent ?? "center",
         },
+
+        variant !== "minimal" && item?.disableShadow !== true
+          ? shadows.sm
+          : null,
+
+        item?.containerStyle,
 
         style,
       ],
       [
+        item,
         config,
         spacing,
         itemRadius,
@@ -277,49 +342,60 @@ const UICategoryItem = memo(
 
     const renderMedia = useCallback(() => {
       /* -------------------------------------------------
-         CUSTOM REACT ELEMENT
-      ------------------------------------------------- */
+           CUSTOM REACT ELEMENT
+        ------------------------------------------------- */
 
       if (item?.iconElement) {
-        return <View style={styles.mediaContainer}>{item.iconElement}</View>;
+        return (
+          <View style={[styles.mediaContainer, item.mediaContainerStyle]}>
+            {item.iconElement}
+          </View>
+        );
       }
 
       /* -------------------------------------------------
-         IMAGE
-      ------------------------------------------------- */
+           IMAGE
+        ------------------------------------------------- */
 
       if (item?.image) {
-        const imageSource =
+        const source =
           typeof item.image === "string"
             ? {
                 uri: item.image,
               }
             : item.image;
 
+        const finalImageSize = item.imageSize ?? imageSize ?? config.image;
+
         return (
-          <Image
-            source={imageSource}
-            style={[
-              styles.image,
+          <View style={[styles.mediaContainer, item.mediaContainerStyle]}>
+            <Image
+              source={source}
+              resizeMode={item.resizeMode ?? "contain"}
+              style={[
+                styles.image,
 
-              {
-                width: item.imageSize ?? config.image,
+                {
+                  width: finalImageSize,
 
-                height: item.imageSize ?? config.image,
+                  height: finalImageSize,
 
-                borderRadius: item.imageBorderRadius ?? radius.full,
-              },
+                  borderRadius:
+                    item.imageBorderRadius ??
+                    imageBorderRadius ??
+                    radius.circle,
+                },
 
-              item.imageStyle,
-            ]}
-            resizeMode={item.contentFit || "contain"}
-          />
+                item.imageStyle,
+              ]}
+            />
+          </View>
         );
       }
 
       /* -------------------------------------------------
-         ICON COMPONENT
-      ------------------------------------------------- */
+           ICON COMPONENT
+        ------------------------------------------------- */
 
       if (item?.icon) {
         const Icon = item.icon;
@@ -329,7 +405,7 @@ const UICategoryItem = memo(
           (typeof Icon === "object" && Icon !== null)
         ) {
           return (
-            <View style={styles.mediaContainer}>
+            <View style={[styles.mediaContainer, item.mediaContainerStyle]}>
               <Icon
                 size={item.iconSize ?? config.icon}
                 color={item.iconColor ?? palette.icon}
@@ -341,28 +417,29 @@ const UICategoryItem = memo(
       }
 
       /* -------------------------------------------------
-         ICON NAME
-      ------------------------------------------------- */
+           ICON NAME + CUSTOM RENDER
+        ------------------------------------------------- */
 
-      if (typeof item?.iconName === "string") {
-        if (typeof item?.renderIcon === "function") {
-          return (
-            <View style={styles.mediaContainer}>
-              {item.renderIcon({
-                item,
+      if (
+        typeof item?.iconName === "string" &&
+        typeof item?.renderIcon === "function"
+      ) {
+        return (
+          <View style={[styles.mediaContainer, item.mediaContainerStyle]}>
+            {item.renderIcon({
+              item,
 
-                size: item.iconSize ?? config.icon,
+              size: item.iconSize ?? config.icon,
 
-                color: item.iconColor ?? palette.icon,
-              })}
-            </View>
-          );
-        }
+              color: item.iconColor ?? palette.icon,
+            })}
+          </View>
+        );
       }
 
       /* -------------------------------------------------
-         SVG COMPONENT
-      ------------------------------------------------- */
+           SVG COMPONENT
+        ------------------------------------------------- */
 
       if (item?.svg) {
         const SvgIcon = item.svg;
@@ -372,7 +449,7 @@ const UICategoryItem = memo(
           (typeof SvgIcon === "object" && SvgIcon !== null)
         ) {
           return (
-            <View style={styles.mediaContainer}>
+            <View style={[styles.mediaContainer, item.mediaContainerStyle]}>
               <SvgIcon
                 width={item.svgWidth ?? config.icon}
                 height={item.svgHeight ?? config.icon}
@@ -384,16 +461,18 @@ const UICategoryItem = memo(
       }
 
       /* -------------------------------------------------
-         CUSTOM MEDIA
-      ------------------------------------------------- */
+           CUSTOM MEDIA
+        ------------------------------------------------- */
 
       if (typeof item?.renderMedia === "function") {
         return item.renderMedia({
           item,
+
           index,
+
           selected,
 
-          size: item.imageSize ?? config.image,
+          size: item.imageSize ?? imageSize ?? config.image,
 
           iconSize: item.iconSize ?? config.icon,
 
@@ -402,8 +481,8 @@ const UICategoryItem = memo(
       }
 
       /* -------------------------------------------------
-         EMOJI
-      ------------------------------------------------- */
+           EMOJI
+        ------------------------------------------------- */
 
       if (item?.emoji) {
         return (
@@ -424,7 +503,16 @@ const UICategoryItem = memo(
       }
 
       return null;
-    }, [item, index, selected, config, radius, palette]);
+    }, [
+      item,
+      index,
+      selected,
+      config,
+      radius,
+      palette,
+      imageSize,
+      imageBorderRadius,
+    ]);
 
     /* =====================================================
        TITLE
@@ -432,6 +520,31 @@ const UICategoryItem = memo(
 
     const renderTitle = useCallback(() => {
       const title = item?.title ?? item?.name ?? item?.label ?? "";
+
+      const finalLabelColor = selected
+        ? (item?.activeLabelColor ??
+          activeLabelColor ??
+          item?.titleColor ??
+          palette.label)
+        : (item?.labelColor ?? labelColor ?? item?.titleColor ?? palette.label);
+
+      const finalFontSize =
+        item?.fontSize ??
+        labelFontSize ??
+        typography.fontSize?.sm ??
+        config.font;
+
+      const finalFontWeight = selected
+        ? (item?.activeLabelFontWeight ??
+          activeLabelFontWeight ??
+          item?.fontWeight ??
+          typography.fontWeights?.semibold ??
+          "600")
+        : (item?.labelFontWeight ??
+          labelFontWeight ??
+          item?.fontWeight ??
+          typography.fontWeights?.medium ??
+          "500");
 
       return (
         <Text
@@ -441,15 +554,13 @@ const UICategoryItem = memo(
             styles.title,
 
             {
-              color: item?.titleColor ?? palette.title,
+              color: finalLabelColor,
 
-              fontSize:
-                item?.fontSize ?? typography.fontSize?.xs ?? config.font,
+              fontSize: finalFontSize,
 
-              fontFamily: item?.fontFamily ?? typography.fontFamily?.medium,
+              fontFamily: item?.fontFamily ?? undefined,
 
-              fontWeight:
-                item?.fontWeight ?? typography.fontWeight?.bold ?? "600",
+              fontWeight: finalFontWeight,
 
               textAlign: item?.titleAlign ?? titleAlign,
             },
@@ -460,7 +571,19 @@ const UICategoryItem = memo(
           {title}
         </Text>
       );
-    }, [item, palette, typography, config, titleAlign]);
+    }, [
+      item,
+      selected,
+      activeLabelColor,
+      labelColor,
+      labelFontSize,
+      labelFontWeight,
+      activeLabelFontWeight,
+      palette,
+      typography,
+      config,
+      titleAlign,
+    ]);
 
     /* =====================================================
        BADGE
@@ -477,7 +600,7 @@ const UICategoryItem = memo(
             styles.badge,
 
             {
-              backgroundColor: item.badgeColor || colors.status.error,
+              backgroundColor: item.badgeColor ?? colors.danger,
             },
 
             item.badgeStyle,
@@ -488,9 +611,9 @@ const UICategoryItem = memo(
               styles.badgeText,
 
               {
-                color: item.badgeTextColor || colors.text.inverse,
+                color: item.badgeTextColor ?? colors.onDanger,
 
-                fontSize: item.badgeFontSize || typography.fontSize?.xs || 10,
+                fontSize: item.badgeFontSize ?? typography.fontSizes?.xs ?? 10,
               },
 
               item.badgeTextStyle,
@@ -518,8 +641,11 @@ const UICategoryItem = memo(
             styles.activeIndicator,
 
             {
-              backgroundColor:
-                item?.activeIndicatorColor ?? colors.category.selected,
+              backgroundColor: item?.activeIndicatorColor ?? colors.primary,
+
+              width: item?.activeIndicatorWidth ?? 32,
+
+              height: item?.activeIndicatorHeight ?? 2,
             },
 
             item?.activeIndicatorStyle,
@@ -533,6 +659,10 @@ const UICategoryItem = memo(
     ===================================================== */
 
     const handlePress = useCallback(() => {
+      if (item?.disabled) {
+        return;
+      }
+
       onPress?.(item, index);
     }, [onPress, item, index]);
 
@@ -548,12 +678,18 @@ const UICategoryItem = memo(
       "";
 
     /* =====================================================
+       PRESSABLE
+    ===================================================== */
+
+    const PressableComponent = reanimated ? AnimatedPressable : Pressable;
+
+    /* =====================================================
        RENDER
     ===================================================== */
 
     return (
-      <AnimatedPressable
-        style={[animatedStyle, item?.pressableStyle]}
+      <PressableComponent
+        style={[reanimated ? animatedStyle : null, item?.pressableStyle]}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         onPress={handlePress}
@@ -561,6 +697,7 @@ const UICategoryItem = memo(
         accessibilityRole={item?.accessibilityRole ?? "button"}
         accessibilityState={{
           selected,
+
           disabled: item?.disabled ?? false,
         }}
         accessibilityLabel={accessibilityLabel}
@@ -574,7 +711,7 @@ const UICategoryItem = memo(
 
           {renderActiveIndicator()}
         </View>
-      </AnimatedPressable>
+      </PressableComponent>
     );
   },
 );
@@ -589,14 +726,17 @@ const UICategory = ({
   /* Alias */
   categories,
 
+  /* Selection */
   selectedId,
 
   onPress,
 
+  /* Layout */
   layout = "horizontal",
 
   columns = 4,
 
+  /* Appearance */
   variant = "soft",
 
   shape = "rounded",
@@ -607,26 +747,45 @@ const UICategory = ({
 
   titleAlign = "center",
 
+  /* Label */
+  labelColor,
+
+  activeLabelColor,
+
+  labelFontSize,
+
+  labelFontWeight,
+
+  activeLabelFontWeight,
+
+  /* Image */
+  imageSize,
+
+  imageBorderRadius,
+
+  /* Badge */
   showBadge = true,
 
+  /* Scrolling */
   scrollEnabled = true,
 
   showsHorizontalScrollIndicator = false,
 
   showsVerticalScrollIndicator = false,
 
+  /* Container */
   contentContainerStyle,
 
   itemStyle,
 
   style,
 
-  /* Scroll */
+  /* Selection scrolling */
   initialScrollIndex = 0,
 
   scrollToSelected = true,
 
-  /* List */
+  /* List components */
   ListHeaderComponent,
 
   ListFooterComponent,
@@ -646,7 +805,7 @@ const UICategory = ({
 
   onLayout,
 
-  /* FlatList performance */
+  /* FlatList */
   initialNumToRender = 8,
 
   maxToRenderPerBatch = 8,
@@ -665,10 +824,7 @@ const UICategory = ({
   /* Empty */
   renderEmpty,
 
-  /*
-   * Kept for API compatibility.
-   * Item animation still uses Reanimated.
-   */
+  /* Animation */
   reanimated = true,
 
   /* Remaining FlatList props */
@@ -691,7 +847,7 @@ const UICategory = ({
   }, [data, categories]);
 
   /* =======================================================
-     LIST REF
+     FLATLIST REF
   ======================================================= */
 
   const flatListRef = useRef(null);
@@ -741,9 +897,7 @@ const UICategory = ({
 
   const handlePress = useCallback(
     (item, index) => {
-      if (typeof onPress === "function") {
-        onPress(item, index);
-      }
+      onPress?.(item, index);
     },
     [onPress],
   );
@@ -774,8 +928,8 @@ const UICategory = ({
         });
       } catch {
         /*
-         * Ignore until FlatList
-         * has been measured.
+         * FlatList may not be
+         * measured yet.
          */
       }
     });
@@ -800,27 +954,68 @@ const UICategory = ({
   }, [initialScrollIndex]);
 
   /* =======================================================
+     GET ITEM LAYOUT
+  ======================================================= */
+
+  const getItemLayout = useCallback(
+    (_, index) => {
+      const item = listData[index];
+
+      const itemSize =
+        item?.size === "sm"
+          ? SIZE_CONFIG.sm.width
+          : item?.size === "lg"
+            ? SIZE_CONFIG.lg.width
+            : SIZE_CONFIG.md.width;
+
+      return {
+        length: itemSize,
+
+        offset: itemSize * index,
+
+        index,
+      };
+    },
+    [listData],
+  );
+
+  /* =======================================================
+     SCROLL FAILURE
+  ======================================================= */
+
+  const handleScrollToIndexFailed = useCallback((info) => {
+    requestAnimationFrame(() => {
+      flatListRef.current?.scrollToOffset?.({
+        offset: info.averageItemLength * info.index,
+
+        animated: true,
+      });
+    });
+  }, []);
+
+  /* =======================================================
      RENDER ITEM
   ======================================================= */
 
   const finalRenderItem = useCallback(
     ({ item, index }) => {
-      /*
-       * Custom rendering
-       */
+      /* -----------------------------------------------
+           CUSTOM ITEM
+        ------------------------------------------------ */
 
       if (typeof renderItem === "function") {
         return renderItem({
           item,
+
           index,
 
           selected: String(item?.id) === String(selectedId),
         });
       }
 
-      /*
-       * Default category item
-       */
+      /* -----------------------------------------------
+           DEFAULT ITEM
+        ------------------------------------------------ */
 
       return (
         <UICategoryItem
@@ -833,8 +1028,18 @@ const UICategory = ({
           size={item?.size ?? size}
           iconPosition={item?.iconPosition ?? iconPosition}
           titleAlign={item?.titleAlign ?? titleAlign}
+          labelColor={item?.labelColor ?? labelColor}
+          activeLabelColor={item?.activeLabelColor ?? activeLabelColor}
+          labelFontSize={item?.labelFontSize ?? labelFontSize}
+          labelFontWeight={item?.labelFontWeight ?? labelFontWeight}
+          activeLabelFontWeight={
+            item?.activeLabelFontWeight ?? activeLabelFontWeight
+          }
+          imageSize={item?.imageSize ?? imageSize}
+          imageBorderRadius={item?.imageBorderRadius ?? imageBorderRadius}
           showBadge={item?.showBadge ?? showBadge}
           style={[itemStyle, item?.itemStyle]}
+          reanimated={reanimated}
         />
       );
     },
@@ -847,8 +1052,16 @@ const UICategory = ({
       size,
       iconPosition,
       titleAlign,
+      labelColor,
+      activeLabelColor,
+      labelFontSize,
+      labelFontWeight,
+      activeLabelFontWeight,
+      imageSize,
+      imageBorderRadius,
       showBadge,
       itemStyle,
+      reanimated,
     ],
   );
 
@@ -874,74 +1087,10 @@ const UICategory = ({
   );
 
   /* =======================================================
-     GET ITEM LAYOUT
-  ======================================================= */
-
-  const getItemLayout = useCallback(
-    (_, index) => {
-      const item = listData[index];
-
-      const itemSize =
-        item?.size === "sm"
-          ? 70
-          : item?.size === "lg"
-            ? 104
-            : SIZE_CONFIG.md.width;
-
-      return {
-        length: itemSize,
-
-        offset: itemSize * index,
-
-        index,
-      };
-    },
-    [listData],
-  );
-
-  /* =======================================================
-     SCROLL ERROR
-  ======================================================= */
-
-  const handleScrollToIndexFailed = useCallback((info) => {
-    requestAnimationFrame(() => {
-      const ref = flatListRef.current;
-
-      if (!ref) {
-        return;
-      }
-
-      ref.scrollToOffset?.({
-        offset: info.averageItemLength * info.index,
-
-        animated: true,
-      });
-    });
-  }, []);
-
-  /* =======================================================
      EMPTY
   ======================================================= */
 
   if (listData.length === 0) {
-    if (typeof renderEmpty === "function") {
-      return (
-        <View
-          style={[
-            styles.emptyContainer,
-
-            {
-              padding: spacing.lg,
-            },
-
-            style,
-          ]}
-        >
-          {renderEmpty()}
-        </View>
-      );
-    }
-
     return (
       <View
         style={[
@@ -953,7 +1102,9 @@ const UICategory = ({
 
           style,
         ]}
-      />
+      >
+        {typeof renderEmpty === "function" ? renderEmpty() : null}
+      </View>
     );
   }
 
@@ -1060,10 +1211,6 @@ const styles = StyleSheet.create({
 
     bottom: -8,
 
-    width: 32,
-
-    height: 1,
-
     borderRadius: 999,
   },
 
@@ -1102,6 +1249,20 @@ UICategory.propTypes = {
   iconPosition: PropTypes.oneOf(["top", "bottom", "left", "right"]),
 
   titleAlign: PropTypes.oneOf(["left", "center", "right"]),
+
+  labelColor: PropTypes.string,
+
+  activeLabelColor: PropTypes.string,
+
+  labelFontSize: PropTypes.number,
+
+  labelFontWeight: PropTypes.string,
+
+  activeLabelFontWeight: PropTypes.string,
+
+  imageSize: PropTypes.number,
+
+  imageBorderRadius: PropTypes.number,
 
   showBadge: PropTypes.bool,
 
@@ -1184,9 +1345,25 @@ UICategoryItem.propTypes = {
 
   titleAlign: PropTypes.oneOf(["left", "center", "right"]),
 
+  labelColor: PropTypes.string,
+
+  activeLabelColor: PropTypes.string,
+
+  labelFontSize: PropTypes.number,
+
+  labelFontWeight: PropTypes.string,
+
+  activeLabelFontWeight: PropTypes.string,
+
+  imageSize: PropTypes.number,
+
+  imageBorderRadius: PropTypes.number,
+
   showBadge: PropTypes.bool,
 
   style: PropTypes.oneOfType([PropTypes.object, PropTypes.array]),
+
+  reanimated: PropTypes.bool,
 };
 
 /* =========================================================
