@@ -1,4 +1,12 @@
-import React, { memo, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  memo,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+
 import {
   Dimensions,
   FlatList,
@@ -8,88 +16,183 @@ import {
   Text,
   View,
 } from "react-native";
+
+import { Ionicons } from "@expo/vector-icons";
+
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
-import { Ionicons } from "@expo/vector-icons";
 
-import { useUITheme } from "../../theme";
+import { useUITheme } from "../../UIProvider";
 
-const SCREEN_WIDTH = Dimensions.get("window").width;
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
-/* ============================================================================
- * HELPERS
+/* ==========================================================================
+ * DEFAULTS
+ * ========================================================================== */
+
+const DEFAULT_SPRING = {
+  damping: 18,
+  stiffness: 180,
+  mass: 0.8,
+};
+
+const DEFAULT_COLORS = {
+  card: "#FFFFFF",
+  surface: "#FFFFFF",
+
+  text: "#171A21",
+  textSecondary: "#737985",
+  textTertiary: "#9AA0AA",
+
+  border: "#E7E8EB",
+
+  primary: "#FF5A1F",
+  primarySoft: "rgba(255,90,31,0.10)",
+
+  success: "#20A34A",
+
+  white: "#FFFFFF",
+  black: "#000000",
+};
+
+const DEFAULT_SPACING = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  md2: 14,
+  lg: 16,
+  lg2: 20,
+  xl: 24,
+};
+
+const DEFAULT_RADIUS = {
+  sm: 6,
+  md: 10,
+  lg: 14,
+  xl: 18,
+  card: 18,
+  pill: 999,
+};
+
+/* ==========================================================================
+ * THEME
+ * ========================================================================== */
+
+function resolveTheme(theme) {
+  return {
+    colors: {
+      ...DEFAULT_COLORS,
+      ...(theme?.colors || {}),
+    },
+
+    spacing: {
+      ...DEFAULT_SPACING,
+      ...(theme?.spacing || {}),
+    },
+
+    radius: {
+      ...DEFAULT_RADIUS,
+      ...(theme?.radius || {}),
+    },
+
+    animation: {
+      ...(theme?.animation || {}),
+    },
+
+    sizes: theme?.sizes || {},
+    typography: theme?.typography || {},
+  };
+}
+
+/* ==========================================================================
+ * IMAGE SOURCE
  * ========================================================================== */
 
 function normalizeImageSource(source) {
-  if (!source) return null;
+  if (!source) {
+    return null;
+  }
 
   if (typeof source === "number") {
     return source;
   }
 
   if (typeof source === "string") {
-    return { uri: source };
+    return {
+      uri: source,
+    };
   }
 
-  if (typeof source === "object") {
+  if (typeof source === "object" && source !== null) {
     if (source.uri) {
       return source;
     }
 
-    if (source.url) {
-      return {
-        uri: source.url,
-      };
+    if (source.source) {
+      return normalizeImageSource(source.source);
     }
+
+    return source;
   }
 
   return null;
 }
 
-function resolveRestaurantImages(restaurant) {
-  if (!restaurant) return [];
+/* ==========================================================================
+ * RESOLVE IMAGES
+ * ========================================================================== */
 
-  const possibleImages = [
-    restaurant.images,
-    restaurant.imageUrls,
-    restaurant.photos,
-  ];
+function resolveRestaurantImages({ restaurant, image, images }) {
+  let result = [];
 
-  for (const value of possibleImages) {
-    if (Array.isArray(value) && value.length > 0) {
-      return value.map(normalizeImageSource).filter(Boolean);
-    }
+  if (Array.isArray(images) && images.length > 0) {
+    result = images;
+  } else if (
+    Array.isArray(restaurant?.images) &&
+    restaurant.images.length > 0
+  ) {
+    result = restaurant.images;
+  } else if (image) {
+    result = [image];
+  } else if (restaurant?.image) {
+    result = [restaurant.image];
   }
 
-  const singleImage =
-    restaurant.image ||
-    restaurant.imageUrl ||
-    restaurant.coverImage ||
-    restaurant.bannerImage;
-
-  const normalized = normalizeImageSource(singleImage);
-
-  return normalized ? [normalized] : [];
+  return result.map(normalizeImageSource).filter(Boolean);
 }
 
-function RenderIcon({ icon, size = 20, color = "#000", style }) {
-  if (!icon) return null;
+/* ==========================================================================
+ * ICON RENDERER
+ * ========================================================================== */
 
+function RenderIcon({ icon, size = 20, color = "#000000", style }) {
+  if (!icon) {
+    return null;
+  }
+
+  /*
+   * Already rendered:
+   *
+   * icon={<Ionicons name="heart" />}
+   */
   if (React.isValidElement(icon)) {
     return React.cloneElement(icon, {
-      size,
-      color,
-      style: [icon.props?.style, style],
+      size: icon.props?.size ?? size,
+
+      color: icon.props?.color ?? color,
+
+      style: [style, icon.props?.style],
     });
   }
 
-  if (typeof icon === "string") {
-    return <Ionicons name={icon} size={size} color={color} style={style} />;
-  }
-
+  /*
+   * Component:
+   *
+   * icon={Ionicons}
+   */
   if (
     typeof icon === "function" ||
     (typeof icon === "object" && icon !== null)
@@ -99,86 +202,173 @@ function RenderIcon({ icon, size = 20, color = "#000", style }) {
     return <IconComponent size={size} color={color} style={style} />;
   }
 
+  /*
+   * String icon:
+   *
+   * icon="heart"
+   */
+  if (typeof icon === "string") {
+    return <Ionicons name={icon} size={size} color={color} style={style} />;
+  }
+
   return null;
 }
 
-/* ============================================================================
- * RESTAURANT IMAGE CAROUSEL
+/* ==========================================================================
+ * IMAGE CAROUSEL
  * ========================================================================== */
 
-function RestaurantImageCarousel({
+const RestaurantImageCarousel = memo(function RestaurantImageCarousel({
   images = [],
-  width,
+
   height = 220,
 
-  autoplay = false,
+  resizeMode = "cover",
+
+  autoplay = true,
+
   autoplayInterval = 3000,
+
   loop = true,
+
   pauseOnTouch = true,
 
-  borderRadius = 18,
+  showPagination = true,
+
+  activeDotColor = "#FFFFFF",
+
+  inactiveDotColor = "rgba(255,255,255,0.45)",
+
+  paginationStyle,
+
+  activeDotStyle,
+
+  inactiveDotStyle,
 
   onImageChange,
-
-  imageResizeMode = "cover",
-  imageStyle,
-
-  pagination = true,
-  paginationPosition = "bottom",
-
-  paginationDotSize = 6,
-  paginationDotGap = 5,
-
-  paginationActiveStyle,
-  paginationInactiveStyle,
-
-  style,
 }) {
-  const listRef = useRef(null);
-
-  const [containerWidth, setContainerWidth] = useState(width || SCREEN_WIDTH);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   const [activeIndex, setActiveIndex] = useState(0);
 
   const [isTouching, setIsTouching] = useState(false);
 
-  const resolvedWidth = width || containerWidth || SCREEN_WIDTH;
+  const listRef = useRef(null);
 
-  const hasMultipleImages = images.length > 1;
+  const data = Array.isArray(images) ? images.filter(Boolean) : [];
+
+  /* ------------------------------------------------------------------ */
+  /* Layout                                                             */
+  /* ------------------------------------------------------------------ */
+
+  const handleLayout = useCallback(
+    (event) => {
+      const measuredWidth = event.nativeEvent.layout.width;
+
+      if (measuredWidth > 0 && measuredWidth !== containerWidth) {
+        setContainerWidth(measuredWidth);
+      }
+    },
+    [containerWidth],
+  );
+
+  /* ------------------------------------------------------------------ */
+  /* Update index                                                       */
+  /* ------------------------------------------------------------------ */
+
+  const updateIndex = useCallback(
+    (index) => {
+      setActiveIndex(index);
+
+      if (typeof onImageChange === "function") {
+        onImageChange(index);
+      }
+    },
+    [onImageChange],
+  );
+
+  /* ------------------------------------------------------------------ */
+  /* Scroll                                                             */
+  /* ------------------------------------------------------------------ */
+
+  const handleScroll = useCallback(
+    (event) => {
+      const offsetX = event.nativeEvent.contentOffset.x;
+
+      const layoutWidth = event.nativeEvent.layoutMeasurement?.width;
+
+      const pageWidth = layoutWidth || containerWidth;
+
+      if (!pageWidth) {
+        return;
+      }
+
+      const index = Math.round(offsetX / pageWidth);
+
+      if (index < 0 || index >= data.length) {
+        return;
+      }
+
+      if (index !== activeIndex) {
+        updateIndex(index);
+      }
+    },
+    [activeIndex, containerWidth, data.length, updateIndex],
+  );
+
+  /* ------------------------------------------------------------------ */
+  /* Autoplay                                                           */
+  /* ------------------------------------------------------------------ */
 
   useEffect(() => {
-    if (!hasMultipleImages) {
-      setActiveIndex(0);
-    }
-  }, [hasMultipleImages]);
-
-  useEffect(() => {
-    if (!autoplay || !hasMultipleImages || (pauseOnTouch && isTouching)) {
+    if (!autoplay) {
       return undefined;
     }
 
-    const timer = setInterval(() => {
-      setActiveIndex((current) => {
-        let nextIndex = current + 1;
+    if (data.length <= 1) {
+      return undefined;
+    }
 
-        if (nextIndex >= images.length) {
-          if (loop) {
+    if (containerWidth <= 0) {
+      return undefined;
+    }
+
+    if (pauseOnTouch && isTouching) {
+      return undefined;
+    }
+
+    const timer = setInterval(
+      () => {
+        setActiveIndex((currentIndex) => {
+          let nextIndex = currentIndex + 1;
+
+          if (nextIndex >= data.length) {
+            if (!loop) {
+              return currentIndex;
+            }
+
             nextIndex = 0;
-          } else {
-            return current;
           }
-        }
 
-        requestAnimationFrame(() => {
-          listRef.current?.scrollToOffset({
-            offset: nextIndex * resolvedWidth,
-            animated: true,
+          requestAnimationFrame(() => {
+            if (listRef.current) {
+              listRef.current.scrollToOffset({
+                offset: nextIndex * containerWidth,
+
+                animated: true,
+              });
+            }
           });
-        });
 
-        return nextIndex;
-      });
-    }, autoplayInterval);
+          if (typeof onImageChange === "function") {
+            onImageChange(nextIndex);
+          }
+
+          return nextIndex;
+        });
+      },
+      Math.max(500, autoplayInterval),
+    );
 
     return () => {
       clearInterval(timer);
@@ -186,187 +376,203 @@ function RestaurantImageCarousel({
   }, [
     autoplay,
     autoplayInterval,
-    hasMultipleImages,
-    images.length,
+    containerWidth,
+    data.length,
     isTouching,
     loop,
+    onImageChange,
     pauseOnTouch,
-    resolvedWidth,
   ]);
 
-  const handleScroll = (event) => {
-    const offsetX = event.nativeEvent.contentOffset.x;
+  /* ------------------------------------------------------------------ */
+  /* Touch                                                               */
+  /* ------------------------------------------------------------------ */
 
-    const index = Math.round(offsetX / resolvedWidth);
-
-    if (index !== activeIndex && index >= 0 && index < images.length) {
-      setActiveIndex(index);
-
-      if (typeof onImageChange === "function") {
-        onImageChange(index);
-      }
+  const handleTouchStart = useCallback(() => {
+    if (pauseOnTouch) {
+      setIsTouching(true);
     }
-  };
+  }, [pauseOnTouch]);
 
-  if (!images.length) {
+  const handleTouchEnd = useCallback(() => {
+    if (pauseOnTouch) {
+      setIsTouching(false);
+    }
+  }, [pauseOnTouch]);
+
+  /* ------------------------------------------------------------------ */
+  /* Empty                                                               */
+  /* ------------------------------------------------------------------ */
+
+  if (data.length === 0) {
     return (
       <View
+        onLayout={handleLayout}
         style={[
-          styles.imageContainer,
+          styles.carousel,
           {
-            width: resolvedWidth,
             height,
-            borderRadius,
           },
-          style,
         ]}
-      />
+      >
+        <View
+          style={[
+            styles.imagePlaceholder,
+            {
+              height,
+            },
+          ]}
+        >
+          <Ionicons name="restaurant-outline" size={46} color="#AEB4BE" />
+
+          <Text style={styles.placeholderText}>No Image</Text>
+        </View>
+      </View>
     );
   }
 
-  if (images.length === 1) {
+  /* ------------------------------------------------------------------ */
+  /* Single image                                                        */
+  /* ------------------------------------------------------------------ */
+
+  if (data.length === 1) {
     return (
       <View
-        onLayout={(event) => {
-          if (!width) {
-            setContainerWidth(event.nativeEvent.layout.width);
-          }
-        }}
+        onLayout={handleLayout}
         style={[
-          styles.imageContainer,
+          styles.carousel,
           {
-            width: "100%",
             height,
-            borderRadius,
           },
-          style,
         ]}
       >
         <Image
-          source={images[0]}
-          resizeMode={imageResizeMode}
+          source={data[0]}
+          resizeMode={resizeMode}
           style={[
             styles.restaurantImage,
             {
-              borderRadius,
+              height,
             },
-            imageStyle,
           ]}
         />
       </View>
     );
   }
 
+  /* ------------------------------------------------------------------ */
+  /* Multiple images                                                     */
+  /* ------------------------------------------------------------------ */
+
   return (
     <View
-      onLayout={(event) => {
-        if (!width) {
-          setContainerWidth(event.nativeEvent.layout.width);
-        }
-      }}
+      onLayout={handleLayout}
       style={[
-        styles.imageContainer,
+        styles.carousel,
         {
-          width: "100%",
           height,
-          borderRadius,
         },
-        style,
       ]}
     >
       <FlatList
         ref={listRef}
-        data={images}
-        keyExtractor={(_, index) => `restaurant-image-${index}`}
+        data={data}
         horizontal
         pagingEnabled
+        bounces={false}
+        overScrollMode="never"
+        nestedScrollEnabled
+        directionalLockEnabled
         showsHorizontalScrollIndicator={false}
         scrollEventThrottle={16}
-        bounces={false}
         decelerationRate="fast"
         onScroll={handleScroll}
-        onScrollBeginDrag={() => {
-          if (pauseOnTouch) {
-            setIsTouching(true);
-          }
+        onScrollBeginDrag={handleTouchStart}
+        onScrollEndDrag={handleTouchEnd}
+        onMomentumScrollEnd={handleTouchEnd}
+        keyExtractor={(_, index) => `restaurant-image-${index}`}
+        renderItem={({ item }) => {
+          const itemWidth = containerWidth || SCREEN_WIDTH;
+
+          return (
+            <View
+              style={[
+                styles.carouselItem,
+                {
+                  width: itemWidth,
+
+                  height,
+                },
+              ]}
+            >
+              <Image
+                source={item}
+                resizeMode={resizeMode}
+                style={[
+                  styles.restaurantImage,
+                  {
+                    width: itemWidth,
+
+                    height,
+                  },
+                ]}
+              />
+            </View>
+          );
         }}
-        onScrollEndDrag={() => {
-          if (pauseOnTouch) {
-            setIsTouching(false);
-          }
-        }}
-        onMomentumScrollEnd={() => {
-          if (pauseOnTouch) {
-            setIsTouching(false);
-          }
-        }}
-        renderItem={({ item }) => (
-          <Image
-            source={item}
-            resizeMode={imageResizeMode}
-            style={[
-              styles.restaurantImage,
-              {
-                width: resolvedWidth,
-                height,
-                borderRadius,
-              },
-              imageStyle,
-            ]}
-          />
-        )}
       />
 
-      {pagination ? (
-        <View
-          pointerEvents="none"
-          style={[
-            styles.pagination,
-            paginationPosition === "top" && styles.paginationTop,
-          ]}
-        >
-          {images.map((_, index) => (
-            <View
-              key={`dot-${index}`}
-              style={[
-                styles.paginationDot,
-                {
-                  width: paginationDotSize,
-                  height: paginationDotSize,
-                  borderRadius: paginationDotSize / 2,
-                  marginHorizontal: paginationDotGap / 2,
-                },
-                index === activeIndex
-                  ? styles.paginationActive
-                  : styles.paginationInactive,
-                index === activeIndex
-                  ? paginationActiveStyle
-                  : paginationInactiveStyle,
-              ]}
-            />
-          ))}
+      {showPagination ? (
+        <View pointerEvents="none" style={[styles.pagination, paginationStyle]}>
+          {data.map((_, index) => {
+            const active = index === activeIndex;
+
+            return (
+              <View
+                key={`dot-${index}`}
+                style={[
+                  styles.paginationDot,
+
+                  {
+                    backgroundColor: active ? activeDotColor : inactiveDotColor,
+                  },
+
+                  active ? activeDotStyle : inactiveDotStyle,
+                ]}
+              />
+            );
+          })}
         </View>
       ) : null}
     </View>
   );
-}
+});
 
-/* ============================================================================
+/* ==========================================================================
  * TOP RATED
  * ========================================================================== */
 
-function TopRatedBadge({
-  label = "Top Rated",
-  icon = "star",
-  iconSize = 16,
-  fontSize = 12,
+const TopRatedBadge = memo(function TopRatedBadge({
+  text = "Top Rated",
 
-  backgroundColor = "rgba(255,255,255,0.95)",
-  color = "#222",
+  icon = "flame",
+
+  iconSize = 16,
+
+  backgroundColor = "#FF5A5F",
+
+  color = "#FFFFFF",
+
+  fontSize = 13,
 
   style,
+
   textStyle,
 }) {
+  if (!text) {
+    return null;
+  }
+
   return (
     <View
       style={[
@@ -377,116 +583,152 @@ function TopRatedBadge({
         style,
       ]}
     >
-      <RenderIcon icon={icon} size={iconSize} color={color} />
+      {icon ? <RenderIcon icon={icon} size={iconSize} color={color} /> : null}
 
       <Text
+        numberOfLines={1}
         style={[
           styles.topRatedText,
           {
             color,
             fontSize,
+            lineHeight: Math.round(fontSize * 1.25),
           },
           textStyle,
         ]}
       >
-        {label}
+        {text}
       </Text>
     </View>
   );
-}
+});
 
-/* ============================================================================
+/* ==========================================================================
  * RATING
  * ========================================================================== */
 
-function Rating({
+const Rating = memo(function Rating({
   rating,
+
   reviewCount,
 
   icon = "star",
-  iconSize = 18,
-  fontSize = 14,
-  reviewFontSize = 13,
 
-  color = "#222",
-  reviewColor = "#666",
+  iconSize = 19,
+
+  iconColor = "#FFB020",
+
+  fontSize = 18,
+
+  lineHeight,
+
+  reviewFontSize = 14,
+
+  reviewLineHeight,
+
+  textColor = "#171A21",
+
+  reviewColor = "#737985",
+
+  showReviewCount = true,
 
   style,
-  ratingTextStyle,
-  reviewTextStyle,
 }) {
-  if (rating === undefined || rating === null) {
+  if (rating === undefined || rating === null || rating === "") {
     return null;
   }
 
+  let formattedReviews = "";
+
+  if (reviewCount !== undefined && reviewCount !== null && reviewCount !== "") {
+    if (typeof reviewCount === "number" && reviewCount >= 1000) {
+      formattedReviews = `${(reviewCount / 1000).toFixed(
+        reviewCount >= 10000 ? 0 : 1,
+      )}K+`;
+    } else {
+      formattedReviews = String(reviewCount);
+    }
+  }
+
   return (
-    <View style={[styles.ratingContainer, style]}>
-      <RenderIcon icon={icon} size={iconSize} color="#F5B400" />
+    <View style={[styles.rating, style]}>
+      <RenderIcon icon={icon} size={iconSize} color={iconColor} />
 
       <Text
         style={[
-          styles.ratingText,
+          styles.ratingValue,
           {
-            color,
+            color: textColor,
             fontSize,
+            lineHeight: lineHeight ?? Math.round(fontSize * 1.3),
           },
-          ratingTextStyle,
         ]}
       >
         {rating}
       </Text>
 
-      {reviewCount !== undefined && reviewCount !== null ? (
+      {showReviewCount && formattedReviews ? (
         <Text
           style={[
-            styles.reviewCount,
+            styles.ratingReviews,
             {
               color: reviewColor,
+
               fontSize: reviewFontSize,
+
+              lineHeight: reviewLineHeight ?? Math.round(reviewFontSize * 1.3),
             },
-            reviewTextStyle,
           ]}
         >
-          ({reviewCount})
+          ({formattedReviews})
         </Text>
       ) : null}
     </View>
   );
-}
+});
 
-/* ============================================================================
+/* ==========================================================================
  * CUISINE TAGS
  * ========================================================================== */
 
-function CuisineTags({
-  tags = [],
+const CuisineTags = memo(function CuisineTags({
+  cuisines = [],
 
-  fontSize = 13,
+  maxTags = 3,
+
+  backgroundColor = "rgba(255,90,31,0.10)",
+
+  textColor = "#737985",
+
+  fontSize = 14,
+
   lineHeight,
 
-  color = "#555",
-  backgroundColor = "#F3F3F3",
-
-  borderRadius = 8,
+  borderRadius = 999,
 
   style,
-  tagStyle,
+
   textStyle,
 }) {
-  if (!tags?.length) return null;
+  if (!Array.isArray(cuisines) || cuisines.length === 0) {
+    return null;
+  }
+
+  const visible = cuisines.slice(0, maxTags);
+
+  const remaining = Math.max(0, cuisines.length - visible.length);
 
   return (
     <View style={[styles.cuisineContainer, style]}>
-      {tags.map((tag, index) => (
+      {visible.map((cuisine, index) => (
         <View
-          key={`cuisine-${index}`}
+          key={`${cuisine}-${index}`}
           style={[
             styles.cuisineTag,
             {
               backgroundColor,
               borderRadius,
             },
-            tagStyle,
           ]}
         >
           <Text
@@ -494,68 +736,99 @@ function CuisineTags({
             style={[
               styles.cuisineText,
               {
-                color,
+                color: textColor,
+
                 fontSize,
-                lineHeight,
+
+                lineHeight: lineHeight ?? Math.round(fontSize * 1.35),
               },
+
               textStyle,
             ]}
           >
-            {typeof tag === "string" ? tag : tag?.name || tag?.title || ""}
+            {cuisine}
           </Text>
         </View>
       ))}
+
+      {remaining > 0 ? (
+        <View
+          style={[
+            styles.cuisineTag,
+            {
+              backgroundColor,
+              borderRadius,
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.cuisineText,
+              {
+                color: textColor,
+
+                fontSize,
+
+                lineHeight: lineHeight ?? Math.round(fontSize * 1.35),
+              },
+            ]}
+          >
+            +{remaining}
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
-}
+});
 
-/* ============================================================================
+/* ==========================================================================
  * INFO ITEM
  * ========================================================================== */
 
-function InfoItem({
+const InfoItem = memo(function InfoItem({
   icon,
-  iconSize = 20,
-  iconColor = "#555",
+
+  iconSize = 24,
+
+  iconColor = "#737985",
 
   value,
+
   label,
 
-  valueFontSize = 14,
+  valueFontSize = 16,
+
   valueLineHeight,
 
-  labelFontSize = 12,
+  labelFontSize = 13,
+
   labelLineHeight,
 
-  valueColor = "#222",
-  labelColor = "#777",
+  valueColor = "#171A21",
 
-  style,
-  iconStyle,
-  valueStyle,
-  labelStyle,
+  labelColor = "#737985",
 }) {
-  return (
-    <View style={[styles.infoItem, style]}>
-      <RenderIcon
-        icon={icon}
-        size={iconSize}
-        color={iconColor}
-        style={iconStyle}
-      />
+  if (!value && !label) {
+    return null;
+  }
 
-      <View style={styles.infoTextContainer}>
-        {value !== undefined && value !== null ? (
+  return (
+    <View style={styles.infoItem}>
+      <RenderIcon icon={icon} size={iconSize} color={iconColor} />
+
+      <View style={styles.infoText}>
+        {value ? (
           <Text
             numberOfLines={1}
             style={[
               styles.infoValue,
               {
                 color: valueColor,
+
                 fontSize: valueFontSize,
-                lineHeight: valueLineHeight,
+
+                lineHeight: valueLineHeight ?? Math.round(valueFontSize * 1.35),
               },
-              valueStyle,
             ]}
           >
             {value}
@@ -569,10 +842,11 @@ function InfoItem({
               styles.infoLabel,
               {
                 color: labelColor,
+
                 fontSize: labelFontSize,
-                lineHeight: labelLineHeight,
+
+                lineHeight: labelLineHeight ?? Math.round(labelFontSize * 1.35),
               },
-              labelStyle,
             ]}
           >
             {label}
@@ -581,618 +855,771 @@ function InfoItem({
       </View>
     </View>
   );
-}
+});
 
-/* ============================================================================
- * MAIN COMPONENT
+/* ==========================================================================
+ * RESTAURANT CARD
  * ========================================================================== */
 
-function UIRestaurantCard({
+export const UIRestaurantCard = memo(function UIRestaurantCard({
   restaurant = {},
 
-  /* ------------------------------------------------------------------------
-   * CARD
-   * ---------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------ */
+  /* CARD                                                               */
+  /* ------------------------------------------------------------------ */
 
-  width,
+  width = SCREEN_WIDTH - 24,
+
+  backgroundColor,
+
+  borderRadius,
+
+  shadow = true,
+
   style,
+
   contentStyle,
 
-  borderRadius = 18,
-  backgroundColor,
+  /* ------------------------------------------------------------------ */
+  /* PRESS                                                              */
+  /* ------------------------------------------------------------------ */
 
   onPress,
 
-  /* ------------------------------------------------------------------------
-   * IMAGE
-   * ---------------------------------------------------------------------- */
+  onLongPress,
 
-  images,
+  disabled = false,
 
-  imageHeight = 220,
-  imageResizeMode = "cover",
-  imageStyle,
-
-  autoplay = false,
-  autoplayInterval = 3000,
-  loop = true,
-  pauseOnTouch = true,
-
-  pagination = true,
-  paginationPosition = "bottom",
-
-  paginationDotSize = 6,
-  paginationDotGap = 5,
-
-  paginationActiveStyle,
-  paginationInactiveStyle,
-
-  onImageChange,
-
-  /* ------------------------------------------------------------------------
-   * LOGO
-   * ---------------------------------------------------------------------- */
-
-  logo,
-
-  logoSize = 64,
-  logoBorderRadius = 14,
-
-  logoBackgroundColor = "#FFFFFF",
-
-  logoBorderWidth = 1,
-  logoBorderColor = "#EEEEEE",
-
-  logoStyle,
-  logoImageStyle,
-
-  /* ------------------------------------------------------------------------
-   * TOP RATED
-   * ---------------------------------------------------------------------- */
-
-  showTopRated = true,
-  topRated,
-
-  topRatedLabel = "Top Rated",
-  topRatedIcon = "star",
-  topRatedIconSize = 16,
-  topRatedFontSize = 12,
-
-  topRatedBackgroundColor = "rgba(255,255,255,0.95)",
-  topRatedColor = "#222",
-
-  topRatedStyle,
-  topRatedTextStyle,
-
-  /* ------------------------------------------------------------------------
-   * FAVORITE
-   * ---------------------------------------------------------------------- */
-
-  favorite,
-  onFavoritePress,
-
-  favoriteIcon,
-  favoriteActiveIcon = "heart",
-  favoriteInactiveIcon = "heart-outline",
-
-  favoriteIconSize = 24,
-  favoriteIconColor = "#222",
-  favoriteActiveColor = "#E53935",
-
-  favoriteBackgroundColor = "rgba(255,255,255,0.95)",
-
-  favoriteButtonSize = 40,
-  favoriteButtonStyle,
-
-  /* ------------------------------------------------------------------------
-   * DISCOUNT
-   * ---------------------------------------------------------------------- */
-
-  showDiscount = true,
-  discount,
-
-  discountIcon = "pricetag",
-  discountFontSize = 14,
-  discountLineHeight,
-
-  discountColor = "#FFFFFF",
-  discountBackgroundColor = "#E53935",
-
-  discountStyle,
-  discountTextStyle,
-
-  /* ------------------------------------------------------------------------
-   * NAME
-   * ---------------------------------------------------------------------- */
-
-  name,
-  nameFontSize = 18,
-  nameLineHeight = 24,
-
-  nameColor,
-  nameStyle,
-
-  /* ------------------------------------------------------------------------
-   * SUBTITLE
-   * ---------------------------------------------------------------------- */
-
-  subtitle,
-  subtitleFontSize = 13,
-  subtitleLineHeight = 18,
-
-  subtitleColor,
-  subtitleStyle,
-
-  /* ------------------------------------------------------------------------
-   * RATING
-   * ---------------------------------------------------------------------- */
-
-  rating,
-  reviewCount,
-
-  ratingFontSize = 14,
-  ratingLineHeight,
-
-  reviewCountFontSize = 13,
-  reviewCountLineHeight,
-
-  ratingIcon = "star",
-  ratingIconSize = 18,
-
-  ratingColor,
-  reviewCountColor,
-
-  ratingStyle,
-  ratingTextStyle,
-  reviewCountStyle,
-
-  /* ------------------------------------------------------------------------
-   * CUISINES
-   * ---------------------------------------------------------------------- */
-
-  cuisines,
-  tags,
-
-  cuisineFontSize = 13,
-  cuisineLineHeight,
-
-  cuisineColor,
-  cuisineBackgroundColor,
-
-  cuisineBorderRadius = 8,
-
-  cuisineStyle,
-  cuisineTagStyle,
-  cuisineTextStyle,
-
-  /* ------------------------------------------------------------------------
-   * DELIVERY
-   * ---------------------------------------------------------------------- */
-
-  deliveryTime,
-  deliveryLabel = "Delivery",
-
-  deliveryIcon = "time-outline",
-  deliveryIconSize = 20,
-
-  deliveryTimeFontSize = 14,
-  deliveryTimeLineHeight,
-
-  deliveryLabelFontSize = 12,
-  deliveryLabelLineHeight,
-
-  deliveryTimeColor,
-  deliveryLabelColor,
-
-  deliveryStyle,
-
-  /* ------------------------------------------------------------------------
-   * DISTANCE
-   * ---------------------------------------------------------------------- */
-
-  distance,
-  distanceLabel = "Distance",
-
-  distanceIcon = "location-outline",
-  distanceIconSize = 20,
-
-  distanceFontSize = 14,
-  distanceLineHeight,
-
-  distanceLabelFontSize = 12,
-  distanceLabelLineHeight,
-
-  distanceColor,
-  distanceLabelColor,
-
-  distanceStyle,
-
-  /* ------------------------------------------------------------------------
-   * FREE DELIVERY
-   * ---------------------------------------------------------------------- */
-
-  freeDelivery = false,
-  freeDeliveryText = "Free Delivery",
-  freeDeliverySubtext,
-
-  freeDeliveryIcon = "bicycle-outline",
-  freeDeliveryIconSize = 21,
-
-  freeDeliveryFontSize = 14,
-  freeDeliveryLineHeight,
-
-  freeDeliverySubtextFontSize = 12,
-  freeDeliverySubtextLineHeight,
-
-  freeDeliveryColor,
-  freeDeliverySubtextColor,
-
-  freeDeliveryStyle,
-
-  /* ------------------------------------------------------------------------
-   * DIVIDER
-   * ---------------------------------------------------------------------- */
-
-  showDivider = true,
-  dividerColor,
-  dividerStyle,
-
-  /* ------------------------------------------------------------------------
-   * GLOBAL SCALE
-   * ---------------------------------------------------------------------- */
-
-  textScale = 1,
-  iconScale = 1,
-
-  /* ------------------------------------------------------------------------
-   * ANIMATION
-   * ---------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------ */
+  /* ANIMATION                                                          */
+  /* ------------------------------------------------------------------ */
 
   reanimated = false,
 
   animationSpring,
 
-  /* ------------------------------------------------------------------------
-   * CUSTOM
-   * ---------------------------------------------------------------------- */
+  pressedScale = 0.985,
+
+  /* ------------------------------------------------------------------ */
+  /* GLOBAL SIZE CONTROLS                                               */
+  /* ------------------------------------------------------------------ */
+
+  textScale = 1,
+
+  iconScale = 1,
+
+  /* ------------------------------------------------------------------ */
+  /* IMAGE                                                              */
+  /* ------------------------------------------------------------------ */
+
+  image,
+
+  images,
+
+  imageHeight = 220,
+
+  imageResizeMode = "cover",
+
+  /* ------------------------------------------------------------------ */
+  /* CAROUSEL                                                           */
+  /* ------------------------------------------------------------------ */
+
+  autoplay = true,
+
+  autoplayInterval = 3000,
+
+  loop = true,
+
+  pauseOnTouch = true,
+
+  showPagination = true,
+
+  activeDotColor = "#FFFFFF",
+
+  inactiveDotColor = "rgba(255,255,255,0.45)",
+
+  paginationStyle,
+
+  activeDotStyle,
+
+  inactiveDotStyle,
+
+  onImageChange,
+
+  /* ------------------------------------------------------------------ */
+  /* TOP RATED                                                          */
+  /* ------------------------------------------------------------------ */
+
+  showTopRated = true,
+
+  topRated,
+
+  topRatedText = "Top Rated",
+
+  topRatedIcon = "flame",
+
+  topRatedIconSize = 16,
+
+  topRatedBackgroundColor = "#FF5A5F",
+
+  topRatedColor = "#FFFFFF",
+
+  topRatedFontSize = 13,
+
+  topRatedStyle,
+
+  topRatedTextStyle,
+
+  /* ------------------------------------------------------------------ */
+  /* FAVORITE                                                           */
+  /* ------------------------------------------------------------------ */
+
+  showFavorite = true,
+
+  favorite = false,
+
+  onFavoritePress,
+
+  favoriteIcon,
+
+  favoriteActiveIcon = "heart",
+
+  favoriteInactiveIcon = "heart-outline",
+
+  favoriteIconSize = 25,
+
+  favoriteColor = "#222222",
+
+  favoriteActiveColor = "#FF4D67",
+
+  favoriteBackgroundColor = "rgba(255,255,255,0.96)",
+
+  favoriteButtonSize = 46,
+
+  favoriteStyle,
+
+  /* ------------------------------------------------------------------ */
+  /* DISCOUNT                                                           */
+  /* ------------------------------------------------------------------ */
+
+  showDiscount = true,
+
+  discount,
+
+  discountBackgroundColor = "rgba(0,0,0,0.82)",
+
+  discountColor = "#FFFFFF",
+
+  discountFontSize = 16,
+
+  discountLineHeight,
+
+  discountStyle,
+
+  discountTextStyle,
+
+  /* ------------------------------------------------------------------ */
+  /* LOGO                                                               */
+  /* ------------------------------------------------------------------ */
+
+  showLogo = true,
+
+  logo,
+
+  logoSize = 82,
+
+  logoBorderRadius = 18,
+
+  logoStyle,
+
+  /* ------------------------------------------------------------------ */
+  /* NAME                                                               */
+  /* ------------------------------------------------------------------ */
+
+  name,
+
+  subtitle,
+
+  nameColor,
+
+  nameFontSize = 25,
+
+  nameLineHeight,
+
+  subtitleColor,
+
+  subtitleFontSize = 15,
+
+  subtitleLineHeight,
+
+  nameStyle,
+
+  subtitleStyle,
+
+  /* ------------------------------------------------------------------ */
+  /* RATING                                                             */
+  /* ------------------------------------------------------------------ */
+
+  showRating = true,
+
+  rating,
+
+  reviewCount,
+
+  showReviewCount = true,
+
+  ratingIcon = "star",
+
+  ratingIconSize = 19,
+
+  ratingIconColor = "#FFB020",
+
+  ratingFontSize = 18,
+
+  ratingLineHeight,
+
+  reviewCountFontSize = 14,
+
+  reviewCountLineHeight,
+
+  ratingTextColor,
+
+  reviewTextColor,
+
+  ratingStyle,
+
+  /* ------------------------------------------------------------------ */
+  /* CUISINE                                                            */
+  /* ------------------------------------------------------------------ */
+
+  cuisines,
+
+  maxCuisineTags = 3,
+
+  tagBackgroundColor,
+
+  tagTextColor,
+
+  cuisineFontSize = 14,
+
+  cuisineLineHeight,
+
+  tagBorderRadius,
+
+  tagStyle,
+
+  tagTextStyle,
+
+  /* ------------------------------------------------------------------ */
+  /* DELIVERY                                                           */
+  /* ------------------------------------------------------------------ */
+
+  deliveryTime,
+
+  deliveryTimeLabel = "Delivery time",
+
+  deliveryIcon = "time-outline",
+
+  deliveryIconSize = 25,
+
+  deliveryTimeFontSize = 16,
+
+  deliveryTimeLineHeight,
+
+  deliveryLabelFontSize = 13,
+
+  deliveryLabelLineHeight,
+
+  /* ------------------------------------------------------------------ */
+  /* DISTANCE                                                           */
+  /* ------------------------------------------------------------------ */
+
+  distance,
+
+  distanceLabel = "Away",
+
+  distanceIcon = "location-outline",
+
+  distanceIconSize = 25,
+
+  distanceFontSize = 16,
+
+  distanceLineHeight,
+
+  distanceLabelFontSize = 13,
+
+  distanceLabelLineHeight,
+
+  /* ------------------------------------------------------------------ */
+  /* FREE DELIVERY                                                      */
+  /* ------------------------------------------------------------------ */
+
+  freeDelivery = false,
+
+  freeDeliveryText = "Free Delivery",
+
+  freeDeliverySubtext,
+
+  freeDeliveryIcon = "bicycle-outline",
+
+  freeDeliveryIconSize = 27,
+
+  freeDeliveryFontSize = 16,
+
+  freeDeliveryLineHeight,
+
+  freeDeliverySubtextFontSize = 13,
+
+  freeDeliverySubtextLineHeight,
+
+  freeDeliveryColor,
+
+  freeDeliveryIconColor,
+
+  /* ------------------------------------------------------------------ */
+  /* DIVIDER                                                            */
+  /* ------------------------------------------------------------------ */
+
+  showDivider = true,
+
+  dividerColor,
+
+  /* ------------------------------------------------------------------ */
+  /* CUSTOM RENDERERS                                                   */
+  /* ------------------------------------------------------------------ */
+
+  renderImage,
+
+  renderLogo,
 
   renderTopRated,
+
   renderFavorite,
-  renderLogo,
+
   renderDiscount,
+
   renderRating,
-  renderCuisines,
+
+  renderTags,
+
   renderDelivery,
+
   renderDistance,
+
   renderFreeDelivery,
+
+  renderContent,
+
   renderFooter,
 
   children,
 }) {
+  /* ================================================================== */
+  /* THEME                                                               */
+  /* ================================================================== */
+
   const { theme } = useUITheme();
 
-  const colors = theme?.colors || {};
-  const spacing = theme?.spacing || {};
-  const radius = theme?.radius || {};
-  const animation = theme?.animation || {};
+  const { colors, spacing, radius, animation } = resolveTheme(theme);
 
-  const resolvedImages = useMemo(() => {
-    if (Array.isArray(images)) {
-      return images.map(normalizeImageSource).filter(Boolean);
-    }
+  /* ================================================================== */
+  /* SCALED SIZES                                                        */
+  /* ================================================================== */
 
-    return resolveRestaurantImages(restaurant);
-  }, [images, restaurant]);
-
-  const resolvedLogo = normalizeImageSource(
-    logo || restaurant.logo || restaurant.logoUrl || restaurant.restaurantLogo,
-  );
-
-  const resolvedName =
-    name ?? restaurant.name ?? restaurant.restaurantName ?? "";
-
-  const resolvedSubtitle =
-    subtitle ?? restaurant.subtitle ?? restaurant.description ?? "";
-
-  const resolvedRating =
-    rating ?? restaurant.rating ?? restaurant.averageRating;
-
-  const resolvedReviewCount =
-    reviewCount ?? restaurant.reviewCount ?? restaurant.reviewsCount;
-
-  const resolvedCuisines =
-    cuisines ?? tags ?? restaurant.cuisines ?? restaurant.tags ?? [];
-
-  const resolvedDeliveryTime =
-    deliveryTime ?? restaurant.deliveryTime ?? restaurant.deliveryTimeText;
-
-  const resolvedDistance =
-    distance ?? restaurant.distance ?? restaurant.distanceText;
-
-  const resolvedFreeDelivery = freeDelivery ?? restaurant.freeDelivery ?? false;
-
-  const resolvedDiscount =
-    discount ?? restaurant.discount ?? restaurant.discountText;
-
-  const resolvedFavorite =
-    favorite ?? restaurant.favorite ?? restaurant.isFavorite ?? false;
-
-  const resolvedTopRated = topRated ?? restaurant.topRated;
+  /*
+   * Individual size props are first resolved.
+   *
+   * Then global textScale/iconScale
+   * is applied.
+   */
 
   const sizes = useMemo(() => {
     return {
       nameFontSize: nameFontSize * textScale,
-      nameLineHeight: nameLineHeight ? nameLineHeight * textScale : undefined,
+
+      nameLineHeight: (nameLineHeight ?? nameFontSize * 1.24) * textScale,
 
       subtitleFontSize: subtitleFontSize * textScale,
-      subtitleLineHeight: subtitleLineHeight
-        ? subtitleLineHeight * textScale
-        : undefined,
+
+      subtitleLineHeight:
+        (subtitleLineHeight ?? subtitleFontSize * 1.4) * textScale,
 
       topRatedFontSize: topRatedFontSize * textScale,
+
       topRatedIconSize: topRatedIconSize * iconScale,
 
       favoriteIconSize: favoriteIconSize * iconScale,
 
-      discountFontSize: discountFontSize * textScale,
-      discountLineHeight: discountLineHeight
-        ? discountLineHeight * textScale
-        : undefined,
-
       ratingFontSize: ratingFontSize * textScale,
-      ratingLineHeight: ratingLineHeight
-        ? ratingLineHeight * textScale
-        : undefined,
+
+      ratingLineHeight: (ratingLineHeight ?? ratingFontSize * 1.3) * textScale,
 
       reviewCountFontSize: reviewCountFontSize * textScale,
-      reviewCountLineHeight: reviewCountLineHeight
-        ? reviewCountLineHeight * textScale
-        : undefined,
+
+      reviewCountLineHeight:
+        (reviewCountLineHeight ?? reviewCountFontSize * 1.3) * textScale,
 
       ratingIconSize: ratingIconSize * iconScale,
 
       cuisineFontSize: cuisineFontSize * textScale,
-      cuisineLineHeight: cuisineLineHeight
-        ? cuisineLineHeight * textScale
-        : undefined,
 
-      deliveryTimeFontSize: deliveryTimeFontSize * textScale,
-      deliveryTimeLineHeight: deliveryTimeLineHeight
-        ? deliveryTimeLineHeight * textScale
-        : undefined,
-
-      deliveryLabelFontSize: deliveryLabelFontSize * textScale,
-      deliveryLabelLineHeight: deliveryLabelLineHeight
-        ? deliveryLabelLineHeight * textScale
-        : undefined,
+      cuisineLineHeight:
+        (cuisineLineHeight ?? cuisineFontSize * 1.35) * textScale,
 
       deliveryIconSize: deliveryIconSize * iconScale,
 
-      distanceFontSize: distanceFontSize * textScale,
-      distanceLineHeight: distanceLineHeight
-        ? distanceLineHeight * textScale
-        : undefined,
+      deliveryTimeFontSize: deliveryTimeFontSize * textScale,
 
-      distanceLabelFontSize: distanceLabelFontSize * textScale,
-      distanceLabelLineHeight: distanceLabelLineHeight
-        ? distanceLabelLineHeight * textScale
-        : undefined,
+      deliveryTimeLineHeight:
+        (deliveryTimeLineHeight ?? deliveryTimeFontSize * 1.35) * textScale,
+
+      deliveryLabelFontSize: deliveryLabelFontSize * textScale,
+
+      deliveryLabelLineHeight:
+        (deliveryLabelLineHeight ?? deliveryLabelFontSize * 1.35) * textScale,
 
       distanceIconSize: distanceIconSize * iconScale,
 
+      distanceFontSize: distanceFontSize * textScale,
+
+      distanceLineHeight:
+        (distanceLineHeight ?? distanceFontSize * 1.35) * textScale,
+
+      distanceLabelFontSize: distanceLabelFontSize * textScale,
+
+      distanceLabelLineHeight:
+        (distanceLabelLineHeight ?? distanceLabelFontSize * 1.35) * textScale,
+
+      freeDeliveryIconSize: freeDeliveryIconSize * iconScale,
+
       freeDeliveryFontSize: freeDeliveryFontSize * textScale,
-      freeDeliveryLineHeight: freeDeliveryLineHeight
-        ? freeDeliveryLineHeight * textScale
-        : undefined,
+
+      freeDeliveryLineHeight:
+        (freeDeliveryLineHeight ?? freeDeliveryFontSize * 1.35) * textScale,
 
       freeDeliverySubtextFontSize: freeDeliverySubtextFontSize * textScale,
 
-      freeDeliverySubtextLineHeight: freeDeliverySubtextLineHeight
-        ? freeDeliverySubtextLineHeight * textScale
-        : undefined,
+      freeDeliverySubtextLineHeight:
+        (freeDeliverySubtextLineHeight ?? freeDeliverySubtextFontSize * 1.35) *
+        textScale,
 
-      freeDeliveryIconSize: freeDeliveryIconSize * iconScale,
+      discountFontSize: discountFontSize * textScale,
+
+      discountLineHeight:
+        (discountLineHeight ?? discountFontSize * 1.3) * textScale,
     };
   }, [
-    nameFontSize,
-    nameLineHeight,
-    subtitleFontSize,
-    subtitleLineHeight,
-    topRatedFontSize,
-    topRatedIconSize,
-    favoriteIconSize,
-    discountFontSize,
-    discountLineHeight,
-    ratingFontSize,
-    ratingLineHeight,
-    reviewCountFontSize,
-    reviewCountLineHeight,
-    ratingIconSize,
     cuisineFontSize,
     cuisineLineHeight,
-    deliveryTimeFontSize,
-    deliveryTimeLineHeight,
+    deliveryIconSize,
     deliveryLabelFontSize,
     deliveryLabelLineHeight,
-    deliveryIconSize,
+    deliveryTimeFontSize,
+    deliveryTimeLineHeight,
     distanceFontSize,
-    distanceLineHeight,
+    distanceIconSize,
     distanceLabelFontSize,
     distanceLabelLineHeight,
-    distanceIconSize,
+    distanceLineHeight,
+    favoriteIconSize,
     freeDeliveryFontSize,
+    freeDeliveryIconSize,
     freeDeliveryLineHeight,
     freeDeliverySubtextFontSize,
     freeDeliverySubtextLineHeight,
-    freeDeliveryIconSize,
-    textScale,
     iconScale,
+    nameFontSize,
+    nameLineHeight,
+    ratingFontSize,
+    ratingIconSize,
+    ratingLineHeight,
+    reviewCountFontSize,
+    reviewCountLineHeight,
+    subtitleFontSize,
+    subtitleLineHeight,
+    textScale,
+    topRatedFontSize,
+    topRatedIconSize,
+    discountFontSize,
+    discountLineHeight,
   ]);
 
-  const resolvedBackgroundColor =
+  /* ================================================================== */
+  /* SPRING                                                              */
+  /* ================================================================== */
+
+  const resolvedSpring = useMemo(
+    () => animationSpring ?? animation?.spring ?? DEFAULT_SPRING,
+    [animationSpring, animation?.spring],
+  );
+
+  /* ================================================================== */
+  /* DATA                                                                */
+  /* ================================================================== */
+
+  const resolvedName = name ?? restaurant?.name ?? "";
+
+  const resolvedSubtitle = subtitle ?? restaurant?.subtitle ?? "";
+
+  const resolvedRating = rating ?? restaurant?.rating;
+
+  const resolvedReviewCount = reviewCount ?? restaurant?.reviewCount;
+
+  const resolvedCuisines = cuisines ?? restaurant?.cuisines ?? [];
+
+  const resolvedDeliveryTime = deliveryTime ?? restaurant?.deliveryTime ?? "";
+
+  const resolvedDistance = distance ?? restaurant?.distance ?? "";
+
+  const resolvedLogo = logo ?? restaurant?.logo;
+
+  const resolvedTopRated = topRated ?? restaurant?.topRated;
+
+  const resolvedDiscount = discount ?? restaurant?.discount;
+
+  const resolvedImages = useMemo(
+    () =>
+      resolveRestaurantImages({
+        restaurant,
+        image,
+        images,
+      }),
+    [restaurant, image, images],
+  );
+
+  const resolvedFreeDelivery =
+    freeDelivery || restaurant?.freeDelivery === true;
+
+  const resolvedFreeDeliveryText =
+    restaurant?.freeDeliveryText ?? freeDeliveryText;
+
+  const resolvedFreeDeliverySubtext =
+    freeDeliverySubtext ?? restaurant?.freeDeliverySubtext;
+
+  /* ================================================================== */
+  /* COLORS                                                              */
+  /* ================================================================== */
+
+  const cardColor =
     backgroundColor ?? colors.card ?? colors.surface ?? "#FFFFFF";
 
-  const resolvedNameColor = nameColor ?? colors.text ?? "#222222";
+  const cardRadius = borderRadius ?? radius.card ?? 18;
 
-  const resolvedSubtitleColor =
-    subtitleColor ?? colors.textSecondary ?? "#666666";
+  const resolvedNameColor = nameColor ?? colors.text;
 
-  const resolvedRatingColor = ratingColor ?? colors.text ?? "#222222";
+  const resolvedSubtitleColor = subtitleColor ?? colors.textSecondary;
 
-  const resolvedCuisineColor =
-    cuisineColor ?? colors.textSecondary ?? "#555555";
+  const resolvedRatingColor = ratingTextColor ?? colors.text;
 
-  const resolvedCuisineBackground =
-    cuisineBackgroundColor ?? colors.surfaceSecondary ?? "#F3F3F3";
+  const resolvedReviewColor = reviewTextColor ?? colors.textSecondary;
 
-  const resolvedDeliveryColor = deliveryTimeColor ?? colors.text ?? "#222222";
+  const resolvedTagBackground =
+    tagBackgroundColor ?? colors.primarySoft ?? "rgba(255,90,31,0.10)";
 
-  const resolvedDeliveryLabelColor =
-    deliveryLabelColor ?? colors.textSecondary ?? "#777777";
+  const resolvedTagColor = tagTextColor ?? colors.textSecondary;
 
-  const resolvedDistanceColor = distanceColor ?? colors.text ?? "#222222";
+  const resolvedDividerColor = dividerColor ?? colors.border;
 
-  const resolvedDistanceLabelColor =
-    distanceLabelColor ?? colors.textSecondary ?? "#777777";
+  const resolvedFreeColor = freeDeliveryColor ?? colors.success ?? "#20A34A";
 
-  const resolvedFreeDeliveryColor =
-    freeDeliveryColor ?? colors.success ?? "#159447";
+  const resolvedFreeIconColor =
+    freeDeliveryIconColor ?? colors.primary ?? "#FF5A1F";
 
-  const resolvedFreeDeliverySubtextColor =
-    freeDeliverySubtextColor ?? colors.textSecondary ?? "#777777";
+  /* ================================================================== */
+  /* PRESS ANIMATION                                                     */
+  /* ================================================================== */
 
-  const resolvedDividerColor = dividerColor ?? colors.border ?? "#EEEEEE";
+  const scale = useSharedValue(1);
 
-  /* --------------------------------------------------------------------------
-   * PRESS ANIMATION
-   * ------------------------------------------------------------------------ */
-
-  const pressScale = useSharedValue(1);
-
-  const animatedCardStyle = useAnimatedStyle(() => ({
-    transform: [
-      {
-        scale: pressScale.value,
-      },
-    ],
-  }));
-
-  const handlePressIn = () => {
-    if (!reanimated) return;
-
-    pressScale.value = withSpring(
-      0.985,
-      animationSpring ||
-        animation.spring || {
-          damping: 18,
-          stiffness: 180,
-          mass: 0.8,
+  const animatedCardStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        {
+          scale: scale.value,
         },
+      ],
+    };
+  });
+
+  const handlePressIn = useCallback(() => {
+    if (!reanimated || disabled) {
+      return;
+    }
+
+    scale.value = withSpring(pressedScale, resolvedSpring);
+  }, [disabled, pressedScale, reanimated, resolvedSpring, scale]);
+
+  const handlePressOut = useCallback(() => {
+    if (!reanimated || disabled) {
+      return;
+    }
+
+    scale.value = withSpring(1, resolvedSpring);
+  }, [disabled, reanimated, resolvedSpring, scale]);
+
+  /* ================================================================== */
+  /* PRESS                                                               */
+  /* ================================================================== */
+
+  const handlePress = useCallback(() => {
+    if (disabled) {
+      return;
+    }
+
+    if (typeof onPress === "function") {
+      onPress(restaurant);
+    }
+  }, [disabled, onPress, restaurant]);
+
+  const handleLongPress = useCallback(() => {
+    if (disabled) {
+      return;
+    }
+
+    if (typeof onLongPress === "function") {
+      onLongPress(restaurant);
+    }
+  }, [disabled, onLongPress, restaurant]);
+
+  /* ================================================================== */
+  /* IMAGE                                                               */
+  /* ================================================================== */
+
+  const imageContent =
+    typeof renderImage === "function" ? (
+      renderImage({
+        restaurant,
+        images: resolvedImages,
+        height: imageHeight,
+      })
+    ) : (
+      <RestaurantImageCarousel
+        images={resolvedImages}
+        height={imageHeight}
+        resizeMode={imageResizeMode}
+        autoplay={autoplay}
+        autoplayInterval={autoplayInterval}
+        loop={loop}
+        pauseOnTouch={pauseOnTouch}
+        showPagination={showPagination}
+        activeDotColor={activeDotColor}
+        inactiveDotColor={inactiveDotColor}
+        paginationStyle={paginationStyle}
+        activeDotStyle={activeDotStyle}
+        inactiveDotStyle={inactiveDotStyle}
+        onImageChange={onImageChange}
+      />
     );
-  };
 
-  const handlePressOut = () => {
-    if (!reanimated) return;
-
-    pressScale.value = withSpring(
-      1,
-      animationSpring ||
-        animation.spring || {
-          damping: 18,
-          stiffness: 180,
-          mass: 0.8,
-        },
-    );
-  };
-
-  /* --------------------------------------------------------------------------
-   * TOP RATED
-   * ------------------------------------------------------------------------ */
+  /* ================================================================== */
+  /* TOP RATED                                                           */
+  /* ================================================================== */
 
   const topRatedContent =
     showTopRated && resolvedTopRated !== false ? (
       typeof renderTopRated === "function" ? (
         renderTopRated({
           restaurant,
+          topRated: resolvedTopRated,
         })
       ) : (
         <TopRatedBadge
-          label={topRatedLabel}
+          text={
+            typeof resolvedTopRated === "string"
+              ? resolvedTopRated
+              : topRatedText
+          }
           icon={topRatedIcon}
           iconSize={sizes.topRatedIconSize}
-          fontSize={sizes.topRatedFontSize}
           backgroundColor={topRatedBackgroundColor}
           color={topRatedColor}
+          fontSize={sizes.topRatedFontSize}
           style={topRatedStyle}
           textStyle={topRatedTextStyle}
         />
       )
     ) : null;
 
-  /* --------------------------------------------------------------------------
-   * FAVORITE
-   * ------------------------------------------------------------------------ */
+  /* ================================================================== */
+  /* FAVORITE                                                            */
+  /* ================================================================== */
 
-  const favoriteContent = (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={
-        resolvedFavorite ? "Remove from favorites" : "Add to favorites"
-      }
-      onPress={onFavoritePress}
-      style={[
-        styles.favoriteButton,
-        {
-          width: favoriteButtonSize,
-          height: favoriteButtonSize,
-          borderRadius: favoriteButtonSize / 2,
-          backgroundColor: favoriteBackgroundColor,
-        },
-        favoriteButtonStyle,
-      ]}
-    >
-      <RenderIcon
-        icon={favorite ? favoriteActiveIcon : favoriteInactiveIcon}
-        size={sizes.favoriteIconSize}
-        color={favorite ? favoriteActiveColor : favoriteIconColor}
-      />
-    </Pressable>
-  );
+  const favoriteContent = showFavorite ? (
+    typeof renderFavorite === "function" ? (
+      renderFavorite({
+        restaurant,
+        favorite,
+      })
+    ) : (
+      <Pressable
+        onPress={() => {
+          if (typeof onFavoritePress === "function") {
+            onFavoritePress(!favorite, restaurant);
+          }
+        }}
+        style={[
+          styles.favoriteButton,
 
-  /* --------------------------------------------------------------------------
-   * DISCOUNT
-   * ------------------------------------------------------------------------ */
+          {
+            width: favoriteButtonSize,
+
+            height: favoriteButtonSize,
+
+            borderRadius: favoriteButtonSize / 2,
+
+            backgroundColor: favoriteBackgroundColor,
+          },
+
+          favoriteStyle,
+        ]}
+      >
+        <RenderIcon
+          icon={
+            favoriteIcon ??
+            (favorite ? favoriteActiveIcon : favoriteInactiveIcon)
+          }
+          size={sizes.favoriteIconSize}
+          color={favorite ? favoriteActiveColor : favoriteColor}
+        />
+      </Pressable>
+    )
+  ) : null;
+
+  /* ================================================================== */
+  /* DISCOUNT                                                            */
+  /* ================================================================== */
 
   const discountContent =
     showDiscount && resolvedDiscount ? (
       typeof renderDiscount === "function" ? (
         renderDiscount({
           restaurant,
+          discount: resolvedDiscount,
         })
       ) : (
         <View
           style={[
             styles.discountBadge,
+
             {
               backgroundColor: discountBackgroundColor,
             },
+
             discountStyle,
           ]}
         >
-          <RenderIcon
-            icon={discountIcon}
-            size={15 * iconScale}
-            color={discountColor}
-          />
-
           <Text
             style={[
               styles.discountText,
+
               {
                 color: discountColor,
+
                 fontSize: sizes.discountFontSize,
+
                 lineHeight: sizes.discountLineHeight,
               },
+
               discountTextStyle,
             ]}
           >
@@ -1202,158 +1629,115 @@ function UIRestaurantCard({
       )
     ) : null;
 
-  /* --------------------------------------------------------------------------
-   * LOGO
-   * ------------------------------------------------------------------------ */
+  /* ================================================================== */
+  /* RATING                                                              */
+  /* ================================================================== */
 
-  const logoContent = resolvedLogo ? (
-    typeof renderLogo === "function" ? (
-      renderLogo({
+  const ratingContent = showRating ? (
+    typeof renderRating === "function" ? (
+      renderRating({
         restaurant,
-        logo: resolvedLogo,
+        rating: resolvedRating,
+        reviewCount: resolvedReviewCount,
       })
     ) : (
-      <View
-        style={[
-          styles.logoWrapper,
-          {
-            width: logoSize,
-            height: logoSize,
-            borderRadius: logoBorderRadius,
-            backgroundColor: logoBackgroundColor,
-            borderWidth: logoBorderWidth,
-            borderColor: logoBorderColor,
-          },
-          logoStyle,
-        ]}
-      >
-        <Image
-          source={resolvedLogo}
-          resizeMode="contain"
-          style={[
-            styles.logoImage,
-            {
-              width: logoSize - logoBorderWidth * 2,
-              height: logoSize - logoBorderWidth * 2,
-              borderRadius: logoBorderRadius,
-            },
-            logoImageStyle,
-          ]}
-        />
-      </View>
+      <Rating
+        rating={resolvedRating}
+        reviewCount={resolvedReviewCount}
+        icon={ratingIcon}
+        iconSize={sizes.ratingIconSize}
+        iconColor={ratingIconColor}
+        fontSize={sizes.ratingFontSize}
+        lineHeight={sizes.ratingLineHeight}
+        reviewFontSize={sizes.reviewCountFontSize}
+        reviewLineHeight={sizes.reviewCountLineHeight}
+        textColor={resolvedRatingColor}
+        reviewColor={resolvedReviewColor}
+        showReviewCount={showReviewCount}
+        style={ratingStyle}
+      />
     )
   ) : null;
 
-  /* --------------------------------------------------------------------------
-   * RATING
-   * ------------------------------------------------------------------------ */
+  /* ================================================================== */
+  /* TAGS                                                                */
+  /* ================================================================== */
 
-  const ratingContent =
-    resolvedRating !== undefined && resolvedRating !== null ? (
-      typeof renderRating === "function" ? (
-        renderRating({
-          restaurant,
-          rating: resolvedRating,
-          reviewCount: resolvedReviewCount,
-        })
-      ) : (
-        <Rating
-          rating={resolvedRating}
-          reviewCount={resolvedReviewCount}
-          icon={ratingIcon}
-          iconSize={sizes.ratingIconSize}
-          fontSize={sizes.ratingFontSize}
-          reviewFontSize={sizes.reviewCountFontSize}
-          color={resolvedRatingColor}
-          reviewColor={reviewCountColor ?? colors.textSecondary ?? "#666"}
-          style={ratingStyle}
-          ratingTextStyle={ratingTextStyle}
-          reviewTextStyle={reviewCountStyle}
-        />
-      )
-    ) : null;
-
-  /* --------------------------------------------------------------------------
-   * CUISINES
-   * ------------------------------------------------------------------------ */
-
-  const tagsContent = resolvedCuisines?.length ? (
-    typeof renderCuisines === "function" ? (
-      renderCuisines({
+  const tagsContent =
+    typeof renderTags === "function" ? (
+      renderTags({
         restaurant,
         cuisines: resolvedCuisines,
       })
     ) : (
       <CuisineTags
-        tags={resolvedCuisines}
+        cuisines={resolvedCuisines}
+        maxTags={maxCuisineTags}
+        backgroundColor={resolvedTagBackground}
+        textColor={resolvedTagColor}
         fontSize={sizes.cuisineFontSize}
         lineHeight={sizes.cuisineLineHeight}
-        color={resolvedCuisineColor}
-        backgroundColor={resolvedCuisineBackground}
-        borderRadius={cuisineBorderRadius}
-        style={cuisineStyle}
-        tagStyle={cuisineTagStyle}
-        textStyle={cuisineTextStyle}
+        borderRadius={tagBorderRadius ?? radius.pill ?? 999}
+        style={tagStyle}
+        textStyle={tagTextStyle}
       />
-    )
-  ) : null;
+    );
 
-  /* --------------------------------------------------------------------------
-   * DELIVERY
-   * ------------------------------------------------------------------------ */
+  /* ================================================================== */
+  /* DELIVERY                                                             */
+  /* ================================================================== */
 
-  const deliveryContent = resolvedDeliveryTime ? (
+  const deliveryContent =
     typeof renderDelivery === "function" ? (
       renderDelivery({
         restaurant,
+        deliveryTime: resolvedDeliveryTime,
       })
     ) : (
       <InfoItem
         icon={deliveryIcon}
         iconSize={sizes.deliveryIconSize}
+        iconColor={colors.textSecondary}
         value={resolvedDeliveryTime}
-        label={deliveryLabel}
+        label={deliveryTimeLabel}
         valueFontSize={sizes.deliveryTimeFontSize}
         valueLineHeight={sizes.deliveryTimeLineHeight}
         labelFontSize={sizes.deliveryLabelFontSize}
         labelLineHeight={sizes.deliveryLabelLineHeight}
-        valueColor={resolvedDeliveryColor}
-        labelColor={resolvedDeliveryLabelColor}
-        style={deliveryStyle}
+        valueColor={colors.text}
+        labelColor={colors.textSecondary}
       />
-    )
-  ) : null;
+    );
 
-  /* --------------------------------------------------------------------------
-   * DISTANCE
-   * ------------------------------------------------------------------------ */
+  /* ================================================================== */
+  /* DISTANCE                                                            */
+  /* ================================================================== */
 
   const distanceContent =
-    resolvedDistance !== undefined && resolvedDistance !== null ? (
-      typeof renderDistance === "function" ? (
-        renderDistance({
-          restaurant,
-        })
-      ) : (
-        <InfoItem
-          icon={distanceIcon}
-          iconSize={sizes.distanceIconSize}
-          value={resolvedDistance}
-          label={distanceLabel}
-          valueFontSize={sizes.distanceFontSize}
-          valueLineHeight={sizes.distanceLineHeight}
-          labelFontSize={sizes.distanceLabelFontSize}
-          labelLineHeight={sizes.distanceLabelLineHeight}
-          valueColor={resolvedDistanceColor}
-          labelColor={resolvedDistanceLabelColor}
-          style={distanceStyle}
-        />
-      )
-    ) : null;
+    typeof renderDistance === "function" ? (
+      renderDistance({
+        restaurant,
+        distance: resolvedDistance,
+      })
+    ) : (
+      <InfoItem
+        icon={distanceIcon}
+        iconSize={sizes.distanceIconSize}
+        iconColor={colors.textSecondary}
+        value={resolvedDistance}
+        label={distanceLabel}
+        valueFontSize={sizes.distanceFontSize}
+        valueLineHeight={sizes.distanceLineHeight}
+        labelFontSize={sizes.distanceLabelFontSize}
+        labelLineHeight={sizes.distanceLabelLineHeight}
+        valueColor={colors.text}
+        labelColor={colors.textSecondary}
+      />
+    );
 
-  /* --------------------------------------------------------------------------
-   * FREE DELIVERY
-   * ------------------------------------------------------------------------ */
+  /* ================================================================== */
+  /* FREE DELIVERY                                                       */
+  /* ================================================================== */
 
   const freeDeliveryContent = resolvedFreeDelivery ? (
     typeof renderFreeDelivery === "function" ? (
@@ -1361,508 +1745,694 @@ function UIRestaurantCard({
         restaurant,
       })
     ) : (
-      <InfoItem
-        icon={freeDeliveryIcon}
-        iconSize={sizes.freeDeliveryIconSize}
-        value={freeDeliveryText}
-        label={freeDeliverySubtext}
-        valueFontSize={sizes.freeDeliveryFontSize}
-        valueLineHeight={sizes.freeDeliveryLineHeight}
-        labelFontSize={sizes.freeDeliverySubtextFontSize}
-        labelLineHeight={sizes.freeDeliverySubtextLineHeight}
-        valueColor={resolvedFreeDeliveryColor}
-        labelColor={resolvedFreeDeliverySubtextColor}
-        style={freeDeliveryStyle}
-      />
+      <View style={styles.freeDelivery}>
+        <RenderIcon
+          icon={freeDeliveryIcon}
+          size={sizes.freeDeliveryIconSize}
+          color={resolvedFreeIconColor}
+        />
+
+        <View style={styles.freeDeliveryTextContainer}>
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.freeDeliveryTitle,
+
+              {
+                color: resolvedFreeColor,
+
+                fontSize: sizes.freeDeliveryFontSize,
+
+                lineHeight: sizes.freeDeliveryLineHeight,
+              },
+            ]}
+          >
+            {resolvedFreeDeliveryText}
+          </Text>
+
+          {resolvedFreeDeliverySubtext ? (
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.freeDeliverySubtext,
+
+                {
+                  color: colors.textSecondary,
+
+                  fontSize: sizes.freeDeliverySubtextFontSize,
+
+                  lineHeight: sizes.freeDeliverySubtextLineHeight,
+                },
+              ]}
+            >
+              {resolvedFreeDeliverySubtext}
+            </Text>
+          ) : null}
+        </View>
+      </View>
     )
   ) : null;
 
-  /* ==========================================================================
-   * CARD CONTENT
-   * ======================================================================== */
+  /* ================================================================== */
+  /* LOGO                                                                */
+  /* ================================================================== */
 
-  const cardContent = (
-    <>
-      {/* ======================================================================
-       * IMAGE
-       * ==================================================================== */}
+  const logoContent =
+    showLogo && resolvedLogo ? (
+      typeof renderLogo === "function" ? (
+        renderLogo({
+          restaurant,
+          logo: resolvedLogo,
+        })
+      ) : (
+        <View
+          style={[
+            styles.logoContainer,
 
+            {
+              width: logoSize,
+
+              height: logoSize,
+
+              borderRadius: logoBorderRadius,
+            },
+
+            logoStyle,
+          ]}
+        >
+          <Image
+            source={normalizeImageSource(resolvedLogo)}
+            resizeMode="cover"
+            style={{
+              width: logoSize,
+
+              height: logoSize,
+            }}
+          />
+        </View>
+      )
+    ) : null;
+
+  /* ================================================================== */
+  /* CONTENT                                                             */
+  /* ================================================================== */
+
+  const defaultContent = (
+    <View
+      style={[
+        styles.content,
+
+        {
+          paddingHorizontal: spacing.lg ?? 16,
+        },
+
+        contentStyle,
+      ]}
+    >
+      {/* NAME + RATING */}
+
+      <View style={styles.titleRow}>
+        <View style={styles.titleContainer}>
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.restaurantName,
+
+              {
+                color: resolvedNameColor,
+
+                fontSize: sizes.nameFontSize,
+
+                lineHeight: sizes.nameLineHeight,
+              },
+
+              nameStyle,
+            ]}
+          >
+            {resolvedName}
+          </Text>
+
+          {resolvedSubtitle ? (
+            <Text
+              numberOfLines={1}
+              style={[
+                styles.restaurantSubtitle,
+
+                {
+                  color: resolvedSubtitleColor,
+
+                  fontSize: sizes.subtitleFontSize,
+
+                  lineHeight: sizes.subtitleLineHeight,
+                },
+
+                subtitleStyle,
+              ]}
+            >
+              {resolvedSubtitle}
+            </Text>
+          ) : null}
+        </View>
+
+        {ratingContent}
+      </View>
+
+      {/* CUISINES */}
+
+      {tagsContent ? (
+        <View style={styles.tagsWrapper}>{tagsContent}</View>
+      ) : null}
+
+      {/* DIVIDER */}
+
+      {showDivider ? (
+        <View
+          style={[
+            styles.divider,
+
+            {
+              backgroundColor: resolvedDividerColor,
+            },
+          ]}
+        />
+      ) : null}
+
+      {/* INFORMATION */}
+
+      <View style={styles.infoRow}>
+        {deliveryContent}
+
+        {distanceContent}
+
+        {freeDeliveryContent}
+      </View>
+
+      {/* FOOTER */}
+
+      {typeof renderFooter === "function"
+        ? renderFooter({
+            restaurant,
+          })
+        : null}
+
+      {children}
+    </View>
+  );
+
+  const content =
+    typeof renderContent === "function"
+      ? renderContent({
+          restaurant,
+
+          rating: resolvedRating,
+
+          reviewCount: resolvedReviewCount,
+
+          cuisines: resolvedCuisines,
+
+          deliveryTime: resolvedDeliveryTime,
+
+          distance: resolvedDistance,
+        })
+      : defaultContent;
+
+  /* ================================================================== */
+  /* CARD                                                                */
+  /* ================================================================== */
+
+  return (
+    <Animated.View
+      style={[
+        styles.card,
+
+        {
+          width,
+
+          borderRadius: cardRadius,
+
+          backgroundColor: cardColor,
+        },
+
+        shadow ? styles.shadow : null,
+
+        animatedCardStyle,
+
+        style,
+      ]}
+    >
       <View
         style={[
-          styles.imageSection,
+          styles.cardInner,
+
           {
-            height: imageHeight,
+            borderRadius: cardRadius,
           },
         ]}
       >
-        <RestaurantImageCarousel
-          images={resolvedImages}
-          height={imageHeight}
-          autoplay={autoplay}
-          autoplayInterval={autoplayInterval}
-          loop={loop}
-          pauseOnTouch={pauseOnTouch}
-          borderRadius={borderRadius}
-          pagination={pagination}
-          paginationPosition={paginationPosition}
-          paginationDotSize={paginationDotSize}
-          paginationDotGap={paginationDotGap}
-          paginationActiveStyle={paginationActiveStyle}
-          paginationInactiveStyle={paginationInactiveStyle}
-          onImageChange={onImageChange}
-          imageResizeMode={imageResizeMode}
-          imageStyle={imageStyle}
-        />
+        {/* ============================================================ */}
+        {/* IMAGE                                                         */}
+        {/* ============================================================ */}
 
-        {/* ================================================================
-         * TOP RATED
-         * ============================================================ */}
+        <View
+          style={[
+            styles.imageSection,
 
-        {topRatedContent ? (
-          <View style={styles.topRatedPosition}>{topRatedContent}</View>
-        ) : null}
+            {
+              height: imageHeight,
 
-        {/* ================================================================
-         * FAVORITE
-         * ============================================================ */}
+              borderTopLeftRadius: cardRadius,
 
-        <View style={styles.favoritePosition}>{favoriteContent}</View>
+              borderTopRightRadius: cardRadius,
+            },
+          ]}
+        >
+          {imageContent}
 
-        {/* ================================================================
-         * DISCOUNT
-         * ============================================================ */}
+          {/* ========================================================== */}
+          {/* TOP OVERLAY                                                  */}
+          {/* ========================================================== */}
 
-        {discountContent ? (
-          <View style={styles.discountPosition}>{discountContent}</View>
-        ) : null}
+          <View pointerEvents="box-none" style={styles.topOverlay}>
+            {/* TOP RATED */}
 
-        {/* ================================================================
-         * LOGO
-         *
-         * Logo overlaps the bottom of image.
-         * ============================================================ */}
+            {topRatedContent ? (
+              <View style={styles.topRatedPosition}>{topRatedContent}</View>
+            ) : (
+              <View />
+            )}
+
+            {/* FAVORITE */}
+
+            {favoriteContent ? (
+              <View style={styles.favoritePosition}>{favoriteContent}</View>
+            ) : null}
+          </View>
+
+          {/* DISCOUNT */}
+
+          {discountContent ? (
+            <View style={styles.discountPosition}>{discountContent}</View>
+          ) : null}
+        </View>
+
+        {/* ============================================================ */}
+        {/* LOGO                                                          */}
+        {/* ============================================================ */}
 
         {logoContent ? (
           <View
             pointerEvents="none"
             style={[
               styles.logoPosition,
+
               {
                 left: spacing.lg ?? 16,
-                bottom: -(logoSize / 2),
+
+                top: imageHeight - logoSize / 2,
               },
             ]}
           >
             {logoContent}
           </View>
         ) : null}
+
+        {/* ============================================================ */}
+        {/* CONTENT                                                       */}
+        {/* ============================================================ */}
+
+        <Pressable
+          disabled={disabled}
+          onPress={handlePress}
+          onLongPress={handleLongPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+        >
+          {content}
+        </Pressable>
       </View>
-
-      {/* ======================================================================
-       * CONTENT
-       * ==================================================================== */}
-
-      <View
-        style={[
-          styles.content,
-          {
-            paddingHorizontal: spacing.lg ?? 16,
-
-            /*
-             * Space for the logo that overlaps
-             * the image.
-             */
-            paddingTop: logoContent
-              ? logoSize / 2 + (spacing.sm ?? 8)
-              : (spacing.md ?? 12),
-          },
-          contentStyle,
-        ]}
-      >
-        {/* ====================================================================
-         * NAME + RATING
-         *
-         * IMPORTANT:
-         * Name is now positioned to the RIGHT of the logo.
-         * ================================================================== */}
-
-        <View style={styles.nameRatingRow}>
-          <View
-            style={[
-              styles.nameSection,
-              logoContent
-                ? {
-                    paddingLeft: logoSize + (spacing.sm ?? 8),
-                  }
-                : null,
-            ]}
-          >
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              minimumFontScale={0.8}
-              style={[
-                styles.restaurantName,
-                {
-                  color: resolvedNameColor,
-                  fontSize: sizes.nameFontSize,
-                  lineHeight: sizes.nameLineHeight,
-                },
-                nameStyle,
-              ]}
-            >
-              {resolvedName}
-            </Text>
-          </View>
-
-          {ratingContent ? (
-            <View style={styles.ratingPosition}>{ratingContent}</View>
-          ) : null}
-        </View>
-
-        {/* ====================================================================
-         * SUBTITLE
-         *
-         * Subtitle is underneath the name/logo row.
-         * ================================================================== */}
-
-        {resolvedSubtitle ? (
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.restaurantSubtitle,
-              {
-                color: resolvedSubtitleColor,
-                fontSize: sizes.subtitleFontSize,
-                lineHeight: sizes.subtitleLineHeight,
-              },
-              subtitleStyle,
-            ]}
-          >
-            {resolvedSubtitle}
-          </Text>
-        ) : null}
-
-        {/* ====================================================================
-         * CUISINES
-         * ================================================================== */}
-
-        {tagsContent ? (
-          <View style={styles.tagsWrapper}>{tagsContent}</View>
-        ) : null}
-
-        {/* ====================================================================
-         * DIVIDER
-         * ================================================================== */}
-
-        {showDivider ? (
-          <View
-            style={[
-              styles.divider,
-              {
-                backgroundColor: resolvedDividerColor,
-              },
-              dividerStyle,
-            ]}
-          />
-        ) : null}
-
-        {/* ====================================================================
-         * INFO ROW
-         * ================================================================== */}
-
-        <View style={styles.infoRow}>
-          {deliveryContent}
-          {distanceContent}
-          {freeDeliveryContent}
-        </View>
-
-        {/* ====================================================================
-         * FOOTER
-         * ================================================================== */}
-
-        {typeof renderFooter === "function"
-          ? renderFooter({
-              restaurant,
-            })
-          : null}
-
-        {children}
-      </View>
-    </>
-  );
-
-  /* ==========================================================================
-   * PRESSABLE CARD
-   * ======================================================================== */
-
-  return (
-    <Animated.View
-      style={[
-        {
-          width: width || "100%",
-        },
-        reanimated ? animatedCardStyle : null,
-      ]}
-    >
-      <Pressable
-        accessibilityRole="button"
-        onPress={onPress}
-        onPressIn={handlePressIn}
-        onPressOut={handlePressOut}
-        style={[
-          styles.card,
-          {
-            backgroundColor: resolvedBackgroundColor,
-            borderRadius,
-          },
-          style,
-        ]}
-      >
-        {cardContent}
-      </Pressable>
     </Animated.View>
   );
-}
+});
 
-/* ============================================================================
+/* ==========================================================================
  * STYLES
  * ========================================================================== */
 
 const styles = StyleSheet.create({
+  /* ---------------------------------------------------------------------- */
+  /* CARD                                                                   */
+  /* ---------------------------------------------------------------------- */
+
   card: {
+    overflow: "visible",
+  },
+
+  cardInner: {
     width: "100%",
+
     overflow: "hidden",
   },
 
-  /* --------------------------------------------------------------------------
-   * IMAGE
-   * ------------------------------------------------------------------------ */
+  shadow: {
+    shadowColor: "#000000",
+
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+
+    shadowOpacity: 0.12,
+
+    shadowRadius: 12,
+
+    elevation: 5,
+  },
+
+  /* ---------------------------------------------------------------------- */
+  /* IMAGE                                                                  */
+  /* ---------------------------------------------------------------------- */
 
   imageSection: {
     width: "100%",
+
     position: "relative",
+
+    overflow: "hidden",
   },
 
-  imageContainer: {
-    overflow: "hidden",
+  carousel: {
+    width: "100%",
+
     position: "relative",
+
+    overflow: "hidden",
+  },
+
+  carouselItem: {
+    overflow: "hidden",
   },
 
   restaurantImage: {
     width: "100%",
-    height: "100%",
   },
 
-  /* --------------------------------------------------------------------------
-   * TOP RATED
-   * ------------------------------------------------------------------------ */
+  imagePlaceholder: {
+    width: "100%",
+
+    alignItems: "center",
+
+    justifyContent: "center",
+
+    backgroundColor: "#ECEEF1",
+  },
+
+  placeholderText: {
+    marginTop: 8,
+
+    fontSize: 13,
+
+    color: "#8B919B",
+  },
+
+  /* ---------------------------------------------------------------------- */
+  /* TOP OVERLAY                                                            */
+  /* ---------------------------------------------------------------------- */
+
+  topOverlay: {
+    position: "absolute",
+
+    left: 0,
+    right: 0,
+    top: 0,
+
+    zIndex: 100,
+
+    flexDirection: "row",
+
+    justifyContent: "space-between",
+
+    alignItems: "flex-start",
+
+    paddingHorizontal: 14,
+
+    paddingTop: 14,
+  },
 
   topRatedPosition: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    zIndex: 30,
+    zIndex: 110,
   },
 
+  /* ---------------------------------------------------------------------- */
+  /* TOP RATED                                                              */
+  /* ---------------------------------------------------------------------- */
+
   topRatedBadge: {
-    minHeight: 30,
-    paddingHorizontal: 10,
+    minHeight: 34,
+
+    paddingHorizontal: 12,
+
+    borderRadius: 18,
+
     flexDirection: "row",
+
     alignItems: "center",
+
     justifyContent: "center",
-    gap: 5,
-    borderRadius: 8,
+
+    elevation: 4,
   },
 
   topRatedText: {
+    marginLeft: 6,
+
     fontWeight: "700",
   },
 
-  /* --------------------------------------------------------------------------
-   * FAVORITE
-   * ------------------------------------------------------------------------ */
+  /* ---------------------------------------------------------------------- */
+  /* FAVORITE                                                               */
+  /* ---------------------------------------------------------------------- */
 
   favoritePosition: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    zIndex: 30,
+    zIndex: 110,
   },
 
   favoriteButton: {
     alignItems: "center",
+
     justifyContent: "center",
+
+    elevation: 5,
   },
 
-  /* --------------------------------------------------------------------------
-   * DISCOUNT
-   * ------------------------------------------------------------------------ */
+  /* ---------------------------------------------------------------------- */
+  /* DISCOUNT                                                               */
+  /* ---------------------------------------------------------------------- */
 
   discountPosition: {
     position: "absolute",
-    right: 12,
-    bottom: 12,
-    zIndex: 30,
+
+    right: 14,
+
+    bottom: 14,
+
+    zIndex: 110,
   },
 
   discountBadge: {
-    minHeight: 32,
-    paddingHorizontal: 10,
-    borderRadius: 7,
-    flexDirection: "row",
+    minHeight: 42,
+
+    paddingHorizontal: 17,
+
+    borderRadius: 15,
+
     alignItems: "center",
-    gap: 5,
+
+    justifyContent: "center",
   },
 
   discountText: {
     fontWeight: "800",
   },
 
-  /* --------------------------------------------------------------------------
-   * LOGO
-   * ------------------------------------------------------------------------ */
+  /* ---------------------------------------------------------------------- */
+  /* PAGINATION                                                             */
+  /* ---------------------------------------------------------------------- */
+
+  pagination: {
+    position: "absolute",
+
+    left: 0,
+    right: 0,
+
+    bottom: 12,
+
+    zIndex: 150,
+
+    flexDirection: "row",
+
+    alignItems: "center",
+
+    justifyContent: "center",
+  },
+
+  paginationDot: {
+    width: 8,
+
+    height: 8,
+
+    marginHorizontal: 4,
+
+    borderRadius: 999,
+  },
+
+  /* ---------------------------------------------------------------------- */
+  /* LOGO                                                                   */
+  /* ---------------------------------------------------------------------- */
 
   logoPosition: {
     position: "absolute",
-    zIndex: 40,
+
+    zIndex: 200,
   },
 
-  logoWrapper: {
-    alignItems: "center",
-    justifyContent: "center",
-
+  logoContainer: {
     overflow: "hidden",
 
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.12,
-    shadowRadius: 5,
+    borderWidth: 3,
+
+    borderColor: "#FFFFFF",
+
+    backgroundColor: "#FFFFFF",
+
+    alignItems: "center",
+
+    justifyContent: "center",
 
     elevation: 5,
   },
 
-  logoImage: {
-    resizeMode: "contain",
-  },
-
-  /* --------------------------------------------------------------------------
-   * CONTENT
-   * ------------------------------------------------------------------------ */
+  /* ---------------------------------------------------------------------- */
+  /* CONTENT                                                                */
+  /* ---------------------------------------------------------------------- */
 
   content: {
     width: "100%",
+
+    paddingTop: 46,
+
     paddingBottom: 16,
   },
 
-  /* --------------------------------------------------------------------------
-   * NAME + RATING
-   * ------------------------------------------------------------------------ */
-
-  nameRatingRow: {
+  titleRow: {
     width: "100%",
-    minHeight: 28,
 
     flexDirection: "row",
-    alignItems: "center",
+
+    alignItems: "flex-start",
 
     justifyContent: "space-between",
   },
 
-  nameSection: {
+  titleContainer: {
     flex: 1,
+
     minWidth: 0,
-    justifyContent: "center",
+
+    paddingRight: 10,
   },
 
   restaurantName: {
     fontWeight: "800",
-    includeFontPadding: false,
   },
-
-  ratingPosition: {
-    marginLeft: 10,
-    flexShrink: 0,
-  },
-
-  ratingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-
-  ratingText: {
-    fontWeight: "700",
-    includeFontPadding: false,
-  },
-
-  reviewCount: {
-    fontWeight: "500",
-    includeFontPadding: false,
-  },
-
-  /* --------------------------------------------------------------------------
-   * SUBTITLE
-   * ------------------------------------------------------------------------ */
 
   restaurantSubtitle: {
-    marginTop: 3,
-    fontWeight: "500",
-    includeFontPadding: false,
+    marginTop: 4,
+
+    fontWeight: "400",
   },
 
-  /* --------------------------------------------------------------------------
-   * CUISINES
-   * ------------------------------------------------------------------------ */
+  /* ---------------------------------------------------------------------- */
+  /* RATING                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  rating: {
+    flexDirection: "row",
+
+    alignItems: "center",
+
+    minHeight: 31,
+  },
+
+  ratingValue: {
+    marginLeft: 5,
+
+    fontWeight: "800",
+  },
+
+  ratingReviews: {
+    marginLeft: 4,
+
+    fontWeight: "400",
+  },
+
+  /* ---------------------------------------------------------------------- */
+  /* CUISINES                                                               */
+  /* ---------------------------------------------------------------------- */
 
   tagsWrapper: {
-    marginTop: 10,
+    marginTop: 16,
   },
 
   cuisineContainer: {
     flexDirection: "row",
-    flexWrap: "wrap",
+
     alignItems: "center",
-    gap: 6,
+
+    overflow: "hidden",
   },
 
   cuisineTag: {
-    paddingHorizontal: 9,
-    paddingVertical: 5,
+    minHeight: 38,
+
+    paddingHorizontal: 15,
+
+    marginRight: 8,
+
+    alignItems: "center",
+
+    justifyContent: "center",
+
+    maxWidth: 160,
   },
 
   cuisineText: {
-    fontWeight: "500",
-    includeFontPadding: false,
+    fontWeight: "600",
   },
 
-  /* --------------------------------------------------------------------------
-   * DIVIDER
-   * ------------------------------------------------------------------------ */
+  /* ---------------------------------------------------------------------- */
+  /* DIVIDER                                                                */
+  /* ---------------------------------------------------------------------- */
 
   divider: {
     width: "100%",
+
     height: StyleSheet.hairlineWidth,
-    marginTop: 12,
+
+    marginVertical: 16,
   },
 
-  /* --------------------------------------------------------------------------
-   * INFO
-   * ------------------------------------------------------------------------ */
+  /* ---------------------------------------------------------------------- */
+  /* INFO                                                                   */
+  /* ---------------------------------------------------------------------- */
 
   infoRow: {
     width: "100%",
-    marginTop: 11,
 
     flexDirection: "row",
-    alignItems: "center",
+
+    alignItems: "flex-start",
 
     justifyContent: "space-between",
-
-    gap: 8,
   },
 
   infoItem: {
@@ -1871,60 +2441,64 @@ const styles = StyleSheet.create({
     minWidth: 0,
 
     flexDirection: "row",
-    alignItems: "center",
+
+    alignItems: "flex-start",
+
+    paddingRight: 10,
   },
 
-  infoTextContainer: {
+  infoText: {
     flex: 1,
+
     minWidth: 0,
-    marginLeft: 6,
+
+    marginLeft: 8,
   },
 
   infoValue: {
-    fontWeight: "700",
-    includeFontPadding: false,
+    fontWeight: "800",
   },
 
   infoLabel: {
-    marginTop: 1,
-    fontWeight: "500",
-    includeFontPadding: false,
+    marginTop: 2,
+
+    fontWeight: "400",
   },
 
-  /* --------------------------------------------------------------------------
-   * PAGINATION
-   * ------------------------------------------------------------------------ */
+  /* ---------------------------------------------------------------------- */
+  /* FREE DELIVERY                                                          */
+  /* ---------------------------------------------------------------------- */
 
-  pagination: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 10,
+  freeDelivery: {
+    flex: 1.25,
+
+    minWidth: 0,
 
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
+
+    alignItems: "flex-start",
   },
 
-  paginationTop: {
-    top: 10,
-    bottom: undefined,
+  freeDeliveryTextContainer: {
+    flex: 1,
+
+    minWidth: 0,
+
+    marginLeft: 8,
   },
 
-  paginationDot: {
-    opacity: 0.95,
+  freeDeliveryTitle: {
+    fontWeight: "800",
   },
 
-  paginationActive: {
-    backgroundColor: "#FFFFFF",
-  },
+  freeDeliverySubtext: {
+    marginTop: 2,
 
-  paginationInactive: {
-    backgroundColor: "rgba(255,255,255,0.55)",
+    fontWeight: "400",
   },
 });
 
-/* ============================================================================
+/* ==========================================================================
  * EXPORTS
  * ========================================================================== */
 
@@ -1936,4 +2510,4 @@ export {
   InfoItem,
 };
 
-export default memo(UIRestaurantCard);
+export default UIRestaurantCard;
