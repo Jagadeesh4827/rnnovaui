@@ -12,7 +12,6 @@ import {
   Animated as RNAnimated,
   BackHandler,
   Dimensions,
-  KeyboardAvoidingView,
   Modal,
   PanResponder,
   Platform,
@@ -25,6 +24,7 @@ import {
 
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -41,11 +41,11 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
-function clamp(value, min, max) {
+const clamp = (value, min, max) => {
   return Math.min(Math.max(value, min), max);
-}
+};
 
-function resolveSnapPoint(point, availableHeight) {
+const resolveSnapPoint = (point, availableHeight) => {
   if (typeof point === "number") {
     if (point > 0 && point <= 1) {
       return availableHeight * point;
@@ -73,22 +73,22 @@ function resolveSnapPoint(point, availableHeight) {
   }
 
   return availableHeight;
-}
+};
 
-function normalizeSnapPoints(snapPoints, availableHeight) {
+const normalizeSnapPoints = (snapPoints, availableHeight) => {
   const source =
-    Array.isArray(snapPoints) && snapPoints.length
+    Array.isArray(snapPoints) && snapPoints.length > 0
       ? snapPoints
       : [availableHeight];
 
-  const values = source
+  const result = source
     .map((point) => resolveSnapPoint(point, availableHeight))
     .filter((point) => Number.isFinite(point) && point > 0)
     .map((point) => clamp(point, 1, availableHeight))
     .sort((a, b) => a - b);
 
-  return values.length ? values : [availableHeight];
-}
+  return result.length ? result : [availableHeight];
+};
 
 /* -------------------------------------------------------------------------- */
 /* Handle                                                                     */
@@ -103,19 +103,19 @@ export function BottomSheetHandle({
 }) {
   const { theme } = useUITheme();
 
-  const resolvedColor =
+  const backgroundColor =
     color ?? theme?.colors?.borderStrong ?? theme?.colors?.border ?? "#CCCCCC";
 
   return (
     <View
       pointerEvents="none"
       style={[
-        styles.handle,
+        bottomSheetStyles.handle,
         {
           width,
           height,
           borderRadius,
-          backgroundColor: resolvedColor,
+          backgroundColor,
         },
         style,
       ]}
@@ -145,6 +145,7 @@ export function BottomSheetBackdrop({
       onPress={onPress}
       style={[
         StyleSheet.absoluteFillObject,
+        bottomSheetStyles.backdrop,
         {
           backgroundColor: color,
           opacity,
@@ -178,9 +179,7 @@ export function UIBottomSheetIcon({ name, size = 24, color, style }) {
 
 const UIBottomSheet = forwardRef(function UIBottomSheet(
   {
-    /* -------------------------------------------------------------------- */
-    /* Visibility                                                           */
-    /* -------------------------------------------------------------------- */
+    /* Visibility */
 
     visible,
     defaultVisible = false,
@@ -188,9 +187,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
     onOpen,
     onClose,
 
-    /* -------------------------------------------------------------------- */
-    /* Height                                                                */
-    /* -------------------------------------------------------------------- */
+    /* Snap */
 
     snapPoints = ["50%"],
     initialSnapIndex = 0,
@@ -199,17 +196,13 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
     minHeight = 120,
     maxHeight,
 
-    /* -------------------------------------------------------------------- */
-    /* Width                                                                 */
-    /* -------------------------------------------------------------------- */
+    /* Width */
 
     width = "100%",
     marginHorizontal = 0,
     marginBottom = 0,
 
-    /* -------------------------------------------------------------------- */
-    /* Padding                                                               */
-    /* -------------------------------------------------------------------- */
+    /* Padding */
 
     padding = 0,
     paddingHorizontal,
@@ -219,9 +212,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
     paddingLeft,
     paddingRight,
 
-    /* -------------------------------------------------------------------- */
-    /* Appearance                                                            */
-    /* -------------------------------------------------------------------- */
+    /* Appearance */
 
     backgroundColor,
     borderRadius,
@@ -234,18 +225,14 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
     style,
     contentStyle,
 
-    /* -------------------------------------------------------------------- */
-    /* Backdrop                                                              */
-    /* -------------------------------------------------------------------- */
+    /* Backdrop */
 
     showBackdrop = true,
     backdropOpacity = 0.5,
     backdropColor = "#000000",
     closeOnBackdropPress = true,
 
-    /* -------------------------------------------------------------------- */
-    /* Handle                                                                */
-    /* -------------------------------------------------------------------- */
+    /* Handle */
 
     showHandle = true,
     handleWidth = 40,
@@ -253,9 +240,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
     handleColor,
     handleStyle,
 
-    /* -------------------------------------------------------------------- */
-    /* Header                                                                */
-    /* -------------------------------------------------------------------- */
+    /* Header */
 
     header,
     title,
@@ -269,58 +254,43 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
     onClosePress,
     headerStyle,
 
-    /* -------------------------------------------------------------------- */
-    /* Footer                                                                */
-    /* -------------------------------------------------------------------- */
+    /* Footer */
 
     footer,
 
-    /* -------------------------------------------------------------------- */
-    /* Content                                                               */
-    /* -------------------------------------------------------------------- */
+    /* Content */
 
     children,
-
     scrollable = true,
+
     keyboardShouldPersistTaps = "handled",
 
     contentContainerStyle,
 
     showsVerticalScrollIndicator = false,
 
-    /* -------------------------------------------------------------------- */
-    /* Safe Area                                                             */
-    /* -------------------------------------------------------------------- */
+    /* Safe Area */
 
     safeArea = true,
 
-    /* -------------------------------------------------------------------- */
-    /* Animation                                                             */
-    /* -------------------------------------------------------------------- */
+    /* Animation */
 
     reanimated = true,
-
     animationDuration = 280,
 
     springConfig,
 
-    /* -------------------------------------------------------------------- */
-    /* Drag                                                                  */
-    /* -------------------------------------------------------------------- */
+    /* Drag */
 
     draggable = true,
     closeOnDragDown = true,
     dragThreshold = 120,
 
-    /* -------------------------------------------------------------------- */
-    /* Android                                                               */
-    /* -------------------------------------------------------------------- */
+    /* Android */
 
     enableBackHandler = true,
 
-    /* -------------------------------------------------------------------- */
-    /* Misc                                                                  */
-    /* -------------------------------------------------------------------- */
+    /* Misc */
 
     modalProps,
     testID,
@@ -333,17 +303,17 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   const colors = theme?.colors ?? {};
   const radius = theme?.radius ?? {};
   const shadows = theme?.shadows ?? {};
-  const animation = theme?.animation ?? {};
+  const themeAnimation = theme?.animation ?? {};
 
   /* ---------------------------------------------------------------------- */
   /* Visibility                                                             */
   /* ---------------------------------------------------------------------- */
 
-  const isControlled = visible !== undefined;
+  const controlled = visible !== undefined;
 
   const [internalVisible, setInternalVisible] = useState(defaultVisible);
 
-  const isVisible = isControlled ? visible : internalVisible;
+  const isVisible = controlled ? visible : internalVisible;
 
   const [modalVisible, setModalVisible] = useState(isVisible);
 
@@ -351,22 +321,22 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   const previousVisibleRef = useRef(isVisible);
 
   /* ---------------------------------------------------------------------- */
-  /* Height                                                                 */
+  /* Sheet height                                                           */
   /* ---------------------------------------------------------------------- */
 
   const availableHeight = useMemo(() => {
-    let value =
+    let result =
       typeof height === "number" && height > 0 ? height : SCREEN_HEIGHT;
 
     if (typeof maxHeight === "number") {
-      value = Math.min(value, maxHeight);
+      result = Math.min(result, maxHeight);
     }
 
     if (typeof minHeight === "number") {
-      value = Math.max(value, minHeight);
+      result = Math.max(result, minHeight);
     }
 
-    return value;
+    return result;
   }, [height, minHeight, maxHeight]);
 
   /* ---------------------------------------------------------------------- */
@@ -378,16 +348,16 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
     [snapPoints, availableHeight],
   );
 
-  const safeInitialSnapIndex = clamp(
+  const safeInitialIndex = clamp(
     initialSnapIndex,
     0,
     Math.max(resolvedSnapPoints.length - 1, 0),
   );
 
-  const currentSnapIndexRef = useRef(safeInitialSnapIndex);
+  const currentSnapIndex = useRef(safeInitialIndex);
 
-  const currentSnapHeightRef = useRef(
-    resolvedSnapPoints[safeInitialSnapIndex] ?? availableHeight,
+  const currentSnapHeight = useRef(
+    resolvedSnapPoints[safeInitialIndex] ?? availableHeight,
   );
 
   /* ---------------------------------------------------------------------- */
@@ -407,13 +377,13 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   const backdropProgress = useSharedValue(0);
 
   /* ---------------------------------------------------------------------- */
-  /* Theme values                                                           */
+  /* Theme                                                                  */
   /* ---------------------------------------------------------------------- */
 
-  const resolvedBackgroundColor =
+  const resolvedBackground =
     backgroundColor ?? colors.card ?? colors.surface ?? "#FFFFFF";
 
-  const resolvedBorderColor = borderColor ?? colors.border ?? "#E5E5E5";
+  const resolvedBorder = borderColor ?? colors.border ?? "#E5E5E5";
 
   const resolvedRadius = borderRadius ?? radius.xl ?? 18;
 
@@ -425,9 +395,9 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   /* Visibility callback                                                    */
   /* ---------------------------------------------------------------------- */
 
-  const changeVisibility = useCallback(
+  const setVisibility = useCallback(
     (nextVisible) => {
-      if (!isControlled) {
+      if (!controlled) {
         setInternalVisible(nextVisible);
       }
 
@@ -435,14 +405,14 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
         onVisibleChange(nextVisible);
       }
     },
-    [isControlled, onVisibleChange],
+    [controlled, onVisibleChange],
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Native OPEN                                                            */
+  /* Native open                                                            */
   /* ---------------------------------------------------------------------- */
 
-  const nativeOpen = useCallback(
+  const animateNativeOpen = useCallback(
     (targetHeight) => {
       const targetTranslate = availableHeight - targetHeight;
 
@@ -453,7 +423,6 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
       RNAnimated.parallel([
         RNAnimated.spring(nativeTranslateY, {
           toValue: targetTranslate,
-
           useNativeDriver: true,
 
           damping: springConfig?.damping ?? 18,
@@ -480,25 +449,21 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Native CLOSE                                                           */
+  /* Native close                                                           */
   /* ---------------------------------------------------------------------- */
 
-  const nativeClose = useCallback(
+  const animateNativeClose = useCallback(
     (callback) => {
       RNAnimated.parallel([
         RNAnimated.timing(nativeTranslateY, {
           toValue: SCREEN_HEIGHT,
-
           duration: animationDuration,
-
           useNativeDriver: true,
         }),
 
         RNAnimated.timing(nativeBackdropOpacity, {
           toValue: 0,
-
           duration: animationDuration,
-
           useNativeDriver: true,
         }),
       ]).start(({ finished }) => {
@@ -511,20 +476,20 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Reanimated OPEN                                                        */
+  /* Reanimated open                                                        */
   /* ---------------------------------------------------------------------- */
 
-  const reanimatedOpen = useCallback(
+  const animateReanimatedOpen = useCallback(
     (targetHeight) => {
       const targetTranslate = availableHeight - targetHeight;
 
       translateY.value = withSpring(targetTranslate, {
-        damping: springConfig?.damping ?? animation?.spring?.damping ?? 18,
+        damping: springConfig?.damping ?? themeAnimation?.spring?.damping ?? 18,
 
         stiffness:
-          springConfig?.stiffness ?? animation?.spring?.stiffness ?? 180,
+          springConfig?.stiffness ?? themeAnimation?.spring?.stiffness ?? 180,
 
-        mass: springConfig?.mass ?? animation?.spring?.mass ?? 0.8,
+        mass: springConfig?.mass ?? themeAnimation?.spring?.mass ?? 0.8,
       });
 
       backdropProgress.value = withTiming(1, {
@@ -536,13 +501,13 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
       translateY,
       backdropProgress,
       springConfig,
-      animation,
+      themeAnimation,
       animationDuration,
     ],
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Complete close                                                         */
+  /* Finish close                                                           */
   /* ---------------------------------------------------------------------- */
 
   const finishClose = useCallback(() => {
@@ -554,10 +519,10 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   }, [onClose]);
 
   /* ---------------------------------------------------------------------- */
-  /* Reanimated CLOSE                                                       */
+  /* Reanimated close                                                       */
   /* ---------------------------------------------------------------------- */
 
-  const reanimatedClose = useCallback(() => {
+  const animateReanimatedClose = useCallback(() => {
     translateY.value = withTiming(
       SCREEN_HEIGHT,
       {
@@ -576,7 +541,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   }, [translateY, backdropProgress, animationDuration, finishClose]);
 
   /* ---------------------------------------------------------------------- */
-  /* Animate OPEN                                                           */
+  /* Animate open                                                           */
   /* ---------------------------------------------------------------------- */
 
   const animateOpen = useCallback(
@@ -584,79 +549,80 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
       setModalVisible(true);
 
       if (reanimated) {
-        reanimatedOpen(targetHeight);
+        animateReanimatedOpen(targetHeight);
       } else {
-        nativeOpen(targetHeight);
+        animateNativeOpen(targetHeight);
       }
     },
-    [reanimated, reanimatedOpen, nativeOpen],
+    [reanimated, animateReanimatedOpen, animateNativeOpen],
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Animate CLOSE                                                          */
+  /* Animate close                                                          */
   /* ---------------------------------------------------------------------- */
 
   const animateClose = useCallback(() => {
     if (reanimated) {
-      reanimatedClose();
+      animateReanimatedClose();
     } else {
-      nativeClose(finishClose);
+      animateNativeClose(finishClose);
     }
-  }, [reanimated, reanimatedClose, nativeClose, finishClose]);
+  }, [reanimated, animateReanimatedClose, animateNativeClose, finishClose]);
 
   /* ---------------------------------------------------------------------- */
-  /* OPEN                                                                    */
+  /* Open                                                                    */
   /* ---------------------------------------------------------------------- */
 
   const open = useCallback(
-    (snapIndex = currentSnapIndexRef.current) => {
-      const safeIndex = clamp(
+    (snapIndex = currentSnapIndex.current) => {
+      const index = clamp(
         snapIndex,
         0,
         Math.max(resolvedSnapPoints.length - 1, 0),
       );
 
-      const targetHeight = resolvedSnapPoints[safeIndex] ?? availableHeight;
+      const targetHeight = resolvedSnapPoints[index] ?? availableHeight;
 
-      currentSnapIndexRef.current = safeIndex;
+      currentSnapIndex.current = index;
 
-      currentSnapHeightRef.current = targetHeight;
+      currentSnapHeight.current = targetHeight;
 
-      changeVisibility(true);
+      const wasVisible = isVisible;
+
+      setVisibility(true);
 
       animateOpen(targetHeight);
 
-      if (!isVisible && typeof onOpen === "function") {
+      if (!wasVisible && typeof onOpen === "function") {
         onOpen();
       }
     },
     [
       resolvedSnapPoints,
       availableHeight,
-      changeVisibility,
-      animateOpen,
       isVisible,
+      setVisibility,
+      animateOpen,
       onOpen,
     ],
   );
 
   /* ---------------------------------------------------------------------- */
-  /* CLOSE                                                                   */
+  /* Close                                                                   */
   /* ---------------------------------------------------------------------- */
 
   const close = useCallback(() => {
     if (!modalVisible) {
-      changeVisibility(false);
+      setVisibility(false);
       return;
     }
 
-    changeVisibility(false);
-
+    setVisibility(false);
     animateClose();
-  }, [modalVisible, changeVisibility, animateClose]);
+  }, [modalVisible, setVisibility, animateClose]);
 
   /* ---------------------------------------------------------------------- */
-  /* TOGGLE                                                                  */
+  /* Toggle                                                                  */
   /* ---------------------------------------------------------------------- */
 
   const toggle = useCallback(() => {
@@ -668,25 +634,25 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   }, [isVisible, close, open]);
 
   /* ---------------------------------------------------------------------- */
-  /* SNAP                                                                    */
+  /* Snap                                                                    */
   /* ---------------------------------------------------------------------- */
 
   const snapTo = useCallback(
-    (index) => {
-      const safeIndex = clamp(
-        index,
+    (snapIndex) => {
+      const index = clamp(
+        snapIndex,
         0,
         Math.max(resolvedSnapPoints.length - 1, 0),
       );
 
-      const targetHeight = resolvedSnapPoints[safeIndex] ?? availableHeight;
+      const targetHeight = resolvedSnapPoints[index] ?? availableHeight;
 
-      currentSnapIndexRef.current = safeIndex;
+      currentSnapIndex.current = index;
 
-      currentSnapHeightRef.current = targetHeight;
+      currentSnapHeight.current = targetHeight;
 
       if (!isVisible) {
-        open(safeIndex);
+        open(index);
         return;
       }
 
@@ -694,17 +660,15 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
 
       if (reanimated) {
         translateY.value = withSpring(targetTranslate, {
-          damping: springConfig?.damping ?? animation?.spring?.damping ?? 18,
+          damping: springConfig?.damping ?? 18,
 
-          stiffness:
-            springConfig?.stiffness ?? animation?.spring?.stiffness ?? 180,
+          stiffness: springConfig?.stiffness ?? 180,
 
-          mass: springConfig?.mass ?? animation?.spring?.mass ?? 0.8,
+          mass: springConfig?.mass ?? 0.8,
         });
       } else {
         RNAnimated.spring(nativeTranslateY, {
           toValue: targetTranslate,
-
           useNativeDriver: true,
 
           damping: springConfig?.damping ?? 18,
@@ -724,21 +688,16 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
       translateY,
       nativeTranslateY,
       springConfig,
-      animation,
     ],
   );
 
   /* ---------------------------------------------------------------------- */
-  /* EXPAND                                                                 */
+  /* Expand / collapse                                                      */
   /* ---------------------------------------------------------------------- */
 
   const expand = useCallback(() => {
     snapTo(resolvedSnapPoints.length - 1);
   }, [snapTo, resolvedSnapPoints.length]);
-
-  /* ---------------------------------------------------------------------- */
-  /* COLLAPSE                                                               */
-  /* ---------------------------------------------------------------------- */
 
   const collapse = useCallback(() => {
     snapTo(0);
@@ -757,13 +716,14 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
       snapTo,
       expand,
       collapse,
-      getSnapIndex: () => currentSnapIndexRef.current,
+
+      getSnapIndex: () => currentSnapIndex.current,
     }),
     [open, close, toggle, snapTo, expand, collapse],
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Controlled visible                                                      */
+  /* Controlled visibility                                                  */
   /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
@@ -771,9 +731,6 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
 
     previousVisibleRef.current = isVisible;
 
-    /*
-     * First render.
-     */
     if (!mountedRef.current) {
       mountedRef.current = true;
 
@@ -781,11 +738,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
         setModalVisible(true);
 
         const timer = setTimeout(() => {
-          animateOpen(currentSnapHeightRef.current);
-
-          if (typeof onOpen === "function") {
-            onOpen();
-          }
+          animateOpen(currentSnapHeight.current);
         }, 20);
 
         return () => clearTimeout(timer);
@@ -794,32 +747,26 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
       return undefined;
     }
 
-    /*
-     * false -> true
-     */
+    /* false -> true */
+
     if (isVisible && !previous) {
       setModalVisible(true);
 
       const timer = setTimeout(() => {
-        animateOpen(currentSnapHeightRef.current);
-
-        if (typeof onOpen === "function") {
-          onOpen();
-        }
+        animateOpen(currentSnapHeight.current);
       }, 20);
 
       return () => clearTimeout(timer);
     }
 
-    /*
-     * true -> false
-     */
+    /* true -> false */
+
     if (!isVisible && previous) {
       animateClose();
     }
 
     return undefined;
-  }, [isVisible, animateOpen, animateClose, onOpen]);
+  }, [isVisible, animateOpen, animateClose]);
 
   /* ---------------------------------------------------------------------- */
   /* Android back                                                           */
@@ -845,7 +792,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   /* Drag                                                                    */
   /* ---------------------------------------------------------------------- */
 
-  const dragStartRef = useRef(0);
+  const dragStart = useRef(0);
 
   const panResponder = useMemo(() => {
     if (!draggable) {
@@ -859,18 +806,16 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
 
       onPanResponderGrant: () => {
         if (reanimated) {
-          dragStartRef.current = translateY.value;
+          dragStart.current = translateY.value;
         } else {
           nativeTranslateY.stopAnimation((value) => {
-            dragStartRef.current = value;
+            dragStart.current = value;
           });
         }
       },
 
       onPanResponderMove: (_, gesture) => {
-        const next = dragStartRef.current + gesture.dy;
-
-        const value = clamp(next, 0, SCREEN_HEIGHT);
+        const value = clamp(dragStart.current + gesture.dy, 0, SCREEN_HEIGHT);
 
         if (reanimated) {
           translateY.value = value;
@@ -887,7 +832,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
 
         const current = reanimated
           ? translateY.value
-          : dragStartRef.current + gesture.dy;
+          : dragStart.current + gesture.dy;
 
         let nearestIndex = 0;
         let nearestDistance = Infinity;
@@ -907,7 +852,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
       },
 
       onPanResponderTerminate: () => {
-        snapTo(currentSnapIndexRef.current);
+        snapTo(currentSnapIndex.current);
       },
     });
   }, [
@@ -924,10 +869,10 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   ]);
 
   /* ---------------------------------------------------------------------- */
-  /* Animated styles                                                        */
+  /* Reanimated styles                                                      */
   /* ---------------------------------------------------------------------- */
 
-  const reanimatedSheetStyle = useAnimatedStyle(() => ({
+  const animatedSheetStyle = useAnimatedStyle(() => ({
     transform: [
       {
         translateY: translateY.value,
@@ -935,7 +880,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
     ],
   }));
 
-  const reanimatedBackdropStyle = useAnimatedStyle(() => ({
+  const animatedBackdropStyle = useAnimatedStyle(() => ({
     opacity: backdropProgress.value,
   }));
 
@@ -943,39 +888,39 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   /* Padding                                                                */
   /* ---------------------------------------------------------------------- */
 
-  const finalPaddingHorizontal = paddingHorizontal ?? padding;
+  const finalHorizontal = paddingHorizontal ?? padding;
 
-  const finalPaddingVertical = paddingVertical ?? padding;
+  const finalVertical = paddingVertical ?? padding;
 
-  const finalPaddingTop = paddingTop ?? finalPaddingVertical;
+  const finalTop = paddingTop ?? finalVertical;
 
-  const finalPaddingBottom = paddingBottom ?? finalPaddingVertical;
+  const finalBottom = paddingBottom ?? finalVertical;
 
-  const finalPaddingLeft = paddingLeft ?? finalPaddingHorizontal;
+  const finalLeft = paddingLeft ?? finalHorizontal;
 
-  const finalPaddingRight = paddingRight ?? finalPaddingHorizontal;
+  const finalRight = paddingRight ?? finalHorizontal;
 
   /* ---------------------------------------------------------------------- */
   /* Sheet style                                                            */
   /* ---------------------------------------------------------------------- */
 
-  const sheetHeight = clamp(
+  const finalSheetHeight = clamp(
     availableHeight,
     minHeight,
     maxHeight ?? availableHeight,
   );
 
   const sheetStyle = [
-    styles.sheet,
+    bottomSheetStyles.sheet,
 
     {
       width,
-      height: sheetHeight,
+      height: finalSheetHeight,
 
       marginHorizontal,
       marginBottom,
 
-      backgroundColor: resolvedBackgroundColor,
+      backgroundColor: resolvedBackground,
 
       borderRadius: resolvedRadius,
 
@@ -984,15 +929,16 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
       borderTopRightRadius: borderTopRightRadius ?? resolvedRadius,
 
       borderWidth,
-      borderColor: resolvedBorderColor,
 
-      paddingTop: finalPaddingTop,
+      borderColor: resolvedBorder,
 
-      paddingBottom: finalPaddingBottom + (safeArea ? insets.bottom : 0),
+      paddingTop: finalTop,
 
-      paddingLeft: finalPaddingLeft,
+      paddingBottom: finalBottom + (safeArea ? insets.bottom : 0),
 
-      paddingRight: finalPaddingRight,
+      paddingLeft: finalLeft,
+
+      paddingRight: finalRight,
 
       ...(shadows?.md ?? {}),
     },
@@ -1006,7 +952,9 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
 
   const renderHeader = () => {
     if (header) {
-      return <View style={[styles.header, headerStyle]}>{header}</View>;
+      return (
+        <View style={[bottomSheetStyles.header, headerStyle]}>{header}</View>
+      );
     }
 
     if (!title && !showClose) {
@@ -1014,12 +962,12 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
     }
 
     return (
-      <View style={[styles.header, headerStyle]}>
-        <View style={styles.headerTitle}>
+      <View style={[bottomSheetStyles.header, headerStyle]}>
+        <View style={bottomSheetStyles.headerTitle}>
           {typeof title === "string" ? (
             <Text
               style={[
-                styles.title,
+                bottomSheetStyles.title,
                 {
                   color: resolvedTextColor,
                 },
@@ -1045,7 +993,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
                 close();
               }
             }}
-            style={styles.closeButton}
+            style={bottomSheetStyles.closeButton}
           >
             <Ionicons
               name={closeIcon}
@@ -1059,13 +1007,13 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   };
 
   /* ---------------------------------------------------------------------- */
-  /* Content                                                                */
+  /* Sheet content                                                          */
   /* ---------------------------------------------------------------------- */
 
   const sheetContent = (
     <>
       {showHandle ? (
-        <View style={styles.handleContainer}>
+        <View style={bottomSheetStyles.handleContainer}>
           <BottomSheetHandle
             width={handleWidth}
             height={handleHeight}
@@ -1079,9 +1027,9 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
 
       {scrollable ? (
         <ScrollView
-          style={styles.scrollView}
+          style={bottomSheetStyles.scrollView}
           contentContainerStyle={[
-            styles.scrollContent,
+            bottomSheetStyles.scrollContent,
             contentContainerStyle,
             contentStyle,
           ]}
@@ -1093,18 +1041,22 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
         </ScrollView>
       ) : (
         <View
-          style={[styles.nonScrollContent, contentContainerStyle, contentStyle]}
+          style={[
+            bottomSheetStyles.nonScrollContent,
+            contentContainerStyle,
+            contentStyle,
+          ]}
         >
           {children}
         </View>
       )}
 
-      {footer ? <View style={styles.footer}>{footer}</View> : null}
+      {footer ? <View style={bottomSheetStyles.footer}>{footer}</View> : null}
     </>
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Backdrop press                                                         */
+  /* Backdrop                                                               */
   /* ---------------------------------------------------------------------- */
 
   const handleBackdropPress = () => {
@@ -1114,7 +1066,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   };
 
   /* ---------------------------------------------------------------------- */
-  /* Do not render Modal when closed                                        */
+  /* Closed                                                                  */
   /* ---------------------------------------------------------------------- */
 
   if (!modalVisible) {
@@ -1122,7 +1074,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Render                                                                 */
+  /* Render                                                                  */
   /* ---------------------------------------------------------------------- */
 
   return (
@@ -1134,16 +1086,16 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
       onRequestClose={close}
       {...modalProps}
     >
-      <View testID={testID} style={styles.modalRoot}>
+      <View testID={testID} style={bottomSheetStyles.modalRoot}>
         {showBackdrop ? (
           reanimated ? (
             <Animated.View
               style={[
-                styles.backdrop,
+                bottomSheetStyles.backdrop,
                 {
                   backgroundColor: backdropColor,
                 },
-                reanimatedBackdropStyle,
+                animatedBackdropStyle,
               ]}
             >
               <Pressable
@@ -1154,7 +1106,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
           ) : (
             <RNAnimated.View
               style={[
-                styles.backdrop,
+                bottomSheetStyles.backdrop,
                 {
                   backgroundColor: backdropColor,
                   opacity: nativeBackdropOpacity,
@@ -1172,12 +1124,12 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
         <KeyboardAvoidingView
           pointerEvents="box-none"
           behavior={Platform.OS === "ios" ? "padding" : undefined}
-          style={styles.keyboardContainer}
+          style={bottomSheetStyles.keyboardContainer}
         >
           {reanimated ? (
             <Animated.View
               {...(panResponder ? panResponder.panHandlers : {})}
-              style={[sheetStyle, reanimatedSheetStyle]}
+              style={[sheetStyle, animatedSheetStyle]}
             >
               {sheetContent}
             </Animated.View>
@@ -1206,6 +1158,91 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
 
 UIBottomSheet.displayName = "UIBottomSheet";
 
-export default UIBottomSheet;
+/* -------------------------------------------------------------------------- */
+/* Styles                                                                     */
+/* -------------------------------------------------------------------------- */
+
+const bottomSheetStyles = StyleSheet.create({
+  modalRoot: {
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+
+  keyboardContainer: {
+    width: "100%",
+    justifyContent: "flex-end",
+    alignItems: "center",
+  },
+
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+
+  sheet: {
+    overflow: "hidden",
+    maxWidth: "100%",
+  },
+
+  handleContainer: {
+    width: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+  },
+
+  handle: {
+    alignSelf: "center",
+  },
+
+  header: {
+    width: "100%",
+    minHeight: 50,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+
+  headerTitle: {
+    flex: 1,
+    justifyContent: "center",
+  },
+
+  title: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "700",
+  },
+
+  closeButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  scrollView: {
+    flex: 1,
+    width: "100%",
+  },
+
+  scrollContent: {
+    flexGrow: 1,
+  },
+
+  nonScrollContent: {
+    flex: 1,
+    width: "100%",
+  },
+
+  footer: {
+    width: "100%",
+  },
+});
+
+/* -------------------------------------------------------------------------- */
+/* Exports                                                                    */
+/* -------------------------------------------------------------------------- */
 
 export { UIBottomSheet };
+
+export default UIBottomSheet;

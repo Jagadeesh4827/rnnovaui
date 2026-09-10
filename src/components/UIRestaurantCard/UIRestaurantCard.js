@@ -702,7 +702,7 @@ function UIRestaurantCard({
   discountIcon = "pricetag",
   discountFontSize = 14,
   discountLineHeight,
-
+  discountIconSize = 14,
   discountColor = "#FFFFFF",
   discountBackgroundColor = "#E53935",
 
@@ -1189,7 +1189,7 @@ function UIRestaurantCard({
         >
           <RenderIcon
             icon={discountIcon}
-            size={15 * iconScale}
+            size={discountIconSize}
             color={discountColor}
           />
 
