@@ -216,9 +216,7 @@ function RestaurantImageCarousel({
           {
             width: resolvedWidth,
             height,
-            // borderRadius,
-            borderTopLeftRadius: 18,
-            borderTopRightRadius: 18,
+            borderRadius,
           },
           style,
         ]}
@@ -239,7 +237,9 @@ function RestaurantImageCarousel({
           {
             width: "100%",
             height,
-            borderRadius,
+            // borderRadius,
+            borderTopLeftRadius: 18,
+            borderTopRightRadius: 18,
           },
           style,
         ]}
@@ -250,7 +250,9 @@ function RestaurantImageCarousel({
           style={[
             styles.restaurantImage,
             {
-              borderRadius,
+              //   borderRadius,
+              borderTopLeftRadius: 18,
+              borderTopRightRadius: 18,
             },
             imageStyle,
           ]}
@@ -271,7 +273,9 @@ function RestaurantImageCarousel({
         {
           width: "100%",
           height,
-          borderRadius,
+          //   borderRadius,
+          borderTopLeftRadius: 18,
+          borderTopRightRadius: 18,
         },
         style,
       ]}
@@ -311,7 +315,9 @@ function RestaurantImageCarousel({
               {
                 width: resolvedWidth,
                 height,
-                borderRadius,
+                // borderRadius,
+                borderTopLeftRadius: 18,
+                borderTopRightRadius: 18,
               },
               imageStyle,
             ]}

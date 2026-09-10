@@ -156,4 +156,8 @@ export {
   UICategoryItem,
   UICategorySizeConfig,
   UIRestaurantCard,
+  UIBottomSheet,
+  BottomSheetHandle,
+  BottomSheetBackdrop,
+  UIBottomSheetIcon,
 } from "./components";

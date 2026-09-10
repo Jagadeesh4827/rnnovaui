@@ -165,3 +165,9 @@ export {
   CuisineTags,
   InfoItem,
 } from "./UIRestaurantCard";
+export {
+  default as UIBottomSheet,
+  BottomSheetHandle,
+  BottomSheetBackdrop,
+  UIBottomSheetIcon,
+} from "./UIBottomSheet";
