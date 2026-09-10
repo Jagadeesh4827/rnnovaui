@@ -216,7 +216,9 @@ function RestaurantImageCarousel({
           {
             width: resolvedWidth,
             height,
-            borderRadius,
+            // borderRadius,
+            borderTopLeftRadius: 18,
+            borderTopRightRadius: 18,
           },
           style,
         ]}
