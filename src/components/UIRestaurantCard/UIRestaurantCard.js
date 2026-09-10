@@ -25,7 +25,7 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 
-import { useUITheme } from "../../UIProvider";
+import { useUITheme } from "../../theme";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
