@@ -12,6 +12,7 @@ import {
   Animated as RNAnimated,
   BackHandler,
   Dimensions,
+  KeyboardAvoidingView,
   Modal,
   PanResponder,
   Platform,
@@ -41,9 +42,7 @@ const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
-const clamp = (value, min, max) => {
-  return Math.min(Math.max(value, min), max);
-};
+const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
 const resolveSnapPoint = (point, availableHeight) => {
   if (typeof point === "number") {
@@ -269,7 +268,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
 
     showsVerticalScrollIndicator = false,
 
-    /* Safe Area */
+    /* Safe area */
 
     safeArea = true,
 
@@ -298,11 +297,15 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   ref,
 ) {
   const { theme } = useUITheme();
+
   const insets = useSafeAreaInsets();
 
   const colors = theme?.colors ?? {};
+
   const radius = theme?.radius ?? {};
+
   const shadows = theme?.shadows ?? {};
+
   const themeAnimation = theme?.animation ?? {};
 
   /* ---------------------------------------------------------------------- */
@@ -318,10 +321,11 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   const [modalVisible, setModalVisible] = useState(isVisible);
 
   const mountedRef = useRef(false);
+
   const previousVisibleRef = useRef(isVisible);
 
   /* ---------------------------------------------------------------------- */
-  /* Sheet height                                                           */
+  /* Height                                                                 */
   /* ---------------------------------------------------------------------- */
 
   const availableHeight = useMemo(() => {
@@ -377,7 +381,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   const backdropProgress = useSharedValue(0);
 
   /* ---------------------------------------------------------------------- */
-  /* Theme                                                                  */
+  /* Colors                                                                 */
   /* ---------------------------------------------------------------------- */
 
   const resolvedBackground =
@@ -392,7 +396,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   const resolvedCloseColor = closeIconColor ?? colors.text ?? "#111111";
 
   /* ---------------------------------------------------------------------- */
-  /* Visibility callback                                                    */
+  /* Visibility                                                             */
   /* ---------------------------------------------------------------------- */
 
   const setVisibility = useCallback(
@@ -409,7 +413,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Native open                                                            */
+  /* Native OPEN                                                            */
   /* ---------------------------------------------------------------------- */
 
   const animateNativeOpen = useCallback(
@@ -423,6 +427,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
       RNAnimated.parallel([
         RNAnimated.spring(nativeTranslateY, {
           toValue: targetTranslate,
+
           useNativeDriver: true,
 
           damping: springConfig?.damping ?? 18,
@@ -434,7 +439,9 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
 
         RNAnimated.timing(nativeBackdropOpacity, {
           toValue: 1,
+
           duration: animationDuration,
+
           useNativeDriver: true,
         }),
       ]).start();
@@ -449,34 +456,43 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Native close                                                           */
+  /* Native CLOSE                                                           */
   /* ---------------------------------------------------------------------- */
 
-  const animateNativeClose = useCallback(
-    (callback) => {
-      RNAnimated.parallel([
-        RNAnimated.timing(nativeTranslateY, {
-          toValue: SCREEN_HEIGHT,
-          duration: animationDuration,
-          useNativeDriver: true,
-        }),
+  const finishClose = useCallback(() => {
+    setModalVisible(false);
 
-        RNAnimated.timing(nativeBackdropOpacity, {
-          toValue: 0,
-          duration: animationDuration,
-          useNativeDriver: true,
-        }),
-      ]).start(({ finished }) => {
-        if (finished && typeof callback === "function") {
-          callback();
-        }
-      });
-    },
-    [nativeTranslateY, nativeBackdropOpacity, animationDuration],
-  );
+    if (typeof onClose === "function") {
+      onClose();
+    }
+  }, [onClose]);
+
+  const animateNativeClose = useCallback(() => {
+    RNAnimated.parallel([
+      RNAnimated.timing(nativeTranslateY, {
+        toValue: SCREEN_HEIGHT,
+
+        duration: animationDuration,
+
+        useNativeDriver: true,
+      }),
+
+      RNAnimated.timing(nativeBackdropOpacity, {
+        toValue: 0,
+
+        duration: animationDuration,
+
+        useNativeDriver: true,
+      }),
+    ]).start(({ finished }) => {
+      if (finished) {
+        finishClose();
+      }
+    });
+  }, [nativeTranslateY, nativeBackdropOpacity, animationDuration, finishClose]);
 
   /* ---------------------------------------------------------------------- */
-  /* Reanimated open                                                        */
+  /* Reanimated OPEN                                                        */
   /* ---------------------------------------------------------------------- */
 
   const animateReanimatedOpen = useCallback(
@@ -507,19 +523,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Finish close                                                           */
-  /* ---------------------------------------------------------------------- */
-
-  const finishClose = useCallback(() => {
-    setModalVisible(false);
-
-    if (typeof onClose === "function") {
-      onClose();
-    }
-  }, [onClose]);
-
-  /* ---------------------------------------------------------------------- */
-  /* Reanimated close                                                       */
+  /* Reanimated CLOSE                                                       */
   /* ---------------------------------------------------------------------- */
 
   const animateReanimatedClose = useCallback(() => {
@@ -541,7 +545,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   }, [translateY, backdropProgress, animationDuration, finishClose]);
 
   /* ---------------------------------------------------------------------- */
-  /* Animate open                                                           */
+  /* Open animation                                                         */
   /* ---------------------------------------------------------------------- */
 
   const animateOpen = useCallback(
@@ -558,19 +562,19 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Animate close                                                          */
+  /* Close animation                                                        */
   /* ---------------------------------------------------------------------- */
 
   const animateClose = useCallback(() => {
     if (reanimated) {
       animateReanimatedClose();
     } else {
-      animateNativeClose(finishClose);
+      animateNativeClose();
     }
-  }, [reanimated, animateReanimatedClose, animateNativeClose, finishClose]);
+  }, [reanimated, animateReanimatedClose, animateNativeClose]);
 
   /* ---------------------------------------------------------------------- */
-  /* Open                                                                    */
+  /* Public OPEN                                                            */
   /* ---------------------------------------------------------------------- */
 
   const open = useCallback(
@@ -608,7 +612,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Close                                                                   */
+  /* Public CLOSE                                                           */
   /* ---------------------------------------------------------------------- */
 
   const close = useCallback(() => {
@@ -669,6 +673,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
       } else {
         RNAnimated.spring(nativeTranslateY, {
           toValue: targetTranslate,
+
           useNativeDriver: true,
 
           damping: springConfig?.damping ?? 18,
@@ -692,7 +697,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Expand / collapse                                                      */
+  /* Expand / Collapse                                                      */
   /* ---------------------------------------------------------------------- */
 
   const expand = useCallback(() => {
@@ -704,7 +709,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   }, [snapTo]);
 
   /* ---------------------------------------------------------------------- */
-  /* Imperative API                                                         */
+  /* Ref API                                                                */
   /* ---------------------------------------------------------------------- */
 
   useImperativeHandle(
@@ -723,7 +728,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Controlled visibility                                                  */
+  /* Controlled state                                                       */
   /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
@@ -747,8 +752,6 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
       return undefined;
     }
 
-    /* false -> true */
-
     if (isVisible && !previous) {
       setModalVisible(true);
 
@@ -759,8 +762,6 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
       return () => clearTimeout(timer);
     }
 
-    /* true -> false */
-
     if (!isVisible && previous) {
       animateClose();
     }
@@ -769,7 +770,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   }, [isVisible, animateOpen, animateClose]);
 
   /* ---------------------------------------------------------------------- */
-  /* Android back                                                           */
+  /* Android Back                                                           */
   /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
@@ -844,6 +845,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
 
           if (distance < nearestDistance) {
             nearestDistance = distance;
+
             nearestIndex = index;
           }
         });
@@ -869,7 +871,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   ]);
 
   /* ---------------------------------------------------------------------- */
-  /* Reanimated styles                                                      */
+  /* Animated styles                                                        */
   /* ---------------------------------------------------------------------- */
 
   const animatedSheetStyle = useAnimatedStyle(() => ({
@@ -912,7 +914,6 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
 
   const sheetStyle = [
     bottomSheetStyles.sheet,
-
     {
       width,
       height: finalSheetHeight,
@@ -1007,7 +1008,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   };
 
   /* ---------------------------------------------------------------------- */
-  /* Sheet content                                                          */
+  /* Content                                                                */
   /* ---------------------------------------------------------------------- */
 
   const sheetContent = (
@@ -1056,7 +1057,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   );
 
   /* ---------------------------------------------------------------------- */
-  /* Backdrop                                                               */
+  /* Backdrop press                                                         */
   /* ---------------------------------------------------------------------- */
 
   const handleBackdropPress = () => {
@@ -1066,7 +1067,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   };
 
   /* ---------------------------------------------------------------------- */
-  /* Closed                                                                  */
+  /* Closed                                                                 */
   /* ---------------------------------------------------------------------- */
 
   if (!modalVisible) {
@@ -1074,7 +1075,7 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Render                                                                  */
+  /* Render                                                                 */
   /* ---------------------------------------------------------------------- */
 
   return (
@@ -1240,7 +1241,7 @@ const bottomSheetStyles = StyleSheet.create({
 });
 
 /* -------------------------------------------------------------------------- */
-/* Exports                                                                    */
+/* Export                                                                     */
 /* -------------------------------------------------------------------------- */
 
 export { UIBottomSheet };
