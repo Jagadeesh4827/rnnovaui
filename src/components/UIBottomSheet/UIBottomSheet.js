@@ -1,6 +1,5 @@
 import React, {
   forwardRef,
-  memo,
   useCallback,
   useEffect,
   useImperativeHandle,
@@ -13,18 +12,19 @@ import {
   Animated as RNAnimated,
   BackHandler,
   Dimensions,
-  Keyboard,
+  KeyboardAvoidingView,
   Modal,
   PanResponder,
   Platform,
   Pressable,
   ScrollView,
-  StatusBar,
   StyleSheet,
   Text,
   View,
 } from "react-native";
 
+import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Animated, {
   runOnJS,
   useAnimatedStyle,
@@ -33,110 +33,89 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useUITheme } from "../../theme/UIProvider";
 
-import { Ionicons } from "@expo/vector-icons";
+const { height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-import { useUITheme } from "../../theme";
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
 
-/* ============================================================================
- * CONSTANTS
- * ========================================================================== */
+function clamp(value, min, max) {
+  return Math.min(Math.max(value, min), max);
+}
 
-const DEFAULT_SNAP_POINTS = ["50%"];
+function resolveSnapPoint(point, availableHeight) {
+  if (typeof point === "number") {
+    if (point > 0 && point <= 1) {
+      return availableHeight * point;
+    }
 
-const DEFAULT_SPRING = {
-  damping: 20,
-  stiffness: 180,
-  mass: 0.8,
-};
+    return point;
+  }
 
-const SCREEN = Dimensions.get("window");
+  if (typeof point === "string") {
+    const value = point.trim();
 
-/* ============================================================================
- * HELPERS
- * ========================================================================== */
+    if (value.endsWith("%")) {
+      const percentage = parseFloat(value);
 
-function normalizeSnapPoint(point, screenHeight) {
-  if (typeof point === "string" && point.trim().endsWith("%")) {
-    const percentage = parseFloat(point);
+      if (!Number.isNaN(percentage)) {
+        return availableHeight * (percentage / 100);
+      }
+    }
 
-    if (Number.isFinite(percentage)) {
-      return Math.max(
-        0,
-        Math.min(screenHeight, screenHeight * (percentage / 100)),
-      );
+    const numeric = parseFloat(value);
+
+    if (!Number.isNaN(numeric)) {
+      return numeric;
     }
   }
 
-  if (typeof point === "number" && Number.isFinite(point)) {
-    return Math.max(0, Math.min(screenHeight, point));
-  }
-
-  return 0;
+  return availableHeight;
 }
 
-function clamp(value, min, max) {
-  return Math.max(min, Math.min(max, value));
+function normalizeSnapPoints(snapPoints, availableHeight) {
+  const source =
+    Array.isArray(snapPoints) && snapPoints.length
+      ? snapPoints
+      : [availableHeight];
+
+  const values = source
+    .map((point) => resolveSnapPoint(point, availableHeight))
+    .filter((point) => Number.isFinite(point) && point > 0)
+    .map((point) => clamp(point, 1, availableHeight))
+    .sort((a, b) => a - b);
+
+  return values.length ? values : [availableHeight];
 }
 
-/* ============================================================================
- * ICON
- * ========================================================================== */
+/* -------------------------------------------------------------------------- */
+/* Handle                                                                     */
+/* -------------------------------------------------------------------------- */
 
-function RenderIcon({ icon, size = 20, color = "#000000", style }) {
-  if (!icon) {
-    return null;
-  }
-
-  if (React.isValidElement(icon)) {
-    return React.cloneElement(icon, {
-      size,
-      color,
-      style: [icon.props?.style, style],
-    });
-  }
-
-  if (typeof icon === "string") {
-    return <Ionicons name={icon} size={size} color={color} style={style} />;
-  }
-
-  if (
-    typeof icon === "function" ||
-    (typeof icon === "object" && icon !== null)
-  ) {
-    const IconComponent = icon;
-
-    return <IconComponent size={size} color={color} style={style} />;
-  }
-
-  return null;
-}
-
-/* ============================================================================
- * HANDLE
- * ========================================================================== */
-
-function BottomSheetHandle({
+export function BottomSheetHandle({
   width = 40,
   height = 4,
-  borderRadius,
-  color = "#C8C8C8",
-  marginTop = 8,
-  marginBottom = 8,
+  color,
+  borderRadius = 999,
   style,
 }) {
+  const { theme } = useUITheme();
+
+  const resolvedColor =
+    color ?? theme?.colors?.borderStrong ?? theme?.colors?.border ?? "#CCCCCC";
+
   return (
     <View
+      pointerEvents="none"
       style={[
         styles.handle,
         {
           width,
           height,
-          borderRadius: borderRadius ?? height / 2,
-          backgroundColor: color,
-          marginTop,
-          marginBottom,
+          borderRadius,
+          backgroundColor: resolvedColor,
         },
         style,
       ]}
@@ -144,282 +123,221 @@ function BottomSheetHandle({
   );
 }
 
-/* ============================================================================
- * BACKDROP
- * ========================================================================== */
+/* -------------------------------------------------------------------------- */
+/* Backdrop                                                                   */
+/* -------------------------------------------------------------------------- */
 
-function BottomSheetBackdrop({
-  opacity = 0.45,
-  backgroundColor = "#000000",
+export function BottomSheetBackdrop({
+  visible = true,
+  opacity = 0.5,
+  color = "#000000",
   onPress,
   style,
 }) {
+  if (!visible) {
+    return null;
+  }
+
   return (
-    <View
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Close bottom sheet"
+      onPress={onPress}
       style={[
-        styles.backdrop,
+        StyleSheet.absoluteFillObject,
         {
-          backgroundColor,
+          backgroundColor: color,
           opacity,
         },
         style,
       ]}
-    >
-      <Pressable style={StyleSheet.absoluteFill} onPress={onPress} />
-    </View>
+    />
   );
 }
 
-/* ============================================================================
- * MAIN COMPONENT
- * ========================================================================== */
+/* -------------------------------------------------------------------------- */
+/* Icon                                                                       */
+/* -------------------------------------------------------------------------- */
+
+export function UIBottomSheetIcon({ name, size = 24, color, style }) {
+  const { theme } = useUITheme();
+
+  return (
+    <Ionicons
+      name={name}
+      size={size}
+      color={color ?? theme?.colors?.text ?? "#111111"}
+      style={style}
+    />
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Main Component                                                             */
+/* -------------------------------------------------------------------------- */
 
 const UIBottomSheet = forwardRef(function UIBottomSheet(
   {
-    /* ======================================================================
-     * VISIBILITY
-     * ==================================================================== */
+    /* -------------------------------------------------------------------- */
+    /* Visibility                                                           */
+    /* -------------------------------------------------------------------- */
 
     visible,
     defaultVisible = false,
     onVisibleChange,
+    onOpen,
+    onClose,
 
-    /* ======================================================================
-     * SNAP POINTS
-     * ==================================================================== */
+    /* -------------------------------------------------------------------- */
+    /* Height                                                                */
+    /* -------------------------------------------------------------------- */
 
-    snapPoints = DEFAULT_SNAP_POINTS,
+    snapPoints = ["50%"],
     initialSnapIndex = 0,
 
-    allowDrag = true,
-    allowSwipeDown = true,
-    closeOnSwipeDown = true,
-    swipeDownThreshold = 100,
-
-    /* ======================================================================
-     * DIMENSIONS
-     * ==================================================================== */
-
     height,
-    minHeight,
+    minHeight = 120,
     maxHeight,
+
+    /* -------------------------------------------------------------------- */
+    /* Width                                                                 */
+    /* -------------------------------------------------------------------- */
+
     width = "100%",
-
-    /* ======================================================================
-     * LAYOUT
-     * ==================================================================== */
-
-    margin = 0,
     marginHorizontal = 0,
     marginBottom = 0,
 
+    /* -------------------------------------------------------------------- */
+    /* Padding                                                               */
+    /* -------------------------------------------------------------------- */
+
     padding = 0,
-    paddingHorizontal = 0,
-    paddingVertical = 0,
-    paddingTop = 0,
-    paddingBottom = 0,
-    paddingLeft = 0,
-    paddingRight = 0,
+    paddingHorizontal,
+    paddingVertical,
+    paddingTop,
+    paddingBottom,
+    paddingLeft,
+    paddingRight,
 
-    /* ======================================================================
-     * SAFE AREA
-     * ==================================================================== */
-
-    safeArea = true,
-    safeAreaBottom,
-    safeAreaTop = false,
-
-    /* ======================================================================
-     * APPEARANCE
-     * ==================================================================== */
+    /* -------------------------------------------------------------------- */
+    /* Appearance                                                            */
+    /* -------------------------------------------------------------------- */
 
     backgroundColor,
     borderRadius,
-    topLeftRadius,
-    topRightRadius,
-    bottomLeftRadius,
-    bottomRightRadius,
+    borderTopLeftRadius,
+    borderTopRightRadius,
 
     borderWidth = 0,
     borderColor,
 
-    /* ======================================================================
-     * SHADOW
-     * ==================================================================== */
+    style,
+    contentStyle,
 
-    shadow = true,
-    shadowColor = "#000000",
-    shadowOpacity = 0.18,
-    shadowRadius = 12,
-    shadowOffset = {
-      width: 0,
-      height: -4,
-    },
-    elevation = 12,
-
-    /* ======================================================================
-     * BACKDROP
-     * ==================================================================== */
+    /* -------------------------------------------------------------------- */
+    /* Backdrop                                                              */
+    /* -------------------------------------------------------------------- */
 
     showBackdrop = true,
+    backdropOpacity = 0.5,
     backdropColor = "#000000",
-    backdropOpacity = 0.45,
     closeOnBackdropPress = true,
-    backdropStyle,
 
-    renderBackdrop,
-
-    /* ======================================================================
-     * HANDLE
-     * ==================================================================== */
+    /* -------------------------------------------------------------------- */
+    /* Handle                                                                */
+    /* -------------------------------------------------------------------- */
 
     showHandle = true,
     handleWidth = 40,
     handleHeight = 4,
     handleColor,
-    handleMarginTop = 8,
-    handleMarginBottom = 8,
     handleStyle,
-    renderHandle,
 
-    /* ======================================================================
-     * HEADER
-     * ==================================================================== */
+    /* -------------------------------------------------------------------- */
+    /* Header                                                                */
+    /* -------------------------------------------------------------------- */
 
-    showHeader = false,
+    header,
     title,
-
-    titleFontSize = 18,
-    titleLineHeight = 24,
-    titleColor,
-    titleFontWeight = "700",
-    titleAlign = "left",
-
-    headerHeight,
-
-    headerPadding = 16,
-    headerPaddingHorizontal,
-    headerPaddingVertical,
-    headerPaddingTop,
-    headerPaddingBottom,
-    headerPaddingLeft,
-    headerPaddingRight,
-
-    headerStyle,
     titleStyle,
-    renderHeader,
 
-    /* ======================================================================
-     * CLOSE BUTTON
-     * ==================================================================== */
-
-    showCloseButton = false,
+    showClose = false,
     closeIcon = "close",
     closeIconSize = 24,
     closeIconColor,
-    closeButtonSize = 40,
-    closeButtonBackgroundColor,
-    closeButtonBorderRadius,
-    closeButtonStyle,
-    onCloseButtonPress,
 
-    /* ======================================================================
-     * CONTENT
-     * ==================================================================== */
+    onClosePress,
+    headerStyle,
 
-    scrollable = false,
-
-    contentPadding = 0,
-    contentPaddingHorizontal = 0,
-    contentPaddingVertical = 0,
-    contentPaddingTop = 0,
-    contentPaddingBottom = 0,
-    contentPaddingLeft = 0,
-    contentPaddingRight = 0,
-
-    contentStyle,
-    contentContainerStyle,
-
-    keyboardDismissMode = "on-drag",
-    keyboardShouldPersistTaps = "handled",
-
-    /* ======================================================================
-     * FOOTER
-     * ==================================================================== */
+    /* -------------------------------------------------------------------- */
+    /* Footer                                                                */
+    /* -------------------------------------------------------------------- */
 
     footer,
-    footerHeight,
 
-    footerPadding = 16,
-    footerPaddingHorizontal,
-    footerPaddingVertical,
-    footerPaddingTop,
-    footerPaddingBottom,
-    footerPaddingLeft,
-    footerPaddingRight,
-
-    footerStyle,
-    renderFooter,
-
-    /* ======================================================================
-     * ANIMATION
-     * ==================================================================== */
-
-    reanimated = false,
-
-    animationDuration = 280,
-    closeAnimationDuration = 220,
-
-    animationSpring,
-
-    backdropAnimationDuration = 220,
-
-    /* ======================================================================
-     * STATUS BAR
-     * ==================================================================== */
-
-    statusBarTranslucent = true,
-    statusBarStyle = "light-content",
-    restoreStatusBar = true,
-
-    /* ======================================================================
-     * CALLBACKS
-     * ==================================================================== */
-
-    onOpen,
-    onClose,
-    onSnapChange,
-    onDragStart,
-    onDrag,
-    onDragEnd,
-
-    /* ======================================================================
-     * STYLE
-     * ==================================================================== */
-
-    style,
-
-    /* ======================================================================
-     * CHILDREN
-     * ==================================================================== */
+    /* -------------------------------------------------------------------- */
+    /* Content                                                               */
+    /* -------------------------------------------------------------------- */
 
     children,
+
+    scrollable = true,
+    keyboardShouldPersistTaps = "handled",
+
+    contentContainerStyle,
+
+    showsVerticalScrollIndicator = false,
+
+    /* -------------------------------------------------------------------- */
+    /* Safe Area                                                             */
+    /* -------------------------------------------------------------------- */
+
+    safeArea = true,
+
+    /* -------------------------------------------------------------------- */
+    /* Animation                                                             */
+    /* -------------------------------------------------------------------- */
+
+    reanimated = true,
+
+    animationDuration = 280,
+
+    springConfig,
+
+    /* -------------------------------------------------------------------- */
+    /* Drag                                                                  */
+    /* -------------------------------------------------------------------- */
+
+    draggable = true,
+    closeOnDragDown = true,
+    dragThreshold = 120,
+
+    /* -------------------------------------------------------------------- */
+    /* Android                                                               */
+    /* -------------------------------------------------------------------- */
+
+    enableBackHandler = true,
+
+    /* -------------------------------------------------------------------- */
+    /* Misc                                                                  */
+    /* -------------------------------------------------------------------- */
+
+    modalProps,
+    testID,
   },
   ref,
 ) {
   const { theme } = useUITheme();
-
-  const colors = theme?.colors || {};
-
-  const themeRadius = theme?.radius || {};
-
-  const themeAnimation = theme?.animation || {};
-
   const insets = useSafeAreaInsets();
 
-  /* ========================================================================
-   * CONTROLLED VISIBILITY
-   * ====================================================================== */
+  const colors = theme?.colors ?? {};
+  const radius = theme?.radius ?? {};
+  const shadows = theme?.shadows ?? {};
+  const animation = theme?.animation ?? {};
+
+  /* ---------------------------------------------------------------------- */
+  /* Visibility                                                             */
+  /* ---------------------------------------------------------------------- */
 
   const isControlled = visible !== undefined;
 
@@ -427,7 +345,87 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
 
   const isVisible = isControlled ? visible : internalVisible;
 
-  const setVisible = useCallback(
+  const [modalVisible, setModalVisible] = useState(isVisible);
+
+  const mountedRef = useRef(false);
+  const previousVisibleRef = useRef(isVisible);
+
+  /* ---------------------------------------------------------------------- */
+  /* Height                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  const availableHeight = useMemo(() => {
+    let value =
+      typeof height === "number" && height > 0 ? height : SCREEN_HEIGHT;
+
+    if (typeof maxHeight === "number") {
+      value = Math.min(value, maxHeight);
+    }
+
+    if (typeof minHeight === "number") {
+      value = Math.max(value, minHeight);
+    }
+
+    return value;
+  }, [height, minHeight, maxHeight]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Snap points                                                            */
+  /* ---------------------------------------------------------------------- */
+
+  const resolvedSnapPoints = useMemo(
+    () => normalizeSnapPoints(snapPoints, availableHeight),
+    [snapPoints, availableHeight],
+  );
+
+  const safeInitialSnapIndex = clamp(
+    initialSnapIndex,
+    0,
+    Math.max(resolvedSnapPoints.length - 1, 0),
+  );
+
+  const currentSnapIndexRef = useRef(safeInitialSnapIndex);
+
+  const currentSnapHeightRef = useRef(
+    resolvedSnapPoints[safeInitialSnapIndex] ?? availableHeight,
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* Native Animated                                                        */
+  /* ---------------------------------------------------------------------- */
+
+  const nativeTranslateY = useRef(new RNAnimated.Value(SCREEN_HEIGHT)).current;
+
+  const nativeBackdropOpacity = useRef(new RNAnimated.Value(0)).current;
+
+  /* ---------------------------------------------------------------------- */
+  /* Reanimated                                                             */
+  /* ---------------------------------------------------------------------- */
+
+  const translateY = useSharedValue(SCREEN_HEIGHT);
+
+  const backdropProgress = useSharedValue(0);
+
+  /* ---------------------------------------------------------------------- */
+  /* Theme values                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  const resolvedBackgroundColor =
+    backgroundColor ?? colors.card ?? colors.surface ?? "#FFFFFF";
+
+  const resolvedBorderColor = borderColor ?? colors.border ?? "#E5E5E5";
+
+  const resolvedRadius = borderRadius ?? radius.xl ?? 18;
+
+  const resolvedTextColor = colors.text ?? "#111111";
+
+  const resolvedCloseColor = closeIconColor ?? colors.text ?? "#111111";
+
+  /* ---------------------------------------------------------------------- */
+  /* Visibility callback                                                    */
+  /* ---------------------------------------------------------------------- */
+
+  const changeVisibility = useCallback(
     (nextVisible) => {
       if (!isControlled) {
         setInternalVisible(nextVisible);
@@ -440,1128 +438,774 @@ const UIBottomSheet = forwardRef(function UIBottomSheet(
     [isControlled, onVisibleChange],
   );
 
-  /* ========================================================================
-   * SNAP POINTS
-   * ====================================================================== */
+  /* ---------------------------------------------------------------------- */
+  /* Native OPEN                                                            */
+  /* ---------------------------------------------------------------------- */
 
-  const resolvedSnapPoints = useMemo(() => {
-    let points = Array.isArray(snapPoints) ? snapPoints : DEFAULT_SNAP_POINTS;
+  const nativeOpen = useCallback(
+    (targetHeight) => {
+      const targetTranslate = availableHeight - targetHeight;
 
-    if (!points.length) {
-      points = DEFAULT_SNAP_POINTS;
-    }
+      nativeTranslateY.setValue(SCREEN_HEIGHT);
 
-    let result = points
-      .map((point) => normalizeSnapPoint(point, SCREEN.height))
-      .filter((point) => point > 0);
+      nativeBackdropOpacity.setValue(0);
 
-    if (typeof height === "number" && height > 0) {
-      result = [height];
-    }
+      RNAnimated.parallel([
+        RNAnimated.spring(nativeTranslateY, {
+          toValue: targetTranslate,
 
-    if (typeof minHeight === "number") {
-      result = result.map((point) => Math.max(point, minHeight));
-    }
+          useNativeDriver: true,
 
-    if (typeof maxHeight === "number") {
-      result = result.map((point) => Math.min(point, maxHeight));
-    }
+          damping: springConfig?.damping ?? 18,
 
-    result.sort((a, b) => a - b);
+          stiffness: springConfig?.stiffness ?? 180,
 
-    if (!result.length) {
-      result = [Math.min(SCREEN.height * 0.5, maxHeight || SCREEN.height)];
-    }
+          mass: springConfig?.mass ?? 0.8,
+        }),
 
-    return result;
-  }, [height, maxHeight, minHeight, snapPoints]);
-
-  const safeInitialSnapIndex = clamp(
-    initialSnapIndex,
-    0,
-    resolvedSnapPoints.length - 1,
-  );
-
-  const [currentSnapIndex, setCurrentSnapIndex] =
-    useState(safeInitialSnapIndex);
-
-  const currentSnapIndexRef = useRef(safeInitialSnapIndex);
-
-  /* ========================================================================
-   * SNAP CALLBACK
-   * ====================================================================== */
-
-  const updateSnapIndex = useCallback(
-    (index) => {
-      const nextIndex = clamp(index, 0, resolvedSnapPoints.length - 1);
-
-      currentSnapIndexRef.current = nextIndex;
-
-      setCurrentSnapIndex(nextIndex);
-
-      if (typeof onSnapChange === "function") {
-        onSnapChange(nextIndex, resolvedSnapPoints[nextIndex]);
-      }
-    },
-    [onSnapChange, resolvedSnapPoints],
-  );
-
-  /* ========================================================================
-   * ANIMATION VALUES
-   * ====================================================================== */
-
-  const translateY = useRef(new RNAnimated.Value(SCREEN.height)).current;
-
-  const backdropOpacityValue = useRef(new RNAnimated.Value(0)).current;
-
-  const reanimatedTranslateY = useSharedValue(SCREEN.height);
-
-  const reanimatedBackdrop = useSharedValue(0);
-
-  /* ========================================================================
-   * SPRING
-   * ====================================================================== */
-
-  const resolvedSpring =
-    animationSpring || themeAnimation.spring || DEFAULT_SPRING;
-
-  /* ========================================================================
-   * TARGET POSITION
-   * ====================================================================== */
-
-  const getTargetTranslateY = useCallback(
-    (snapIndex) => {
-      const sheetHeight = resolvedSnapPoints[snapIndex] || 0;
-
-      const bottomInset = safeArea ? (safeAreaBottom ?? insets.bottom) : 0;
-
-      return Math.max(0, SCREEN.height - sheetHeight - bottomInset);
-    },
-    [insets.bottom, resolvedSnapPoints, safeArea, safeAreaBottom],
-  );
-
-  /* ========================================================================
-   * STATUS BAR
-   * ====================================================================== */
-
-  const previousStatusBarStyle = useRef(StatusBar.currentStyle);
-
-  useEffect(() => {
-    if (!isVisible) {
-      return;
-    }
-
-    previousStatusBarStyle.current = StatusBar.currentStyle;
-
-    StatusBar.setBarStyle(statusBarStyle, true);
-
-    if (Platform.OS === "android" && statusBarTranslucent) {
-      StatusBar.setTranslucent(true);
-    }
-
-    return () => {
-      if (restoreStatusBar) {
-        StatusBar.setBarStyle(
-          previousStatusBarStyle.current || "default",
-          true,
-        );
-      }
-    };
-  }, [isVisible, restoreStatusBar, statusBarStyle, statusBarTranslucent]);
-
-  /* ========================================================================
-   * OPEN
-   * ====================================================================== */
-
-  const openSheet = useCallback(
-    (snapIndex = currentSnapIndexRef.current) => {
-      const index = clamp(snapIndex, 0, resolvedSnapPoints.length - 1);
-
-      updateSnapIndex(index);
-
-      setVisible(true);
-
-      const target = getTargetTranslateY(index);
-
-      if (reanimated) {
-        reanimatedTranslateY.value = withSpring(target, resolvedSpring);
-
-        reanimatedBackdrop.value = withTiming(backdropOpacity, {
-          duration: backdropAnimationDuration,
-        });
-      } else {
-        translateY.setValue(SCREEN.height);
-
-        backdropOpacityValue.setValue(0);
-
-        RNAnimated.parallel([
-          RNAnimated.spring(translateY, {
-            toValue: target,
-
-            damping: resolvedSpring.damping,
-
-            stiffness: resolvedSpring.stiffness,
-
-            mass: resolvedSpring.mass,
-
-            useNativeDriver: true,
-          }),
-
-          RNAnimated.timing(backdropOpacityValue, {
-            toValue: backdropOpacity,
-
-            duration: backdropAnimationDuration,
-
-            useNativeDriver: true,
-          }),
-        ]).start();
-      }
-
-      Keyboard.dismiss();
-
-      if (typeof onOpen === "function") {
-        onOpen(index);
-      }
+        RNAnimated.timing(nativeBackdropOpacity, {
+          toValue: 1,
+          duration: animationDuration,
+          useNativeDriver: true,
+        }),
+      ]).start();
     },
     [
-      backdropAnimationDuration,
-      backdropOpacity,
-      backdropOpacityValue,
-      getTargetTranslateY,
-      onOpen,
-      reanimated,
-      reanimatedBackdrop,
-      reanimatedTranslateY,
-      resolvedSnapPoints.length,
-      resolvedSpring,
-      setVisible,
-      translateY,
-      updateSnapIndex,
+      availableHeight,
+      nativeTranslateY,
+      nativeBackdropOpacity,
+      springConfig,
+      animationDuration,
     ],
   );
 
-  /* ========================================================================
-   * CLOSE
-   * ====================================================================== */
+  /* ---------------------------------------------------------------------- */
+  /* Native CLOSE                                                           */
+  /* ---------------------------------------------------------------------- */
 
-  const closeSheet = useCallback(() => {
-    Keyboard.dismiss();
+  const nativeClose = useCallback(
+    (callback) => {
+      RNAnimated.parallel([
+        RNAnimated.timing(nativeTranslateY, {
+          toValue: SCREEN_HEIGHT,
 
-    if (reanimated) {
-      reanimatedTranslateY.value = withTiming(
-        SCREEN.height,
-        {
-          duration: closeAnimationDuration,
-        },
-        (finished) => {
-          if (finished) {
-            runOnJS(setVisible)(false);
+          duration: animationDuration,
 
-            if (typeof onClose === "function") {
-              runOnJS(onClose)();
-            }
-          }
-        },
-      );
+          useNativeDriver: true,
+        }),
 
-      reanimatedBackdrop.value = withTiming(0, {
-        duration: backdropAnimationDuration,
+        RNAnimated.timing(nativeBackdropOpacity, {
+          toValue: 0,
+
+          duration: animationDuration,
+
+          useNativeDriver: true,
+        }),
+      ]).start(({ finished }) => {
+        if (finished && typeof callback === "function") {
+          callback();
+        }
+      });
+    },
+    [nativeTranslateY, nativeBackdropOpacity, animationDuration],
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* Reanimated OPEN                                                        */
+  /* ---------------------------------------------------------------------- */
+
+  const reanimatedOpen = useCallback(
+    (targetHeight) => {
+      const targetTranslate = availableHeight - targetHeight;
+
+      translateY.value = withSpring(targetTranslate, {
+        damping: springConfig?.damping ?? animation?.spring?.damping ?? 18,
+
+        stiffness:
+          springConfig?.stiffness ?? animation?.spring?.stiffness ?? 180,
+
+        mass: springConfig?.mass ?? animation?.spring?.mass ?? 0.8,
       });
 
+      backdropProgress.value = withTiming(1, {
+        duration: animationDuration,
+      });
+    },
+    [
+      availableHeight,
+      translateY,
+      backdropProgress,
+      springConfig,
+      animation,
+      animationDuration,
+    ],
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* Complete close                                                         */
+  /* ---------------------------------------------------------------------- */
+
+  const finishClose = useCallback(() => {
+    setModalVisible(false);
+
+    if (typeof onClose === "function") {
+      onClose();
+    }
+  }, [onClose]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Reanimated CLOSE                                                       */
+  /* ---------------------------------------------------------------------- */
+
+  const reanimatedClose = useCallback(() => {
+    translateY.value = withTiming(
+      SCREEN_HEIGHT,
+      {
+        duration: animationDuration,
+      },
+      (finished) => {
+        if (finished) {
+          runOnJS(finishClose)();
+        }
+      },
+    );
+
+    backdropProgress.value = withTiming(0, {
+      duration: animationDuration,
+    });
+  }, [translateY, backdropProgress, animationDuration, finishClose]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Animate OPEN                                                           */
+  /* ---------------------------------------------------------------------- */
+
+  const animateOpen = useCallback(
+    (targetHeight) => {
+      setModalVisible(true);
+
+      if (reanimated) {
+        reanimatedOpen(targetHeight);
+      } else {
+        nativeOpen(targetHeight);
+      }
+    },
+    [reanimated, reanimatedOpen, nativeOpen],
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* Animate CLOSE                                                          */
+  /* ---------------------------------------------------------------------- */
+
+  const animateClose = useCallback(() => {
+    if (reanimated) {
+      reanimatedClose();
+    } else {
+      nativeClose(finishClose);
+    }
+  }, [reanimated, reanimatedClose, nativeClose, finishClose]);
+
+  /* ---------------------------------------------------------------------- */
+  /* OPEN                                                                    */
+  /* ---------------------------------------------------------------------- */
+
+  const open = useCallback(
+    (snapIndex = currentSnapIndexRef.current) => {
+      const safeIndex = clamp(
+        snapIndex,
+        0,
+        Math.max(resolvedSnapPoints.length - 1, 0),
+      );
+
+      const targetHeight = resolvedSnapPoints[safeIndex] ?? availableHeight;
+
+      currentSnapIndexRef.current = safeIndex;
+
+      currentSnapHeightRef.current = targetHeight;
+
+      changeVisibility(true);
+
+      animateOpen(targetHeight);
+
+      if (!isVisible && typeof onOpen === "function") {
+        onOpen();
+      }
+    },
+    [
+      resolvedSnapPoints,
+      availableHeight,
+      changeVisibility,
+      animateOpen,
+      isVisible,
+      onOpen,
+    ],
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* CLOSE                                                                   */
+  /* ---------------------------------------------------------------------- */
+
+  const close = useCallback(() => {
+    if (!modalVisible) {
+      changeVisibility(false);
       return;
     }
 
-    RNAnimated.parallel([
-      RNAnimated.timing(translateY, {
-        toValue: SCREEN.height,
+    changeVisibility(false);
 
-        duration: closeAnimationDuration,
+    animateClose();
+  }, [modalVisible, changeVisibility, animateClose]);
 
-        useNativeDriver: true,
-      }),
+  /* ---------------------------------------------------------------------- */
+  /* TOGGLE                                                                  */
+  /* ---------------------------------------------------------------------- */
 
-      RNAnimated.timing(backdropOpacityValue, {
-        toValue: 0,
+  const toggle = useCallback(() => {
+    if (isVisible) {
+      close();
+    } else {
+      open();
+    }
+  }, [isVisible, close, open]);
 
-        duration: backdropAnimationDuration,
+  /* ---------------------------------------------------------------------- */
+  /* SNAP                                                                    */
+  /* ---------------------------------------------------------------------- */
 
-        useNativeDriver: true,
-      }),
-    ]).start(({ finished }) => {
-      if (!finished) {
+  const snapTo = useCallback(
+    (index) => {
+      const safeIndex = clamp(
+        index,
+        0,
+        Math.max(resolvedSnapPoints.length - 1, 0),
+      );
+
+      const targetHeight = resolvedSnapPoints[safeIndex] ?? availableHeight;
+
+      currentSnapIndexRef.current = safeIndex;
+
+      currentSnapHeightRef.current = targetHeight;
+
+      if (!isVisible) {
+        open(safeIndex);
         return;
       }
 
-      setVisible(false);
-
-      if (typeof onClose === "function") {
-        onClose();
-      }
-    });
-  }, [
-    backdropAnimationDuration,
-    backdropOpacityValue,
-    closeAnimationDuration,
-    onClose,
-    reanimated,
-    reanimatedBackdrop,
-    reanimatedTranslateY,
-    setVisible,
-    translateY,
-  ]);
-
-  /* ========================================================================
-   * SNAP
-   * ====================================================================== */
-
-  const snapTo = useCallback(
-    (snapIndex) => {
-      const index = clamp(snapIndex, 0, resolvedSnapPoints.length - 1);
-
-      const target = getTargetTranslateY(index);
-
-      updateSnapIndex(index);
+      const targetTranslate = availableHeight - targetHeight;
 
       if (reanimated) {
-        reanimatedTranslateY.value = withSpring(target, resolvedSpring);
+        translateY.value = withSpring(targetTranslate, {
+          damping: springConfig?.damping ?? animation?.spring?.damping ?? 18,
+
+          stiffness:
+            springConfig?.stiffness ?? animation?.spring?.stiffness ?? 180,
+
+          mass: springConfig?.mass ?? animation?.spring?.mass ?? 0.8,
+        });
       } else {
-        RNAnimated.spring(translateY, {
-          toValue: target,
-
-          damping: resolvedSpring.damping,
-
-          stiffness: resolvedSpring.stiffness,
-
-          mass: resolvedSpring.mass,
+        RNAnimated.spring(nativeTranslateY, {
+          toValue: targetTranslate,
 
           useNativeDriver: true,
+
+          damping: springConfig?.damping ?? 18,
+
+          stiffness: springConfig?.stiffness ?? 180,
+
+          mass: springConfig?.mass ?? 0.8,
         }).start();
       }
     },
     [
-      getTargetTranslateY,
+      resolvedSnapPoints,
+      availableHeight,
+      isVisible,
+      open,
       reanimated,
-      reanimatedTranslateY,
-      resolvedSnapPoints.length,
-      resolvedSpring,
       translateY,
-      updateSnapIndex,
+      nativeTranslateY,
+      springConfig,
+      animation,
     ],
   );
 
-  /* ========================================================================
-   * IMPERATIVE API
-   * ====================================================================== */
+  /* ---------------------------------------------------------------------- */
+  /* EXPAND                                                                 */
+  /* ---------------------------------------------------------------------- */
+
+  const expand = useCallback(() => {
+    snapTo(resolvedSnapPoints.length - 1);
+  }, [snapTo, resolvedSnapPoints.length]);
+
+  /* ---------------------------------------------------------------------- */
+  /* COLLAPSE                                                               */
+  /* ---------------------------------------------------------------------- */
+
+  const collapse = useCallback(() => {
+    snapTo(0);
+  }, [snapTo]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Imperative API                                                         */
+  /* ---------------------------------------------------------------------- */
 
   useImperativeHandle(
     ref,
     () => ({
-      open: openSheet,
-
-      close: closeSheet,
-
-      toggle: () => {
-        if (isVisible) {
-          closeSheet();
-        } else {
-          openSheet();
-        }
-      },
-
+      open,
+      close,
+      toggle,
       snapTo,
-
-      expand: () => {
-        snapTo(resolvedSnapPoints.length - 1);
-      },
-
-      collapse: () => {
-        snapTo(0);
-      },
-
+      expand,
+      collapse,
       getSnapIndex: () => currentSnapIndexRef.current,
     }),
-    [closeSheet, isVisible, openSheet, resolvedSnapPoints.length, snapTo],
+    [open, close, toggle, snapTo, expand, collapse],
   );
 
-  /* ========================================================================
-   * VISIBILITY EFFECT
-   * ====================================================================== */
+  /* ---------------------------------------------------------------------- */
+  /* Controlled visible                                                      */
+  /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
-    if (!isVisible) {
-      if (reanimated) {
-        reanimatedTranslateY.value = SCREEN.height;
+    const previous = previousVisibleRef.current;
 
-        reanimatedBackdrop.value = 0;
-      } else {
-        translateY.setValue(SCREEN.height);
+    previousVisibleRef.current = isVisible;
 
-        backdropOpacityValue.setValue(0);
+    /*
+     * First render.
+     */
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+
+      if (isVisible) {
+        setModalVisible(true);
+
+        const timer = setTimeout(() => {
+          animateOpen(currentSnapHeightRef.current);
+
+          if (typeof onOpen === "function") {
+            onOpen();
+          }
+        }, 20);
+
+        return () => clearTimeout(timer);
       }
 
-      return;
+      return undefined;
     }
 
-    openSheet(currentSnapIndexRef.current);
-  }, [isVisible]);
+    /*
+     * false -> true
+     */
+    if (isVisible && !previous) {
+      setModalVisible(true);
 
-  /* ========================================================================
-   * ANDROID BACK BUTTON
-   * ====================================================================== */
+      const timer = setTimeout(() => {
+        animateOpen(currentSnapHeightRef.current);
+
+        if (typeof onOpen === "function") {
+          onOpen();
+        }
+      }, 20);
+
+      return () => clearTimeout(timer);
+    }
+
+    /*
+     * true -> false
+     */
+    if (!isVisible && previous) {
+      animateClose();
+    }
+
+    return undefined;
+  }, [isVisible, animateOpen, animateClose, onOpen]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Android back                                                           */
+  /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
-    if (!isVisible) {
+    if (!modalVisible || !enableBackHandler) {
       return undefined;
     }
 
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
-        closeSheet();
+        close();
         return true;
       },
     );
 
-    return () => {
-      subscription.remove();
-    };
-  }, [closeSheet, isVisible]);
+    return () => subscription.remove();
+  }, [modalVisible, enableBackHandler, close]);
 
-  /* ========================================================================
-   * PAN RESPONDER
-   * ====================================================================== */
+  /* ---------------------------------------------------------------------- */
+  /* Drag                                                                    */
+  /* ---------------------------------------------------------------------- */
 
-  const dragStartValue = useRef(0);
+  const dragStartRef = useRef(0);
 
-  const handleDragStart = useCallback(() => {
-    dragStartValue.current = getTargetTranslateY(currentSnapIndexRef.current);
-
-    if (typeof onDragStart === "function") {
-      onDragStart(currentSnapIndexRef.current);
+  const panResponder = useMemo(() => {
+    if (!draggable) {
+      return null;
     }
-  }, [getTargetTranslateY, onDragStart]);
 
-  const handleDragMove = useCallback(
-    (gesture) => {
-      if (!allowDrag) {
-        return;
-      }
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
 
-      const next = Math.max(0, dragStartValue.current + gesture.dy);
+      onMoveShouldSetPanResponder: (_, gesture) => Math.abs(gesture.dy) > 3,
 
-      if (reanimated) {
-        reanimatedTranslateY.value = next;
-      } else {
-        translateY.setValue(next);
-      }
-
-      if (typeof onDrag === "function") {
-        onDrag(next, gesture.dy);
-      }
-    },
-    [allowDrag, onDrag, reanimated, reanimatedTranslateY, translateY],
-  );
-
-  const handleDragEnd = useCallback(
-    (gesture) => {
-      const current = dragStartValue.current + gesture.dy;
-
-      const velocityY = gesture.vy || 0;
-
-      const currentIndex = currentSnapIndexRef.current;
-
-      if (
-        allowSwipeDown &&
-        closeOnSwipeDown &&
-        (gesture.dy > swipeDownThreshold || velocityY > 1.2)
-      ) {
-        closeSheet();
-
-        if (typeof onDragEnd === "function") {
-          onDragEnd({
-            closed: true,
-            snapIndex: currentIndex,
-            translationY: gesture.dy,
-            velocityY,
+      onPanResponderGrant: () => {
+        if (reanimated) {
+          dragStartRef.current = translateY.value;
+        } else {
+          nativeTranslateY.stopAnimation((value) => {
+            dragStartRef.current = value;
           });
         }
+      },
 
-        return;
-      }
+      onPanResponderMove: (_, gesture) => {
+        const next = dragStartRef.current + gesture.dy;
 
-      let closestIndex = currentIndex;
+        const value = clamp(next, 0, SCREEN_HEIGHT);
 
-      let closestDistance = Infinity;
-
-      resolvedSnapPoints.forEach((_, index) => {
-        const target = getTargetTranslateY(index);
-
-        const distance = Math.abs(current - target);
-
-        if (distance < closestDistance) {
-          closestDistance = distance;
-
-          closestIndex = index;
+        if (reanimated) {
+          translateY.value = value;
+        } else {
+          nativeTranslateY.setValue(value);
         }
-      });
+      },
 
-      if (gesture.dy > 50 && currentIndex > 0) {
-        closestIndex = currentIndex - 1;
-      }
+      onPanResponderRelease: (_, gesture) => {
+        if (closeOnDragDown && gesture.dy > dragThreshold) {
+          close();
+          return;
+        }
 
-      if (gesture.dy < -50 && currentIndex < resolvedSnapPoints.length - 1) {
-        closestIndex = currentIndex + 1;
-      }
+        const current = reanimated
+          ? translateY.value
+          : dragStartRef.current + gesture.dy;
 
-      snapTo(closestIndex);
+        let nearestIndex = 0;
+        let nearestDistance = Infinity;
 
-      if (typeof onDragEnd === "function") {
-        onDragEnd({
-          closed: false,
-          snapIndex: closestIndex,
-          translationY: gesture.dy,
-          velocityY,
-        });
-      }
-    },
-    [
-      allowSwipeDown,
-      closeOnSwipeDown,
-      closeSheet,
-      getTargetTranslateY,
-      onDragEnd,
-      resolvedSnapPoints,
-      snapTo,
-      swipeDownThreshold,
-    ],
-  );
+        resolvedSnapPoints.forEach((snapHeight, index) => {
+          const snapTranslate = availableHeight - snapHeight;
 
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => allowDrag,
+          const distance = Math.abs(current - snapTranslate);
 
-        onMoveShouldSetPanResponder: (_, gesture) => {
-          if (!allowDrag) {
-            return false;
+          if (distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestIndex = index;
           }
+        });
 
-          return Math.abs(gesture.dy) > 4;
-        },
+        snapTo(nearestIndex);
+      },
 
-        onPanResponderGrant: handleDragStart,
+      onPanResponderTerminate: () => {
+        snapTo(currentSnapIndexRef.current);
+      },
+    });
+  }, [
+    draggable,
+    reanimated,
+    translateY,
+    nativeTranslateY,
+    closeOnDragDown,
+    dragThreshold,
+    close,
+    resolvedSnapPoints,
+    availableHeight,
+    snapTo,
+  ]);
 
-        onPanResponderMove: (_, gesture) => handleDragMove(gesture),
-
-        onPanResponderRelease: (_, gesture) => handleDragEnd(gesture),
-
-        onPanResponderTerminate: (_, gesture) => handleDragEnd(gesture),
-
-        onPanResponderTerminationRequest: () => false,
-      }),
-    [allowDrag, handleDragEnd, handleDragMove, handleDragStart],
-  );
-
-  /* ========================================================================
-   * REANIMATED STYLES
-   * ====================================================================== */
+  /* ---------------------------------------------------------------------- */
+  /* Animated styles                                                        */
+  /* ---------------------------------------------------------------------- */
 
   const reanimatedSheetStyle = useAnimatedStyle(() => ({
     transform: [
       {
-        translateY: reanimatedTranslateY.value,
+        translateY: translateY.value,
       },
     ],
   }));
 
   const reanimatedBackdropStyle = useAnimatedStyle(() => ({
-    opacity: reanimatedBackdrop.value,
+    opacity: backdropProgress.value,
   }));
 
-  /* ========================================================================
-   * SAFE AREA
-   * ====================================================================== */
+  /* ---------------------------------------------------------------------- */
+  /* Padding                                                                */
+  /* ---------------------------------------------------------------------- */
 
-  const bottomInset = safeArea ? (safeAreaBottom ?? insets.bottom) : 0;
+  const finalPaddingHorizontal = paddingHorizontal ?? padding;
 
-  const topInset = safeArea && safeAreaTop ? insets.top : 0;
+  const finalPaddingVertical = paddingVertical ?? padding;
 
-  /* ========================================================================
-   * CONTENT PADDING
-   * ====================================================================== */
+  const finalPaddingTop = paddingTop ?? finalPaddingVertical;
 
-  const finalContentPaddingLeft =
-    contentPaddingLeft ?? contentPaddingHorizontal ?? contentPadding;
+  const finalPaddingBottom = paddingBottom ?? finalPaddingVertical;
 
-  const finalContentPaddingRight =
-    contentPaddingRight ?? contentPaddingHorizontal ?? contentPadding;
+  const finalPaddingLeft = paddingLeft ?? finalPaddingHorizontal;
 
-  const finalContentPaddingTop =
-    contentPaddingTop ?? contentPaddingVertical ?? contentPadding;
+  const finalPaddingRight = paddingRight ?? finalPaddingHorizontal;
 
-  const finalContentPaddingBottom =
-    contentPaddingBottom ?? contentPaddingVertical ?? contentPadding;
+  /* ---------------------------------------------------------------------- */
+  /* Sheet style                                                            */
+  /* ---------------------------------------------------------------------- */
 
-  /* ========================================================================
-   * HEADER PADDING
-   * ====================================================================== */
+  const sheetHeight = clamp(
+    availableHeight,
+    minHeight,
+    maxHeight ?? availableHeight,
+  );
 
-  const finalHeaderPaddingLeft =
-    headerPaddingLeft ?? headerPaddingHorizontal ?? headerPadding;
+  const sheetStyle = [
+    styles.sheet,
 
-  const finalHeaderPaddingRight =
-    headerPaddingRight ?? headerPaddingHorizontal ?? headerPadding;
+    {
+      width,
+      height: sheetHeight,
 
-  const finalHeaderPaddingTop =
-    headerPaddingTop ?? headerPaddingVertical ?? headerPadding;
+      marginHorizontal,
+      marginBottom,
 
-  const finalHeaderPaddingBottom =
-    headerPaddingBottom ?? headerPaddingVertical ?? headerPadding;
+      backgroundColor: resolvedBackgroundColor,
 
-  /* ========================================================================
-   * FOOTER PADDING
-   * ====================================================================== */
+      borderRadius: resolvedRadius,
 
-  const finalFooterPaddingLeft =
-    footerPaddingLeft ?? footerPaddingHorizontal ?? footerPadding;
+      borderTopLeftRadius: borderTopLeftRadius ?? resolvedRadius,
 
-  const finalFooterPaddingRight =
-    footerPaddingRight ?? footerPaddingHorizontal ?? footerPadding;
+      borderTopRightRadius: borderTopRightRadius ?? resolvedRadius,
 
-  const finalFooterPaddingTop =
-    footerPaddingTop ?? footerPaddingVertical ?? footerPadding;
+      borderWidth,
+      borderColor: resolvedBorderColor,
 
-  const finalFooterPaddingBottom =
-    footerPaddingBottom ?? footerPaddingVertical ?? footerPadding;
+      paddingTop: finalPaddingTop,
 
-  /* ========================================================================
-   * COLORS
-   * ====================================================================== */
+      paddingBottom: finalPaddingBottom + (safeArea ? insets.bottom : 0),
 
-  const resolvedBackgroundColor =
-    backgroundColor ?? colors.card ?? colors.surface ?? "#FFFFFF";
+      paddingLeft: finalPaddingLeft,
 
-  const resolvedBorderColor = borderColor ?? colors.border ?? "#E5E5E5";
+      paddingRight: finalPaddingRight,
 
-  const resolvedTitleColor = titleColor ?? colors.text ?? "#222222";
+      ...(shadows?.md ?? {}),
+    },
 
-  const resolvedHandleColor = handleColor ?? colors.border ?? "#C8C8C8";
+    style,
+  ];
 
-  const resolvedCloseIconColor = closeIconColor ?? colors.text ?? "#222222";
+  /* ---------------------------------------------------------------------- */
+  /* Header                                                                 */
+  /* ---------------------------------------------------------------------- */
 
-  const resolvedCloseBackgroundColor =
-    closeButtonBackgroundColor ?? colors.surfaceSecondary ?? "#F2F2F2";
+  const renderHeader = () => {
+    if (header) {
+      return <View style={[styles.header, headerStyle]}>{header}</View>;
+    }
 
-  /* ========================================================================
-   * RADIUS
-   * ====================================================================== */
+    if (!title && !showClose) {
+      return null;
+    }
 
-  const resolvedRadius = borderRadius ?? themeRadius.xxl ?? 24;
-
-  const finalTopLeftRadius = topLeftRadius ?? resolvedRadius;
-
-  const finalTopRightRadius = topRightRadius ?? resolvedRadius;
-
-  const finalBottomLeftRadius = bottomLeftRadius ?? resolvedRadius;
-
-  const finalBottomRightRadius = bottomRightRadius ?? resolvedRadius;
-
-  /* ========================================================================
-   * SHEET STYLE
-   * ====================================================================== */
-
-  const sheetBaseStyle = {
-    width,
-
-    margin,
-
-    marginHorizontal,
-
-    marginBottom,
-
-    backgroundColor: resolvedBackgroundColor,
-
-    borderTopLeftRadius: finalTopLeftRadius,
-
-    borderTopRightRadius: finalTopRightRadius,
-
-    borderBottomLeftRadius: finalBottomLeftRadius,
-
-    borderBottomRightRadius: finalBottomRightRadius,
-
-    borderWidth,
-
-    borderColor: resolvedBorderColor,
-
-    padding,
-
-    paddingHorizontal,
-
-    paddingVertical,
-
-    paddingTop: paddingTop + topInset,
-
-    paddingBottom: paddingBottom + bottomInset,
-
-    paddingLeft,
-
-    paddingRight,
-
-    ...(shadow
-      ? {
-          shadowColor,
-          shadowOpacity,
-          shadowRadius,
-          shadowOffset,
-          elevation,
-        }
-      : {
-          shadowOpacity: 0,
-          elevation: 0,
-        }),
-  };
-
-  /* ========================================================================
-   * HANDLE
-   * ====================================================================== */
-
-  const handleContent = showHandle ? (
-    typeof renderHandle === "function" ? (
-      renderHandle()
-    ) : (
-      <BottomSheetHandle
-        width={handleWidth}
-        height={handleHeight}
-        color={resolvedHandleColor}
-        marginTop={handleMarginTop}
-        marginBottom={handleMarginBottom}
-        style={handleStyle}
-      />
-    )
-  ) : null;
-
-  /* ========================================================================
-   * HEADER
-   * ====================================================================== */
-
-  const headerContent =
-    typeof renderHeader === "function" ? (
-      renderHeader({
-        snapIndex: currentSnapIndex,
-        close: closeSheet,
-      })
-    ) : showHeader || title ? (
-      <View
-        style={[
-          styles.header,
-
-          headerHeight
-            ? {
-                minHeight: headerHeight,
-              }
-            : null,
-
-          {
-            paddingTop: finalHeaderPaddingTop,
-
-            paddingBottom: finalHeaderPaddingBottom,
-
-            paddingLeft: finalHeaderPaddingLeft,
-
-            paddingRight: finalHeaderPaddingRight,
-          },
-
-          headerStyle,
-        ]}
-      >
-        <View style={styles.headerTitleContainer}>
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.title,
-
-              {
-                color: resolvedTitleColor,
-
-                fontSize: titleFontSize,
-
-                lineHeight: titleLineHeight,
-
-                fontWeight: titleFontWeight,
-
-                textAlign: titleAlign,
-              },
-
-              titleStyle,
-            ]}
-          >
-            {title}
-          </Text>
+    return (
+      <View style={[styles.header, headerStyle]}>
+        <View style={styles.headerTitle}>
+          {typeof title === "string" ? (
+            <Text
+              style={[
+                styles.title,
+                {
+                  color: resolvedTextColor,
+                },
+                titleStyle,
+              ]}
+            >
+              {title}
+            </Text>
+          ) : (
+            title
+          )}
         </View>
 
-        {showCloseButton ? (
+        {showClose ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close"
-            onPress={onCloseButtonPress || closeSheet}
-            style={[
-              styles.closeButton,
-
-              {
-                width: closeButtonSize,
-
-                height: closeButtonSize,
-
-                borderRadius: closeButtonBorderRadius ?? closeButtonSize / 2,
-
-                backgroundColor: resolvedCloseBackgroundColor,
-              },
-
-              closeButtonStyle,
-            ]}
+            hitSlop={10}
+            onPress={() => {
+              if (typeof onClosePress === "function") {
+                onClosePress();
+              } else {
+                close();
+              }
+            }}
+            style={styles.closeButton}
           >
-            <RenderIcon
-              icon={closeIcon}
+            <Ionicons
+              name={closeIcon}
               size={closeIconSize}
-              color={resolvedCloseIconColor}
+              color={resolvedCloseColor}
             />
           </Pressable>
         ) : null}
       </View>
-    ) : null;
+    );
+  };
 
-  /* ========================================================================
-   * CONTENT
-   * ====================================================================== */
+  /* ---------------------------------------------------------------------- */
+  /* Content                                                                */
+  /* ---------------------------------------------------------------------- */
 
-  const contentElement = scrollable ? (
-    <ScrollView
-      style={[styles.scrollContent, contentStyle]}
-      contentContainerStyle={[
-        {
-          paddingTop: finalContentPaddingTop,
-
-          paddingBottom: finalContentPaddingBottom,
-
-          paddingLeft: finalContentPaddingLeft,
-
-          paddingRight: finalContentPaddingRight,
-        },
-
-        contentContainerStyle,
-      ]}
-      keyboardDismissMode={keyboardDismissMode}
-      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
-      showsVerticalScrollIndicator={false}
-    >
-      {children}
-    </ScrollView>
-  ) : (
-    <View
-      style={[
-        styles.content,
-
-        {
-          paddingTop: finalContentPaddingTop,
-
-          paddingBottom: finalContentPaddingBottom,
-
-          paddingLeft: finalContentPaddingLeft,
-
-          paddingRight: finalContentPaddingRight,
-        },
-
-        contentStyle,
-      ]}
-    >
-      {children}
-    </View>
-  );
-
-  /* ========================================================================
-   * FOOTER
-   * ====================================================================== */
-
-  const footerContent =
-    typeof renderFooter === "function"
-      ? renderFooter({
-          snapIndex: currentSnapIndex,
-          close: closeSheet,
-        })
-      : footer;
-
-  /* ========================================================================
-   * SHEET
-   * ====================================================================== */
-
-  const sheetContent = reanimated ? (
-    <Animated.View
-      {...panResponder.panHandlers}
-      style={[styles.sheet, sheetBaseStyle, reanimatedSheetStyle, style]}
-    >
-      {handleContent}
-
-      {headerContent}
-
-      {contentElement}
-
-      {footerContent ? (
-        <View
-          style={[
-            styles.footer,
-
-            footerHeight
-              ? {
-                  minHeight: footerHeight,
-                }
-              : null,
-
-            {
-              paddingTop: finalFooterPaddingTop,
-
-              paddingBottom: finalFooterPaddingBottom + bottomInset,
-
-              paddingLeft: finalFooterPaddingLeft,
-
-              paddingRight: finalFooterPaddingRight,
-            },
-
-            footerStyle,
-          ]}
-        >
-          {footerContent}
+  const sheetContent = (
+    <>
+      {showHandle ? (
+        <View style={styles.handleContainer}>
+          <BottomSheetHandle
+            width={handleWidth}
+            height={handleHeight}
+            color={handleColor}
+            style={handleStyle}
+          />
         </View>
       ) : null}
-    </Animated.View>
-  ) : (
-    <RNAnimated.View
-      {...panResponder.panHandlers}
-      style={[
-        styles.sheet,
 
-        sheetBaseStyle,
+      {renderHeader()}
 
-        {
-          transform: [
-            {
-              translateY,
-            },
-          ],
-        },
-
-        style,
-      ]}
-    >
-      {handleContent}
-
-      {headerContent}
-
-      {contentElement}
-
-      {footerContent ? (
-        <View
-          style={[
-            styles.footer,
-
-            footerHeight
-              ? {
-                  minHeight: footerHeight,
-                }
-              : null,
-
-            {
-              paddingTop: finalFooterPaddingTop,
-
-              paddingBottom: finalFooterPaddingBottom + bottomInset,
-
-              paddingLeft: finalFooterPaddingLeft,
-
-              paddingRight: finalFooterPaddingRight,
-            },
-
-            footerStyle,
+      {scrollable ? (
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={[
+            styles.scrollContent,
+            contentContainerStyle,
+            contentStyle,
           ]}
+          keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+          showsVerticalScrollIndicator={showsVerticalScrollIndicator}
+          nestedScrollEnabled
         >
-          {footerContent}
+          {children}
+        </ScrollView>
+      ) : (
+        <View
+          style={[styles.nonScrollContent, contentContainerStyle, contentStyle]}
+        >
+          {children}
         </View>
-      ) : null}
-    </RNAnimated.View>
+      )}
+
+      {footer ? <View style={styles.footer}>{footer}</View> : null}
+    </>
   );
 
-  /* ========================================================================
-   * BACKDROP
-   * ====================================================================== */
+  /* ---------------------------------------------------------------------- */
+  /* Backdrop press                                                         */
+  /* ---------------------------------------------------------------------- */
 
-  let backdropContent = null;
-
-  if (showBackdrop) {
-    if (typeof renderBackdrop === "function") {
-      backdropContent = renderBackdrop({
-        close: closeSheet,
-      });
-    } else if (reanimated) {
-      backdropContent = (
-        <Animated.View
-          style={[
-            styles.backdrop,
-
-            {
-              backgroundColor: backdropColor,
-            },
-
-            reanimatedBackdropStyle,
-
-            backdropStyle,
-          ]}
-        >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={closeOnBackdropPress ? closeSheet : undefined}
-          />
-        </Animated.View>
-      );
-    } else {
-      backdropContent = (
-        <RNAnimated.View
-          style={[
-            styles.backdrop,
-
-            {
-              backgroundColor: backdropColor,
-
-              opacity: backdropOpacityValue,
-            },
-
-            backdropStyle,
-          ]}
-        >
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={closeOnBackdropPress ? closeSheet : undefined}
-          />
-        </RNAnimated.View>
-      );
+  const handleBackdropPress = () => {
+    if (closeOnBackdropPress) {
+      close();
     }
+  };
+
+  /* ---------------------------------------------------------------------- */
+  /* Do not render Modal when closed                                        */
+  /* ---------------------------------------------------------------------- */
+
+  if (!modalVisible) {
+    return null;
   }
 
-  /* ========================================================================
-   * RENDER
-   * ====================================================================== */
+  /* ---------------------------------------------------------------------- */
+  /* Render                                                                 */
+  /* ---------------------------------------------------------------------- */
 
   return (
     <Modal
-      visible={isVisible}
+      visible={modalVisible}
       transparent
       animationType="none"
-      statusBarTranslucent={statusBarTranslucent}
-      hardwareAccelerated
-      onRequestClose={closeSheet}
+      statusBarTranslucent
+      onRequestClose={close}
+      {...modalProps}
     >
-      <View style={styles.portal}>
-        {backdropContent}
+      <View testID={testID} style={styles.modalRoot}>
+        {showBackdrop ? (
+          reanimated ? (
+            <Animated.View
+              style={[
+                styles.backdrop,
+                {
+                  backgroundColor: backdropColor,
+                },
+                reanimatedBackdropStyle,
+              ]}
+            >
+              <Pressable
+                onPress={handleBackdropPress}
+                style={StyleSheet.absoluteFillObject}
+              />
+            </Animated.View>
+          ) : (
+            <RNAnimated.View
+              style={[
+                styles.backdrop,
+                {
+                  backgroundColor: backdropColor,
+                  opacity: nativeBackdropOpacity,
+                },
+              ]}
+            >
+              <Pressable
+                onPress={handleBackdropPress}
+                style={StyleSheet.absoluteFillObject}
+              />
+            </RNAnimated.View>
+          )
+        ) : null}
 
-        {sheetContent}
+        <KeyboardAvoidingView
+          pointerEvents="box-none"
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          style={styles.keyboardContainer}
+        >
+          {reanimated ? (
+            <Animated.View
+              {...(panResponder ? panResponder.panHandlers : {})}
+              style={[sheetStyle, reanimatedSheetStyle]}
+            >
+              {sheetContent}
+            </Animated.View>
+          ) : (
+            <RNAnimated.View
+              {...(panResponder ? panResponder.panHandlers : {})}
+              style={[
+                sheetStyle,
+                {
+                  transform: [
+                    {
+                      translateY: nativeTranslateY,
+                    },
+                  ],
+                },
+              ]}
+            >
+              {sheetContent}
+            </RNAnimated.View>
+          )}
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
 });
 
-/* ============================================================================
- * STYLES
- * ========================================================================== */
+UIBottomSheet.displayName = "UIBottomSheet";
 
-const styles = StyleSheet.create({
-  portal: {
-    flex: 1,
+export default UIBottomSheet;
 
-    width: "100%",
-
-    height: "100%",
-
-    justifyContent: "flex-end",
-  },
-
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-
-    zIndex: 0,
-  },
-
-  sheet: {
-    position: "absolute",
-
-    left: 0,
-
-    right: 0,
-
-    bottom: 0,
-
-    zIndex: 2,
-
-    overflow: "hidden",
-
-    minHeight: 1,
-  },
-
-  handle: {
-    alignSelf: "center",
-  },
-
-  header: {
-    width: "100%",
-
-    flexDirection: "row",
-
-    alignItems: "center",
-
-    justifyContent: "space-between",
-  },
-
-  headerTitleContainer: {
-    flex: 1,
-
-    minWidth: 0,
-
-    justifyContent: "center",
-  },
-
-  title: {
-    includeFontPadding: false,
-  },
-
-  closeButton: {
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    marginLeft: 8,
-
-    flexShrink: 0,
-  },
-
-  content: {
-    width: "100%",
-  },
-
-  scrollContent: {
-    width: "100%",
-
-    flexGrow: 0,
-  },
-
-  footer: {
-    width: "100%",
-  },
-});
-
-/* ============================================================================
- * EXPORTS
- * ========================================================================== */
-
-export {
-  BottomSheetHandle,
-  BottomSheetBackdrop,
-  RenderIcon as UIBottomSheetIcon,
-};
-
-export default memo(UIBottomSheet);
+export { UIBottomSheet };
