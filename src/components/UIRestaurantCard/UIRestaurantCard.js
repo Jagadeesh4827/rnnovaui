@@ -1,12 +1,4 @@
-import React, {
-  memo,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
-
+import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -16,221 +8,88 @@ import {
   Text,
   View,
 } from "react-native";
-
-import { Ionicons } from "@expo/vector-icons";
-
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
   withSpring,
 } from "react-native-reanimated";
+import { Ionicons } from "@expo/vector-icons";
 
 import { useUITheme } from "../../theme";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
-/* ==========================================================================
- * DEFAULTS
- * ========================================================================== */
-
-const DEFAULT_SPRING = {
-  damping: 18,
-  stiffness: 180,
-  mass: 0.8,
-};
-
-const DEFAULT_COLORS = {
-  card: "#FFFFFF",
-  surface: "#FFFFFF",
-
-  text: "#171A21",
-  textSecondary: "#737985",
-  textTertiary: "#9AA0AA",
-
-  border: "#E7E8EB",
-
-  primary: "#FF5A1F",
-  primarySoft: "rgba(255,90,31,0.10)",
-
-  success: "#20A34A",
-
-  white: "#FFFFFF",
-  black: "#000000",
-
-  onPrimary: "#FFFFFF",
-};
-
-const DEFAULT_SPACING = {
-  xs: 4,
-  sm: 8,
-  md: 12,
-  md2: 14,
-  lg: 16,
-  lg2: 20,
-  xl: 24,
-};
-
-const DEFAULT_RADIUS = {
-  sm: 6,
-  md: 10,
-  lg: 14,
-  xl: 18,
-  card: 18,
-  pill: 999,
-};
-
-/* ==========================================================================
- * THEME
- * ========================================================================== */
-
-function resolveTheme(theme) {
-  return {
-    colors: {
-      ...DEFAULT_COLORS,
-      ...(theme?.colors || {}),
-    },
-
-    spacing: {
-      ...DEFAULT_SPACING,
-      ...(theme?.spacing || {}),
-    },
-
-    radius: {
-      ...DEFAULT_RADIUS,
-      ...(theme?.radius || {}),
-    },
-
-    animation: {
-      ...(theme?.animation || {}),
-    },
-
-    sizes: theme?.sizes || {},
-    typography: theme?.typography || {},
-    shadows: theme?.shadows || {},
-  };
-}
-
-/* ==========================================================================
- * IMAGE SOURCE
+/* ============================================================================
+ * HELPERS
  * ========================================================================== */
 
 function normalizeImageSource(source) {
-  if (!source) {
-    return null;
-  }
+  if (!source) return null;
 
-  /*
-   * Local image:
-   *
-   * require("../../assets/image.jpg")
-   *
-   * React Native returns a number.
-   */
   if (typeof source === "number") {
     return source;
   }
 
-  /*
-   * Remote image:
-   *
-   * "https://example.com/image.jpg"
-   */
   if (typeof source === "string") {
-    return {
-      uri: source,
-    };
+    return { uri: source };
   }
 
-  /*
-   * Remote:
-   *
-   * { uri: "https://..." }
-   */
-  if (typeof source === "object" && source !== null) {
+  if (typeof source === "object") {
     if (source.uri) {
       return source;
     }
 
-    /*
-     * Also support:
-     *
-     * {
-     *   source: require(...)
-     * }
-     */
-    if (source.source) {
-      return normalizeImageSource(source.source);
+    if (source.url) {
+      return {
+        uri: source.url,
+      };
     }
-
-    return source;
   }
 
   return null;
 }
 
-/* ==========================================================================
- * RESOLVE RESTAURANT IMAGES
- * ========================================================================== */
+function resolveRestaurantImages(restaurant) {
+  if (!restaurant) return [];
 
-function resolveRestaurantImages({ restaurant, image, images }) {
-  let result = [];
+  const possibleImages = [
+    restaurant.images,
+    restaurant.imageUrls,
+    restaurant.photos,
+  ];
 
-  /*
-   * Priority:
-   *
-   * images prop
-   * restaurant.images
-   * image prop
-   * restaurant.image
-   */
-
-  if (Array.isArray(images) && images.length > 0) {
-    result = images;
-  } else if (
-    Array.isArray(restaurant?.images) &&
-    restaurant.images.length > 0
-  ) {
-    result = restaurant.images;
-  } else if (image) {
-    result = [image];
-  } else if (restaurant?.image) {
-    result = [restaurant.image];
+  for (const value of possibleImages) {
+    if (Array.isArray(value) && value.length > 0) {
+      return value.map(normalizeImageSource).filter(Boolean);
+    }
   }
 
-  return result.map(normalizeImageSource).filter(Boolean);
+  const singleImage =
+    restaurant.image ||
+    restaurant.imageUrl ||
+    restaurant.coverImage ||
+    restaurant.bannerImage;
+
+  const normalized = normalizeImageSource(singleImage);
+
+  return normalized ? [normalized] : [];
 }
 
-/* ==========================================================================
- * ICON
- * ========================================================================== */
+function RenderIcon({ icon, size = 20, color = "#000", style }) {
+  if (!icon) return null;
 
-function RenderIcon({ icon, size = 20, color = "#000000", style }) {
-  if (!icon) {
-    return null;
-  }
-
-  /*
-   * Already rendered element:
-   *
-   * icon={<Ionicons name="heart" />}
-   */
   if (React.isValidElement(icon)) {
     return React.cloneElement(icon, {
-      size: icon.props?.size ?? size,
-
-      color: icon.props?.color ?? color,
-
-      style: [style, icon.props?.style],
+      size,
+      color,
+      style: [icon.props?.style, style],
     });
   }
 
-  /*
-   * Component:
-   *
-   * icon={Ionicons}
-   *
-   * icon={MyIcon}
-   */
+  if (typeof icon === "string") {
+    return <Ionicons name={icon} size={size} color={color} style={style} />;
+  }
+
   if (
     typeof icon === "function" ||
     (typeof icon === "object" && icon !== null)
@@ -240,185 +99,86 @@ function RenderIcon({ icon, size = 20, color = "#000000", style }) {
     return <IconComponent size={size} color={color} style={style} />;
   }
 
-  /*
-   * Icon name:
-   *
-   * icon="heart"
-   */
-  if (typeof icon === "string") {
-    return <Ionicons name={icon} size={size} color={color} style={style} />;
-  }
-
   return null;
 }
 
-/* ==========================================================================
+/* ============================================================================
  * RESTAURANT IMAGE CAROUSEL
  * ========================================================================== */
 
-const RestaurantImageCarousel = memo(function RestaurantImageCarousel({
+function RestaurantImageCarousel({
   images = [],
-
+  width,
   height = 220,
 
-  resizeMode = "cover",
+  autoplay = false,
+  autoplayInterval = 3000,
+  loop = true,
+  pauseOnTouch = true,
 
-  showPagination = true,
-
-  activeDotColor = "#FFFFFF",
-
-  inactiveDotColor = "rgba(255,255,255,0.45)",
-
-  paginationStyle,
-
-  activeDotStyle,
-
-  inactiveDotStyle,
+  borderRadius = 18,
 
   onImageChange,
 
-  /*
-   * Autoplay
-   */
-  autoplay = true,
+  imageResizeMode = "cover",
+  imageStyle,
 
-  autoplayInterval = 3000,
+  pagination = true,
+  paginationPosition = "bottom",
 
-  loop = true,
+  paginationDotSize = 6,
+  paginationDotGap = 5,
 
-  pauseOnTouch = true,
+  paginationActiveStyle,
+  paginationInactiveStyle,
+
+  style,
 }) {
-  const [containerWidth, setContainerWidth] = useState(0);
+  const listRef = useRef(null);
+
+  const [containerWidth, setContainerWidth] = useState(width || SCREEN_WIDTH);
 
   const [activeIndex, setActiveIndex] = useState(0);
 
   const [isTouching, setIsTouching] = useState(false);
 
-  const listRef = useRef(null);
+  const resolvedWidth = width || containerWidth || SCREEN_WIDTH;
 
-  const data = Array.isArray(images) ? images.filter(Boolean) : [];
-
-  /* ======================================================================
-   * LAYOUT
-   * ====================================================================== */
-
-  const handleLayout = useCallback(
-    (event) => {
-      const measuredWidth = event.nativeEvent.layout.width;
-
-      if (measuredWidth > 0 && measuredWidth !== containerWidth) {
-        setContainerWidth(measuredWidth);
-      }
-    },
-    [containerWidth],
-  );
-
-  /* ======================================================================
-   * INDEX CHANGE
-   * ====================================================================== */
-
-  const updateIndex = useCallback(
-    (index) => {
-      setActiveIndex(index);
-
-      if (typeof onImageChange === "function") {
-        onImageChange(index);
-      }
-    },
-    [onImageChange],
-  );
-
-  /* ======================================================================
-   * SCROLL
-   * ========================================================================== */
-
-  const handleScroll = useCallback(
-    (event) => {
-      const offsetX = event.nativeEvent.contentOffset.x;
-
-      const layoutWidth = event.nativeEvent.layoutMeasurement?.width;
-
-      const pageWidth = layoutWidth || containerWidth;
-
-      if (!pageWidth) {
-        return;
-      }
-
-      const index = Math.round(offsetX / pageWidth);
-
-      if (index < 0 || index >= data.length) {
-        return;
-      }
-
-      if (index !== activeIndex) {
-        updateIndex(index);
-      }
-    },
-    [activeIndex, containerWidth, data.length, updateIndex],
-  );
-
-  /* ======================================================================
-   * AUTOPLAY
-   * ========================================================================== */
+  const hasMultipleImages = images.length > 1;
 
   useEffect(() => {
-    if (!autoplay) {
+    if (!hasMultipleImages) {
+      setActiveIndex(0);
+    }
+  }, [hasMultipleImages]);
+
+  useEffect(() => {
+    if (!autoplay || !hasMultipleImages || (pauseOnTouch && isTouching)) {
       return undefined;
     }
 
-    if (data.length <= 1) {
-      return undefined;
-    }
+    const timer = setInterval(() => {
+      setActiveIndex((current) => {
+        let nextIndex = current + 1;
 
-    if (containerWidth <= 0) {
-      return undefined;
-    }
-
-    if (pauseOnTouch && isTouching) {
-      return undefined;
-    }
-
-    const timer = setInterval(
-      () => {
-        setActiveIndex((currentIndex) => {
-          let nextIndex = currentIndex + 1;
-
-          /*
-           * Last image.
-           */
-          if (nextIndex >= data.length) {
-            if (!loop) {
-              return currentIndex;
-            }
-
+        if (nextIndex >= images.length) {
+          if (loop) {
             nextIndex = 0;
+          } else {
+            return current;
           }
+        }
 
-          /*
-           * Scroll carousel.
-           */
-          requestAnimationFrame(() => {
-            if (listRef.current) {
-              listRef.current.scrollToOffset({
-                offset: nextIndex * containerWidth,
-
-                animated: true,
-              });
-            }
+        requestAnimationFrame(() => {
+          listRef.current?.scrollToOffset({
+            offset: nextIndex * resolvedWidth,
+            animated: true,
           });
-
-          /*
-           * Notify parent.
-           */
-          if (typeof onImageChange === "function") {
-            onImageChange(nextIndex);
-          }
-
-          return nextIndex;
         });
-      },
-      Math.max(500, autoplayInterval),
-    );
+
+        return nextIndex;
+      });
+    }, autoplayInterval);
 
     return () => {
       clearInterval(timer);
@@ -426,213 +186,187 @@ const RestaurantImageCarousel = memo(function RestaurantImageCarousel({
   }, [
     autoplay,
     autoplayInterval,
-    containerWidth,
-    data.length,
+    hasMultipleImages,
+    images.length,
     isTouching,
     loop,
-    onImageChange,
     pauseOnTouch,
+    resolvedWidth,
   ]);
 
-  /* ======================================================================
-   * TOUCH
-   * ========================================================================== */
+  const handleScroll = (event) => {
+    const offsetX = event.nativeEvent.contentOffset.x;
 
-  const handleTouchStart = useCallback(() => {
-    if (pauseOnTouch) {
-      setIsTouching(true);
+    const index = Math.round(offsetX / resolvedWidth);
+
+    if (index !== activeIndex && index >= 0 && index < images.length) {
+      setActiveIndex(index);
+
+      if (typeof onImageChange === "function") {
+        onImageChange(index);
+      }
     }
-  }, [pauseOnTouch]);
+  };
 
-  const handleTouchEnd = useCallback(() => {
-    if (pauseOnTouch) {
-      setIsTouching(false);
-    }
-  }, [pauseOnTouch]);
-
-  /* ======================================================================
-   * EMPTY
-   * ========================================================================== */
-
-  if (data.length === 0) {
+  if (!images.length) {
     return (
       <View
-        onLayout={handleLayout}
         style={[
-          styles.carousel,
+          styles.imageContainer,
           {
+            width: resolvedWidth,
             height,
+            borderRadius,
           },
+          style,
         ]}
-      >
-        <View
-          style={[
-            styles.imagePlaceholder,
-            {
-              height,
-            },
-          ]}
-        >
-          <Ionicons name="restaurant-outline" size={46} color="#AEB4BE" />
-
-          <Text style={styles.placeholderText}>No Image</Text>
-        </View>
-      </View>
+      />
     );
   }
 
-  /* ======================================================================
-   * SINGLE IMAGE
-   * ========================================================================== */
-
-  if (data.length === 1) {
+  if (images.length === 1) {
     return (
       <View
-        onLayout={handleLayout}
+        onLayout={(event) => {
+          if (!width) {
+            setContainerWidth(event.nativeEvent.layout.width);
+          }
+        }}
         style={[
-          styles.carousel,
+          styles.imageContainer,
           {
+            width: "100%",
             height,
+            borderRadius,
           },
+          style,
         ]}
       >
         <Image
-          source={data[0]}
-          resizeMode={resizeMode}
+          source={images[0]}
+          resizeMode={imageResizeMode}
           style={[
             styles.restaurantImage,
             {
-              height,
+              borderRadius,
             },
+            imageStyle,
           ]}
         />
       </View>
     );
   }
 
-  /* ======================================================================
-   * MULTIPLE IMAGES
-   * ========================================================================== */
-
   return (
     <View
-      onLayout={handleLayout}
+      onLayout={(event) => {
+        if (!width) {
+          setContainerWidth(event.nativeEvent.layout.width);
+        }
+      }}
       style={[
-        styles.carousel,
+        styles.imageContainer,
         {
+          width: "100%",
           height,
+          borderRadius,
         },
+        style,
       ]}
     >
       <FlatList
         ref={listRef}
-        data={data}
+        data={images}
+        keyExtractor={(_, index) => `restaurant-image-${index}`}
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        bounces={false}
-        overScrollMode="never"
-        nestedScrollEnabled
-        directionalLockEnabled
         scrollEventThrottle={16}
+        bounces={false}
         decelerationRate="fast"
         onScroll={handleScroll}
-        onScrollBeginDrag={handleTouchStart}
-        onScrollEndDrag={handleTouchEnd}
-        onMomentumScrollEnd={handleTouchEnd}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        keyExtractor={(_, index) => `restaurant-image-${index}`}
-        renderItem={({ item }) => {
-          const itemWidth = containerWidth || SCREEN_WIDTH;
-
-          return (
-            <View
-              style={[
-                styles.carouselItem,
-                {
-                  width: itemWidth,
-
-                  height,
-                },
-              ]}
-            >
-              <Image
-                source={item}
-                resizeMode={resizeMode}
-                style={[
-                  styles.restaurantImage,
-                  {
-                    width: itemWidth,
-
-                    height,
-                  },
-                ]}
-              />
-            </View>
-          );
+        onScrollBeginDrag={() => {
+          if (pauseOnTouch) {
+            setIsTouching(true);
+          }
         }}
+        onScrollEndDrag={() => {
+          if (pauseOnTouch) {
+            setIsTouching(false);
+          }
+        }}
+        onMomentumScrollEnd={() => {
+          if (pauseOnTouch) {
+            setIsTouching(false);
+          }
+        }}
+        renderItem={({ item }) => (
+          <Image
+            source={item}
+            resizeMode={imageResizeMode}
+            style={[
+              styles.restaurantImage,
+              {
+                width: resolvedWidth,
+                height,
+                borderRadius,
+              },
+              imageStyle,
+            ]}
+          />
+        )}
       />
 
-      {/* ================================================================ */}
-      {/* PAGINATION                                                       */}
-      {/* ================================================================ */}
-
-      {showPagination ? (
-        <View pointerEvents="none" style={[styles.pagination, paginationStyle]}>
-          {data.map((_, index) => {
-            const isActive = index === activeIndex;
-
-            return (
-              <View
-                key={`dot-${index}`}
-                style={[
-                  styles.paginationDot,
-
-                  {
-                    backgroundColor: isActive
-                      ? activeDotColor
-                      : inactiveDotColor,
-                  },
-
-                  isActive
-                    ? styles.paginationDotActive
-                    : styles.paginationDotInactive,
-
-                  isActive ? activeDotStyle : inactiveDotStyle,
-                ]}
-              />
-            );
-          })}
+      {pagination ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.pagination,
+            paginationPosition === "top" && styles.paginationTop,
+          ]}
+        >
+          {images.map((_, index) => (
+            <View
+              key={`dot-${index}`}
+              style={[
+                styles.paginationDot,
+                {
+                  width: paginationDotSize,
+                  height: paginationDotSize,
+                  borderRadius: paginationDotSize / 2,
+                  marginHorizontal: paginationDotGap / 2,
+                },
+                index === activeIndex
+                  ? styles.paginationActive
+                  : styles.paginationInactive,
+                index === activeIndex
+                  ? paginationActiveStyle
+                  : paginationInactiveStyle,
+              ]}
+            />
+          ))}
         </View>
       ) : null}
     </View>
   );
-});
+}
 
-/* ==========================================================================
+/* ============================================================================
  * TOP RATED
  * ========================================================================== */
 
-const TopRatedBadge = memo(function TopRatedBadge({
-  text = "Top Rated",
+function TopRatedBadge({
+  label = "Top Rated",
+  icon = "star",
+  iconSize = 16,
+  fontSize = 12,
 
-  icon = "flame",
-
-  backgroundColor = "#FF5A5F",
-
-  color = "#FFFFFF",
-
-  fontSize = 13,
+  backgroundColor = "rgba(255,255,255,0.95)",
+  color = "#222",
 
   style,
-
   textStyle,
 }) {
-  if (!text) {
-    return null;
-  }
-
   return (
     <View
       style={[
@@ -643,10 +377,9 @@ const TopRatedBadge = memo(function TopRatedBadge({
         style,
       ]}
     >
-      {icon ? <RenderIcon icon={icon} size={16} color={color} /> : null}
+      <RenderIcon icon={icon} size={iconSize} color={color} />
 
       <Text
-        numberOfLines={1}
         style={[
           styles.topRatedText,
           {
@@ -656,120 +389,104 @@ const TopRatedBadge = memo(function TopRatedBadge({
           textStyle,
         ]}
       >
-        {text}
+        {label}
       </Text>
     </View>
   );
-});
+}
 
-/* ==========================================================================
+/* ============================================================================
  * RATING
  * ========================================================================== */
 
-const Rating = memo(function Rating({
+function Rating({
   rating,
-
   reviewCount,
 
   icon = "star",
+  iconSize = 18,
+  fontSize = 14,
+  reviewFontSize = 13,
 
-  iconSize = 19,
-
-  iconColor = "#FFB020",
-
-  textColor = "#171A21",
-
-  reviewColor = "#737985",
-
-  showReviewCount = true,
+  color = "#222",
+  reviewColor = "#666",
 
   style,
+  ratingTextStyle,
+  reviewTextStyle,
 }) {
-  if (rating === undefined || rating === null || rating === "") {
+  if (rating === undefined || rating === null) {
     return null;
   }
 
-  let formattedReviews = "";
-
-  if (reviewCount !== undefined && reviewCount !== null && reviewCount !== "") {
-    if (typeof reviewCount === "number" && reviewCount >= 1000) {
-      formattedReviews = `${(reviewCount / 1000).toFixed(
-        reviewCount >= 10000 ? 0 : 1,
-      )}K+`;
-    } else {
-      formattedReviews = String(reviewCount);
-    }
-  }
-
   return (
-    <View style={[styles.rating, style]}>
-      <RenderIcon icon={icon} size={iconSize} color={iconColor} />
+    <View style={[styles.ratingContainer, style]}>
+      <RenderIcon icon={icon} size={iconSize} color="#F5B400" />
 
       <Text
         style={[
-          styles.ratingValue,
+          styles.ratingText,
           {
-            color: textColor,
+            color,
+            fontSize,
           },
+          ratingTextStyle,
         ]}
       >
         {rating}
       </Text>
 
-      {showReviewCount && formattedReviews ? (
+      {reviewCount !== undefined && reviewCount !== null ? (
         <Text
           style={[
-            styles.ratingReviews,
+            styles.reviewCount,
             {
               color: reviewColor,
+              fontSize: reviewFontSize,
             },
+            reviewTextStyle,
           ]}
         >
-          ({formattedReviews})
+          ({reviewCount})
         </Text>
       ) : null}
     </View>
   );
-});
+}
 
-/* ==========================================================================
+/* ============================================================================
  * CUISINE TAGS
  * ========================================================================== */
 
-const CuisineTags = memo(function CuisineTags({
-  cuisines = [],
+function CuisineTags({
+  tags = [],
 
-  maxTags = 3,
+  fontSize = 13,
+  lineHeight,
 
-  backgroundColor = "rgba(255,90,31,0.10)",
+  color = "#555",
+  backgroundColor = "#F3F3F3",
 
-  textColor = "#737985",
-
-  borderRadius = 999,
+  borderRadius = 8,
 
   style,
-
+  tagStyle,
   textStyle,
 }) {
-  if (!Array.isArray(cuisines) || cuisines.length === 0) {
-    return null;
-  }
-
-  const visible = cuisines.slice(0, maxTags);
-
-  const remaining = Math.max(0, cuisines.length - visible.length);
+  if (!tags?.length) return null;
 
   return (
     <View style={[styles.cuisineContainer, style]}>
-      {visible.map((cuisine, index) => (
+      {tags.map((tag, index) => (
         <View
-          key={`${cuisine}-${index}`}
+          key={`cuisine-${index}`}
           style={[
             styles.cuisineTag,
             {
               backgroundColor,
               borderRadius,
             },
+            tagStyle,
           ]}
         >
           <Text
@@ -777,78 +494,68 @@ const CuisineTags = memo(function CuisineTags({
             style={[
               styles.cuisineText,
               {
-                color: textColor,
+                color,
+                fontSize,
+                lineHeight,
               },
               textStyle,
             ]}
           >
-            {cuisine}
+            {typeof tag === "string" ? tag : tag?.name || tag?.title || ""}
           </Text>
         </View>
       ))}
-
-      {remaining > 0 ? (
-        <View
-          style={[
-            styles.cuisineTag,
-            {
-              backgroundColor,
-              borderRadius,
-            },
-          ]}
-        >
-          <Text
-            style={[
-              styles.cuisineText,
-              {
-                color: textColor,
-              },
-            ]}
-          >
-            +{remaining}
-          </Text>
-        </View>
-      ) : null}
     </View>
   );
-});
+}
 
-/* ==========================================================================
+/* ============================================================================
  * INFO ITEM
  * ========================================================================== */
 
-const InfoItem = memo(function InfoItem({
+function InfoItem({
   icon,
-
-  iconSize = 24,
-
-  iconColor = "#737985",
+  iconSize = 20,
+  iconColor = "#555",
 
   value,
-
   label,
 
-  valueColor = "#171A21",
+  valueFontSize = 14,
+  valueLineHeight,
 
-  labelColor = "#737985",
+  labelFontSize = 12,
+  labelLineHeight,
+
+  valueColor = "#222",
+  labelColor = "#777",
+
+  style,
+  iconStyle,
+  valueStyle,
+  labelStyle,
 }) {
-  if (!value && !label) {
-    return null;
-  }
-
   return (
-    <View style={styles.infoItem}>
-      <RenderIcon icon={icon} size={iconSize} color={iconColor} />
+    <View style={[styles.infoItem, style]}>
+      <RenderIcon
+        icon={icon}
+        size={iconSize}
+        color={iconColor}
+        style={iconStyle}
+      />
 
-      <View style={styles.infoText}>
-        {value ? (
+      <View style={styles.infoTextContainer}>
+        {value !== undefined && value !== null ? (
           <Text
             numberOfLines={1}
             style={[
               styles.infoValue,
               {
                 color: valueColor,
+                fontSize: valueFontSize,
+                lineHeight: valueLineHeight,
               },
+              valueStyle,
             ]}
           >
             {value}
@@ -862,7 +569,10 @@ const InfoItem = memo(function InfoItem({
               styles.infoLabel,
               {
                 color: labelColor,
+                fontSize: labelFontSize,
+                lineHeight: labelLineHeight,
               },
+              labelStyle,
             ]}
           >
             {label}
@@ -871,594 +581,618 @@ const InfoItem = memo(function InfoItem({
       </View>
     </View>
   );
-});
+}
 
-/* ==========================================================================
- * RESTAURANT CARD
+/* ============================================================================
+ * MAIN COMPONENT
  * ========================================================================== */
 
-export const UIRestaurantCard = memo(function UIRestaurantCard({
+function UIRestaurantCard({
   restaurant = {},
 
-  /* -------------------------------------------------------------------- */
-  /* CARD                                                                 */
-  /* -------------------------------------------------------------------- */
+  /* ------------------------------------------------------------------------
+   * CARD
+   * ---------------------------------------------------------------------- */
 
-  width = SCREEN_WIDTH - 24,
-
-  backgroundColor,
-
-  borderRadius,
-
-  shadow = true,
-
+  width,
   style,
-
   contentStyle,
 
-  /* -------------------------------------------------------------------- */
-  /* PRESS                                                                */
-  /* -------------------------------------------------------------------- */
+  borderRadius = 18,
+  backgroundColor,
 
   onPress,
 
-  onLongPress,
+  /* ------------------------------------------------------------------------
+   * IMAGE
+   * ---------------------------------------------------------------------- */
 
-  disabled = false,
+  images,
 
-  /* -------------------------------------------------------------------- */
-  /* ANIMATION                                                            */
-  /* -------------------------------------------------------------------- */
+  imageHeight = 220,
+  imageResizeMode = "cover",
+  imageStyle,
+
+  autoplay = false,
+  autoplayInterval = 3000,
+  loop = true,
+  pauseOnTouch = true,
+
+  pagination = true,
+  paginationPosition = "bottom",
+
+  paginationDotSize = 6,
+  paginationDotGap = 5,
+
+  paginationActiveStyle,
+  paginationInactiveStyle,
+
+  onImageChange,
+
+  /* ------------------------------------------------------------------------
+   * LOGO
+   * ---------------------------------------------------------------------- */
+
+  logo,
+
+  logoSize = 64,
+  logoBorderRadius = 14,
+
+  logoBackgroundColor = "#FFFFFF",
+
+  logoBorderWidth = 1,
+  logoBorderColor = "#EEEEEE",
+
+  logoStyle,
+  logoImageStyle,
+
+  /* ------------------------------------------------------------------------
+   * TOP RATED
+   * ---------------------------------------------------------------------- */
+
+  showTopRated = true,
+  topRated,
+
+  topRatedLabel = "Top Rated",
+  topRatedIcon = "star",
+  topRatedIconSize = 16,
+  topRatedFontSize = 12,
+
+  topRatedBackgroundColor = "rgba(255,255,255,0.95)",
+  topRatedColor = "#222",
+
+  topRatedStyle,
+  topRatedTextStyle,
+
+  /* ------------------------------------------------------------------------
+   * FAVORITE
+   * ---------------------------------------------------------------------- */
+
+  favorite,
+  onFavoritePress,
+
+  favoriteIcon,
+  favoriteActiveIcon = "heart",
+  favoriteInactiveIcon = "heart-outline",
+
+  favoriteIconSize = 24,
+  favoriteIconColor = "#222",
+  favoriteActiveColor = "#E53935",
+
+  favoriteBackgroundColor = "rgba(255,255,255,0.95)",
+
+  favoriteButtonSize = 40,
+  favoriteButtonStyle,
+
+  /* ------------------------------------------------------------------------
+   * DISCOUNT
+   * ---------------------------------------------------------------------- */
+
+  showDiscount = true,
+  discount,
+
+  discountIcon = "pricetag",
+  discountFontSize = 14,
+  discountLineHeight,
+
+  discountColor = "#FFFFFF",
+  discountBackgroundColor = "#E53935",
+
+  discountStyle,
+  discountTextStyle,
+
+  /* ------------------------------------------------------------------------
+   * NAME
+   * ---------------------------------------------------------------------- */
+
+  name,
+  nameFontSize = 18,
+  nameLineHeight = 24,
+
+  nameColor,
+  nameStyle,
+
+  /* ------------------------------------------------------------------------
+   * SUBTITLE
+   * ---------------------------------------------------------------------- */
+
+  subtitle,
+  subtitleFontSize = 13,
+  subtitleLineHeight = 18,
+
+  subtitleColor,
+  subtitleStyle,
+
+  /* ------------------------------------------------------------------------
+   * RATING
+   * ---------------------------------------------------------------------- */
+
+  rating,
+  reviewCount,
+
+  ratingFontSize = 14,
+  ratingLineHeight,
+
+  reviewCountFontSize = 13,
+  reviewCountLineHeight,
+
+  ratingIcon = "star",
+  ratingIconSize = 18,
+
+  ratingColor,
+  reviewCountColor,
+
+  ratingStyle,
+  ratingTextStyle,
+  reviewCountStyle,
+
+  /* ------------------------------------------------------------------------
+   * CUISINES
+   * ---------------------------------------------------------------------- */
+
+  cuisines,
+  tags,
+
+  cuisineFontSize = 13,
+  cuisineLineHeight,
+
+  cuisineColor,
+  cuisineBackgroundColor,
+
+  cuisineBorderRadius = 8,
+
+  cuisineStyle,
+  cuisineTagStyle,
+  cuisineTextStyle,
+
+  /* ------------------------------------------------------------------------
+   * DELIVERY
+   * ---------------------------------------------------------------------- */
+
+  deliveryTime,
+  deliveryLabel = "Delivery",
+
+  deliveryIcon = "time-outline",
+  deliveryIconSize = 20,
+
+  deliveryTimeFontSize = 14,
+  deliveryTimeLineHeight,
+
+  deliveryLabelFontSize = 12,
+  deliveryLabelLineHeight,
+
+  deliveryTimeColor,
+  deliveryLabelColor,
+
+  deliveryStyle,
+
+  /* ------------------------------------------------------------------------
+   * DISTANCE
+   * ---------------------------------------------------------------------- */
+
+  distance,
+  distanceLabel = "Distance",
+
+  distanceIcon = "location-outline",
+  distanceIconSize = 20,
+
+  distanceFontSize = 14,
+  distanceLineHeight,
+
+  distanceLabelFontSize = 12,
+  distanceLabelLineHeight,
+
+  distanceColor,
+  distanceLabelColor,
+
+  distanceStyle,
+
+  /* ------------------------------------------------------------------------
+   * FREE DELIVERY
+   * ---------------------------------------------------------------------- */
+
+  freeDelivery = false,
+  freeDeliveryText = "Free Delivery",
+  freeDeliverySubtext,
+
+  freeDeliveryIcon = "bicycle-outline",
+  freeDeliveryIconSize = 21,
+
+  freeDeliveryFontSize = 14,
+  freeDeliveryLineHeight,
+
+  freeDeliverySubtextFontSize = 12,
+  freeDeliverySubtextLineHeight,
+
+  freeDeliveryColor,
+  freeDeliverySubtextColor,
+
+  freeDeliveryStyle,
+
+  /* ------------------------------------------------------------------------
+   * DIVIDER
+   * ---------------------------------------------------------------------- */
+
+  showDivider = true,
+  dividerColor,
+  dividerStyle,
+
+  /* ------------------------------------------------------------------------
+   * GLOBAL SCALE
+   * ---------------------------------------------------------------------- */
+
+  textScale = 1,
+  iconScale = 1,
+
+  /* ------------------------------------------------------------------------
+   * ANIMATION
+   * ---------------------------------------------------------------------- */
 
   reanimated = false,
 
   animationSpring,
 
-  pressedScale = 0.985,
-
-  /* -------------------------------------------------------------------- */
-  /* IMAGE                                                                */
-  /* -------------------------------------------------------------------- */
-
-  image,
-
-  images,
-
-  imageHeight = 220,
-
-  imageResizeMode = "cover",
-
-  /* -------------------------------------------------------------------- */
-  /* AUTOPLAY                                                             */
-  /* -------------------------------------------------------------------- */
-
-  autoplay = true,
-
-  autoplayInterval = 3000,
-
-  loop = true,
-
-  pauseOnTouch = true,
-
-  /* -------------------------------------------------------------------- */
-  /* PAGINATION                                                           */
-  /* -------------------------------------------------------------------- */
-
-  showPagination = true,
-
-  activeDotColor = "#FFFFFF",
-
-  inactiveDotColor = "rgba(255,255,255,0.45)",
-
-  paginationStyle,
-
-  activeDotStyle,
-
-  inactiveDotStyle,
-
-  onImageChange,
-
-  /* -------------------------------------------------------------------- */
-  /* TOP RATED                                                            */
-  /* -------------------------------------------------------------------- */
-
-  showTopRated = true,
-
-  topRated,
-
-  topRatedText = "Top Rated",
-
-  topRatedIcon = "flame",
-
-  topRatedBackgroundColor = "#FF5A5F",
-
-  topRatedColor = "#FFFFFF",
-
-  topRatedFontSize = 13,
-
-  topRatedStyle,
-
-  topRatedTextStyle,
-
-  /* -------------------------------------------------------------------- */
-  /* FAVORITE                                                             */
-  /* -------------------------------------------------------------------- */
-
-  showFavorite = true,
-
-  favorite = false,
-
-  onFavoritePress,
-
-  favoriteIcon,
-
-  favoriteActiveIcon = "heart",
-
-  favoriteInactiveIcon = "heart-outline",
-
-  favoriteSize = 25,
-
-  favoriteColor = "#222222",
-
-  favoriteActiveColor = "#FF4D67",
-
-  favoriteBackgroundColor = "rgba(255,255,255,0.96)",
-
-  favoriteButtonSize = 46,
-
-  favoriteStyle,
-
-  /* -------------------------------------------------------------------- */
-  /* DISCOUNT                                                             */
-  /* -------------------------------------------------------------------- */
-
-  showDiscount = true,
-
-  discount,
-
-  discountBackgroundColor = "rgba(0,0,0,0.82)",
-
-  discountColor = "#FFFFFF",
-
-  discountStyle,
-
-  discountTextStyle,
-
-  /* -------------------------------------------------------------------- */
-  /* LOGO                                                                 */
-  /* -------------------------------------------------------------------- */
-
-  showLogo = true,
-
-  logo,
-
-  logoSize = 82,
-
-  logoBorderRadius = 18,
-
-  logoStyle,
-
-  /* -------------------------------------------------------------------- */
-  /* NAME                                                                 */
-  /* -------------------------------------------------------------------- */
-
-  name,
-
-  subtitle,
-
-  nameColor,
-
-  subtitleColor,
-
-  nameStyle,
-
-  subtitleStyle,
-
-  /* -------------------------------------------------------------------- */
-  /* RATING                                                               */
-  /* -------------------------------------------------------------------- */
-
-  showRating = true,
-
-  rating,
-
-  reviewCount,
-
-  showReviewCount = true,
-
-  ratingIcon = "star",
-
-  ratingIconSize = 19,
-
-  ratingIconColor = "#FFB020",
-
-  ratingTextColor,
-
-  reviewTextColor,
-
-  ratingStyle,
-
-  /* -------------------------------------------------------------------- */
-  /* CUISINES                                                             */
-  /* -------------------------------------------------------------------- */
-
-  cuisines,
-
-  maxCuisineTags = 3,
-
-  tagBackgroundColor,
-
-  tagTextColor,
-
-  tagBorderRadius,
-
-  tagStyle,
-
-  tagTextStyle,
-
-  /* -------------------------------------------------------------------- */
-  /* DELIVERY                                                             */
-  /* -------------------------------------------------------------------- */
-
-  deliveryTime,
-
-  deliveryTimeLabel = "Delivery time",
-
-  deliveryIcon = "time-outline",
-
-  deliveryIconSize = 25,
-
-  /* -------------------------------------------------------------------- */
-  /* DISTANCE                                                             */
-  /* -------------------------------------------------------------------- */
-
-  distance,
-
-  distanceLabel = "Away",
-
-  distanceIcon = "location-outline",
-
-  distanceIconSize = 25,
-
-  /* -------------------------------------------------------------------- */
-  /* FREE DELIVERY                                                        */
-  /* -------------------------------------------------------------------- */
-
-  freeDelivery = false,
-
-  freeDeliveryText = "Free Delivery",
-
-  freeDeliverySubtext,
-
-  freeDeliveryIcon = "bicycle-outline",
-
-  freeDeliveryIconSize = 27,
-
-  freeDeliveryColor,
-
-  freeDeliveryIconColor,
-
-  /* -------------------------------------------------------------------- */
-  /* DIVIDER                                                              */
-  /* -------------------------------------------------------------------- */
-
-  showDivider = true,
-
-  dividerColor,
-
-  /* -------------------------------------------------------------------- */
-  /* CUSTOM RENDERERS                                                     */
-  /* -------------------------------------------------------------------- */
-
-  renderImage,
-
-  renderLogo,
+  /* ------------------------------------------------------------------------
+   * CUSTOM
+   * ---------------------------------------------------------------------- */
 
   renderTopRated,
-
   renderFavorite,
-
+  renderLogo,
   renderDiscount,
-
   renderRating,
-
-  renderTags,
-
+  renderCuisines,
   renderDelivery,
-
   renderDistance,
-
   renderFreeDelivery,
-
-  renderContent,
-
   renderFooter,
 
   children,
 }) {
-  /* ==================================================================== */
-  /* THEME                                                                */
-  /* ==================================================================== */
-
   const { theme } = useUITheme();
 
-  const { colors, spacing, radius, animation } = resolveTheme(theme);
+  const colors = theme?.colors || {};
+  const spacing = theme?.spacing || {};
+  const radius = theme?.radius || {};
+  const animation = theme?.animation || {};
 
-  /* ==================================================================== */
-  /* SPRING                                                                */
-  /* ==================================================================== */
+  const resolvedImages = useMemo(() => {
+    if (Array.isArray(images)) {
+      return images.map(normalizeImageSource).filter(Boolean);
+    }
 
-  const resolvedSpring = useMemo(
-    () => animationSpring ?? animation?.spring ?? DEFAULT_SPRING,
-    [animationSpring, animation?.spring],
+    return resolveRestaurantImages(restaurant);
+  }, [images, restaurant]);
+
+  const resolvedLogo = normalizeImageSource(
+    logo || restaurant.logo || restaurant.logoUrl || restaurant.restaurantLogo,
   );
 
-  /* ==================================================================== */
-  /* RESTAURANT DATA                                                      */
-  /* ==================================================================== */
+  const resolvedName =
+    name ?? restaurant.name ?? restaurant.restaurantName ?? "";
 
-  const resolvedName = name ?? restaurant?.name ?? "";
+  const resolvedSubtitle =
+    subtitle ?? restaurant.subtitle ?? restaurant.description ?? "";
 
-  const resolvedSubtitle = subtitle ?? restaurant?.subtitle ?? "";
+  const resolvedRating =
+    rating ?? restaurant.rating ?? restaurant.averageRating;
 
-  const resolvedRating = rating ?? restaurant?.rating;
+  const resolvedReviewCount =
+    reviewCount ?? restaurant.reviewCount ?? restaurant.reviewsCount;
 
-  const resolvedReviewCount = reviewCount ?? restaurant?.reviewCount;
+  const resolvedCuisines =
+    cuisines ?? tags ?? restaurant.cuisines ?? restaurant.tags ?? [];
 
-  const resolvedCuisines = cuisines ?? restaurant?.cuisines ?? [];
+  const resolvedDeliveryTime =
+    deliveryTime ?? restaurant.deliveryTime ?? restaurant.deliveryTimeText;
 
-  const resolvedDeliveryTime = deliveryTime ?? restaurant?.deliveryTime ?? "";
+  const resolvedDistance =
+    distance ?? restaurant.distance ?? restaurant.distanceText;
 
-  const resolvedDistance = distance ?? restaurant?.distance ?? "";
+  const resolvedFreeDelivery = freeDelivery ?? restaurant.freeDelivery ?? false;
 
-  const resolvedLogo = logo ?? restaurant?.logo;
+  const resolvedDiscount =
+    discount ?? restaurant.discount ?? restaurant.discountText;
 
-  const resolvedTopRated = topRated ?? restaurant?.topRated;
+  const resolvedFavorite =
+    favorite ?? restaurant.favorite ?? restaurant.isFavorite ?? false;
 
-  const resolvedDiscount = discount ?? restaurant?.discount;
+  const resolvedTopRated = topRated ?? restaurant.topRated;
 
-  const resolvedImages = useMemo(
-    () =>
-      resolveRestaurantImages({
-        restaurant,
-        image,
-        images,
-      }),
-    [restaurant, image, images],
-  );
+  const sizes = useMemo(() => {
+    return {
+      nameFontSize: nameFontSize * textScale,
+      nameLineHeight: nameLineHeight ? nameLineHeight * textScale : undefined,
 
-  const resolvedFreeDelivery =
-    freeDelivery || restaurant?.freeDelivery === true;
+      subtitleFontSize: subtitleFontSize * textScale,
+      subtitleLineHeight: subtitleLineHeight
+        ? subtitleLineHeight * textScale
+        : undefined,
 
-  const resolvedFreeDeliveryText =
-    restaurant?.freeDeliveryText ?? freeDeliveryText;
+      topRatedFontSize: topRatedFontSize * textScale,
+      topRatedIconSize: topRatedIconSize * iconScale,
 
-  const resolvedFreeDeliverySubtext =
-    freeDeliverySubtext ?? restaurant?.freeDeliverySubtext;
+      favoriteIconSize: favoriteIconSize * iconScale,
 
-  /* ==================================================================== */
-  /* COLORS                                                               */
-  /* ==================================================================== */
+      discountFontSize: discountFontSize * textScale,
+      discountLineHeight: discountLineHeight
+        ? discountLineHeight * textScale
+        : undefined,
 
-  const cardColor =
+      ratingFontSize: ratingFontSize * textScale,
+      ratingLineHeight: ratingLineHeight
+        ? ratingLineHeight * textScale
+        : undefined,
+
+      reviewCountFontSize: reviewCountFontSize * textScale,
+      reviewCountLineHeight: reviewCountLineHeight
+        ? reviewCountLineHeight * textScale
+        : undefined,
+
+      ratingIconSize: ratingIconSize * iconScale,
+
+      cuisineFontSize: cuisineFontSize * textScale,
+      cuisineLineHeight: cuisineLineHeight
+        ? cuisineLineHeight * textScale
+        : undefined,
+
+      deliveryTimeFontSize: deliveryTimeFontSize * textScale,
+      deliveryTimeLineHeight: deliveryTimeLineHeight
+        ? deliveryTimeLineHeight * textScale
+        : undefined,
+
+      deliveryLabelFontSize: deliveryLabelFontSize * textScale,
+      deliveryLabelLineHeight: deliveryLabelLineHeight
+        ? deliveryLabelLineHeight * textScale
+        : undefined,
+
+      deliveryIconSize: deliveryIconSize * iconScale,
+
+      distanceFontSize: distanceFontSize * textScale,
+      distanceLineHeight: distanceLineHeight
+        ? distanceLineHeight * textScale
+        : undefined,
+
+      distanceLabelFontSize: distanceLabelFontSize * textScale,
+      distanceLabelLineHeight: distanceLabelLineHeight
+        ? distanceLabelLineHeight * textScale
+        : undefined,
+
+      distanceIconSize: distanceIconSize * iconScale,
+
+      freeDeliveryFontSize: freeDeliveryFontSize * textScale,
+      freeDeliveryLineHeight: freeDeliveryLineHeight
+        ? freeDeliveryLineHeight * textScale
+        : undefined,
+
+      freeDeliverySubtextFontSize: freeDeliverySubtextFontSize * textScale,
+
+      freeDeliverySubtextLineHeight: freeDeliverySubtextLineHeight
+        ? freeDeliverySubtextLineHeight * textScale
+        : undefined,
+
+      freeDeliveryIconSize: freeDeliveryIconSize * iconScale,
+    };
+  }, [
+    nameFontSize,
+    nameLineHeight,
+    subtitleFontSize,
+    subtitleLineHeight,
+    topRatedFontSize,
+    topRatedIconSize,
+    favoriteIconSize,
+    discountFontSize,
+    discountLineHeight,
+    ratingFontSize,
+    ratingLineHeight,
+    reviewCountFontSize,
+    reviewCountLineHeight,
+    ratingIconSize,
+    cuisineFontSize,
+    cuisineLineHeight,
+    deliveryTimeFontSize,
+    deliveryTimeLineHeight,
+    deliveryLabelFontSize,
+    deliveryLabelLineHeight,
+    deliveryIconSize,
+    distanceFontSize,
+    distanceLineHeight,
+    distanceLabelFontSize,
+    distanceLabelLineHeight,
+    distanceIconSize,
+    freeDeliveryFontSize,
+    freeDeliveryLineHeight,
+    freeDeliverySubtextFontSize,
+    freeDeliverySubtextLineHeight,
+    freeDeliveryIconSize,
+    textScale,
+    iconScale,
+  ]);
+
+  const resolvedBackgroundColor =
     backgroundColor ?? colors.card ?? colors.surface ?? "#FFFFFF";
 
-  const cardRadius = borderRadius ?? radius.card ?? 18;
+  const resolvedNameColor = nameColor ?? colors.text ?? "#222222";
 
-  const resolvedNameColor = nameColor ?? colors.text;
+  const resolvedSubtitleColor =
+    subtitleColor ?? colors.textSecondary ?? "#666666";
 
-  const resolvedSubtitleColor = subtitleColor ?? colors.textSecondary;
+  const resolvedRatingColor = ratingColor ?? colors.text ?? "#222222";
 
-  const resolvedRatingColor = ratingTextColor ?? colors.text;
+  const resolvedCuisineColor =
+    cuisineColor ?? colors.textSecondary ?? "#555555";
 
-  const resolvedReviewColor = reviewTextColor ?? colors.textSecondary;
+  const resolvedCuisineBackground =
+    cuisineBackgroundColor ?? colors.surfaceSecondary ?? "#F3F3F3";
 
-  const resolvedTagBackground =
-    tagBackgroundColor ?? colors.primarySoft ?? "rgba(255,90,31,0.10)";
+  const resolvedDeliveryColor = deliveryTimeColor ?? colors.text ?? "#222222";
 
-  const resolvedTagColor = tagTextColor ?? colors.textSecondary;
+  const resolvedDeliveryLabelColor =
+    deliveryLabelColor ?? colors.textSecondary ?? "#777777";
 
-  const resolvedDividerColor = dividerColor ?? colors.border;
+  const resolvedDistanceColor = distanceColor ?? colors.text ?? "#222222";
 
-  const resolvedFreeColor = freeDeliveryColor ?? colors.success ?? "#20A34A";
+  const resolvedDistanceLabelColor =
+    distanceLabelColor ?? colors.textSecondary ?? "#777777";
 
-  const resolvedFreeIconColor =
-    freeDeliveryIconColor ?? colors.primary ?? "#FF5A1F";
+  const resolvedFreeDeliveryColor =
+    freeDeliveryColor ?? colors.success ?? "#159447";
 
-  /* ==================================================================== */
-  /* PRESS ANIMATION                                                      */
-  /* ==================================================================== */
+  const resolvedFreeDeliverySubtextColor =
+    freeDeliverySubtextColor ?? colors.textSecondary ?? "#777777";
 
-  const scale = useSharedValue(1);
+  const resolvedDividerColor = dividerColor ?? colors.border ?? "#EEEEEE";
 
-  const animatedCardStyle = useAnimatedStyle(() => {
-    return {
-      transform: [
-        {
-          scale: scale.value,
+  /* --------------------------------------------------------------------------
+   * PRESS ANIMATION
+   * ------------------------------------------------------------------------ */
+
+  const pressScale = useSharedValue(1);
+
+  const animatedCardStyle = useAnimatedStyle(() => ({
+    transform: [
+      {
+        scale: pressScale.value,
+      },
+    ],
+  }));
+
+  const handlePressIn = () => {
+    if (!reanimated) return;
+
+    pressScale.value = withSpring(
+      0.985,
+      animationSpring ||
+        animation.spring || {
+          damping: 18,
+          stiffness: 180,
+          mass: 0.8,
         },
-      ],
-    };
-  });
-
-  const handlePressIn = useCallback(() => {
-    if (!reanimated || disabled) {
-      return;
-    }
-
-    scale.value = withSpring(pressedScale, resolvedSpring);
-  }, [disabled, pressedScale, reanimated, resolvedSpring, scale]);
-
-  const handlePressOut = useCallback(() => {
-    if (!reanimated || disabled) {
-      return;
-    }
-
-    scale.value = withSpring(1, resolvedSpring);
-  }, [disabled, reanimated, resolvedSpring, scale]);
-
-  /* ==================================================================== */
-  /* PRESS                                                                 */
-  /* ==================================================================== */
-
-  const handlePress = useCallback(() => {
-    if (disabled) {
-      return;
-    }
-
-    if (typeof onPress === "function") {
-      onPress(restaurant);
-    }
-  }, [disabled, onPress, restaurant]);
-
-  const handleLongPress = useCallback(() => {
-    if (disabled) {
-      return;
-    }
-
-    if (typeof onLongPress === "function") {
-      onLongPress(restaurant);
-    }
-  }, [disabled, onLongPress, restaurant]);
-
-  /* ==================================================================== */
-  /* IMAGE                                                                 */
-  /* ==================================================================== */
-
-  const imageContent =
-    typeof renderImage === "function" ? (
-      renderImage({
-        restaurant,
-        images: resolvedImages,
-        height: imageHeight,
-      })
-    ) : (
-      <RestaurantImageCarousel
-        images={resolvedImages}
-        height={imageHeight}
-        resizeMode={imageResizeMode}
-        autoplay={autoplay}
-        autoplayInterval={autoplayInterval}
-        loop={loop}
-        pauseOnTouch={pauseOnTouch}
-        showPagination={showPagination}
-        activeDotColor={activeDotColor}
-        inactiveDotColor={inactiveDotColor}
-        paginationStyle={paginationStyle}
-        activeDotStyle={activeDotStyle}
-        inactiveDotStyle={inactiveDotStyle}
-        onImageChange={onImageChange}
-      />
     );
+  };
 
-  /* ==================================================================== */
-  /* TOP RATED                                                            */
-  /* ==================================================================== */
+  const handlePressOut = () => {
+    if (!reanimated) return;
+
+    pressScale.value = withSpring(
+      1,
+      animationSpring ||
+        animation.spring || {
+          damping: 18,
+          stiffness: 180,
+          mass: 0.8,
+        },
+    );
+  };
+
+  /* --------------------------------------------------------------------------
+   * TOP RATED
+   * ------------------------------------------------------------------------ */
 
   const topRatedContent =
     showTopRated && resolvedTopRated !== false ? (
       typeof renderTopRated === "function" ? (
         renderTopRated({
           restaurant,
-          topRated: resolvedTopRated,
         })
       ) : (
         <TopRatedBadge
-          text={
-            typeof resolvedTopRated === "string"
-              ? resolvedTopRated
-              : topRatedText
-          }
+          label={topRatedLabel}
           icon={topRatedIcon}
+          iconSize={sizes.topRatedIconSize}
+          fontSize={sizes.topRatedFontSize}
           backgroundColor={topRatedBackgroundColor}
           color={topRatedColor}
-          fontSize={topRatedFontSize}
           style={topRatedStyle}
           textStyle={topRatedTextStyle}
         />
       )
     ) : null;
 
-  /* ==================================================================== */
-  /* FAVORITE                                                             */
-  /* ==================================================================== */
+  /* --------------------------------------------------------------------------
+   * FAVORITE
+   * ------------------------------------------------------------------------ */
 
-  const favoriteContent = showFavorite ? (
-    typeof renderFavorite === "function" ? (
-      renderFavorite({
-        restaurant,
-        favorite,
-      })
-    ) : (
-      <Pressable
-        onPress={() => {
-          if (typeof onFavoritePress === "function") {
-            onFavoritePress(!favorite, restaurant);
-          }
-        }}
-        style={[
-          styles.favoriteButton,
+  const favoriteContent = (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={
+        resolvedFavorite ? "Remove from favorites" : "Add to favorites"
+      }
+      onPress={onFavoritePress}
+      style={[
+        styles.favoriteButton,
+        {
+          width: favoriteButtonSize,
+          height: favoriteButtonSize,
+          borderRadius: favoriteButtonSize / 2,
+          backgroundColor: favoriteBackgroundColor,
+        },
+        favoriteButtonStyle,
+      ]}
+    >
+      <RenderIcon
+        icon={favorite ? favoriteActiveIcon : favoriteInactiveIcon}
+        size={sizes.favoriteIconSize}
+        color={favorite ? favoriteActiveColor : favoriteIconColor}
+      />
+    </Pressable>
+  );
 
-          {
-            width: favoriteButtonSize,
-
-            height: favoriteButtonSize,
-
-            borderRadius: favoriteButtonSize / 2,
-
-            backgroundColor: favoriteBackgroundColor,
-          },
-
-          favoriteStyle,
-        ]}
-        accessibilityRole="button"
-        accessibilityLabel={
-          favorite ? "Remove from favorites" : "Add to favorites"
-        }
-      >
-        <RenderIcon
-          icon={
-            favoriteIcon ??
-            (favorite ? favoriteActiveIcon : favoriteInactiveIcon)
-          }
-          size={favoriteSize}
-          color={favorite ? favoriteActiveColor : favoriteColor}
-        />
-      </Pressable>
-    )
-  ) : null;
-
-  /* ==================================================================== */
-  /* DISCOUNT                                                             */
-  /* ==================================================================== */
+  /* --------------------------------------------------------------------------
+   * DISCOUNT
+   * ------------------------------------------------------------------------ */
 
   const discountContent =
     showDiscount && resolvedDiscount ? (
       typeof renderDiscount === "function" ? (
         renderDiscount({
           restaurant,
-          discount: resolvedDiscount,
         })
       ) : (
         <View
           style={[
             styles.discountBadge,
-
             {
               backgroundColor: discountBackgroundColor,
             },
-
             discountStyle,
           ]}
         >
+          <RenderIcon
+            icon={discountIcon}
+            size={15 * iconScale}
+            color={discountColor}
+          />
+
           <Text
             style={[
               styles.discountText,
-
               {
                 color: discountColor,
+                fontSize: sizes.discountFontSize,
+                lineHeight: sizes.discountLineHeight,
               },
-
               discountTextStyle,
             ]}
           >
@@ -1468,101 +1202,158 @@ export const UIRestaurantCard = memo(function UIRestaurantCard({
       )
     ) : null;
 
-  /* ==================================================================== */
-  /* RATING                                                               */
-  /* ==================================================================== */
+  /* --------------------------------------------------------------------------
+   * LOGO
+   * ------------------------------------------------------------------------ */
 
-  const ratingContent = showRating ? (
-    typeof renderRating === "function" ? (
-      renderRating({
+  const logoContent = resolvedLogo ? (
+    typeof renderLogo === "function" ? (
+      renderLogo({
         restaurant,
-        rating: resolvedRating,
-        reviewCount: resolvedReviewCount,
+        logo: resolvedLogo,
       })
     ) : (
-      <Rating
-        rating={resolvedRating}
-        reviewCount={resolvedReviewCount}
-        icon={ratingIcon}
-        iconSize={ratingIconSize}
-        iconColor={ratingIconColor}
-        textColor={resolvedRatingColor}
-        reviewColor={resolvedReviewColor}
-        showReviewCount={showReviewCount}
-        style={ratingStyle}
-      />
+      <View
+        style={[
+          styles.logoWrapper,
+          {
+            width: logoSize,
+            height: logoSize,
+            borderRadius: logoBorderRadius,
+            backgroundColor: logoBackgroundColor,
+            borderWidth: logoBorderWidth,
+            borderColor: logoBorderColor,
+          },
+          logoStyle,
+        ]}
+      >
+        <Image
+          source={resolvedLogo}
+          resizeMode="contain"
+          style={[
+            styles.logoImage,
+            {
+              width: logoSize - logoBorderWidth * 2,
+              height: logoSize - logoBorderWidth * 2,
+              borderRadius: logoBorderRadius,
+            },
+            logoImageStyle,
+          ]}
+        />
+      </View>
     )
   ) : null;
 
-  /* ==================================================================== */
-  /* TAGS                                                                 */
-  /* ==================================================================== */
+  /* --------------------------------------------------------------------------
+   * RATING
+   * ------------------------------------------------------------------------ */
 
-  const tagsContent =
-    typeof renderTags === "function" ? (
-      renderTags({
+  const ratingContent =
+    resolvedRating !== undefined && resolvedRating !== null ? (
+      typeof renderRating === "function" ? (
+        renderRating({
+          restaurant,
+          rating: resolvedRating,
+          reviewCount: resolvedReviewCount,
+        })
+      ) : (
+        <Rating
+          rating={resolvedRating}
+          reviewCount={resolvedReviewCount}
+          icon={ratingIcon}
+          iconSize={sizes.ratingIconSize}
+          fontSize={sizes.ratingFontSize}
+          reviewFontSize={sizes.reviewCountFontSize}
+          color={resolvedRatingColor}
+          reviewColor={reviewCountColor ?? colors.textSecondary ?? "#666"}
+          style={ratingStyle}
+          ratingTextStyle={ratingTextStyle}
+          reviewTextStyle={reviewCountStyle}
+        />
+      )
+    ) : null;
+
+  /* --------------------------------------------------------------------------
+   * CUISINES
+   * ------------------------------------------------------------------------ */
+
+  const tagsContent = resolvedCuisines?.length ? (
+    typeof renderCuisines === "function" ? (
+      renderCuisines({
         restaurant,
         cuisines: resolvedCuisines,
       })
     ) : (
       <CuisineTags
-        cuisines={resolvedCuisines}
-        maxTags={maxCuisineTags}
-        backgroundColor={resolvedTagBackground}
-        textColor={resolvedTagColor}
-        borderRadius={tagBorderRadius ?? radius.pill ?? 999}
-        style={tagStyle}
-        textStyle={tagTextStyle}
+        tags={resolvedCuisines}
+        fontSize={sizes.cuisineFontSize}
+        lineHeight={sizes.cuisineLineHeight}
+        color={resolvedCuisineColor}
+        backgroundColor={resolvedCuisineBackground}
+        borderRadius={cuisineBorderRadius}
+        style={cuisineStyle}
+        tagStyle={cuisineTagStyle}
+        textStyle={cuisineTextStyle}
       />
-    );
+    )
+  ) : null;
 
-  /* ==================================================================== */
-  /* DELIVERY                                                             */
-  /* ==================================================================== */
+  /* --------------------------------------------------------------------------
+   * DELIVERY
+   * ------------------------------------------------------------------------ */
 
-  const deliveryContent =
+  const deliveryContent = resolvedDeliveryTime ? (
     typeof renderDelivery === "function" ? (
       renderDelivery({
         restaurant,
-        deliveryTime: resolvedDeliveryTime,
       })
     ) : (
       <InfoItem
         icon={deliveryIcon}
-        iconSize={deliveryIconSize}
-        iconColor={colors.textSecondary}
+        iconSize={sizes.deliveryIconSize}
         value={resolvedDeliveryTime}
-        label={deliveryTimeLabel}
-        valueColor={colors.text}
-        labelColor={colors.textSecondary}
+        label={deliveryLabel}
+        valueFontSize={sizes.deliveryTimeFontSize}
+        valueLineHeight={sizes.deliveryTimeLineHeight}
+        labelFontSize={sizes.deliveryLabelFontSize}
+        labelLineHeight={sizes.deliveryLabelLineHeight}
+        valueColor={resolvedDeliveryColor}
+        labelColor={resolvedDeliveryLabelColor}
+        style={deliveryStyle}
       />
-    );
+    )
+  ) : null;
 
-  /* ==================================================================== */
-  /* DISTANCE                                                             */
-  /* ==================================================================== */
+  /* --------------------------------------------------------------------------
+   * DISTANCE
+   * ------------------------------------------------------------------------ */
 
   const distanceContent =
-    typeof renderDistance === "function" ? (
-      renderDistance({
-        restaurant,
-        distance: resolvedDistance,
-      })
-    ) : (
-      <InfoItem
-        icon={distanceIcon}
-        iconSize={distanceIconSize}
-        iconColor={colors.textSecondary}
-        value={resolvedDistance}
-        label={distanceLabel}
-        valueColor={colors.text}
-        labelColor={colors.textSecondary}
-      />
-    );
+    resolvedDistance !== undefined && resolvedDistance !== null ? (
+      typeof renderDistance === "function" ? (
+        renderDistance({
+          restaurant,
+        })
+      ) : (
+        <InfoItem
+          icon={distanceIcon}
+          iconSize={sizes.distanceIconSize}
+          value={resolvedDistance}
+          label={distanceLabel}
+          valueFontSize={sizes.distanceFontSize}
+          valueLineHeight={sizes.distanceLineHeight}
+          labelFontSize={sizes.distanceLabelFontSize}
+          labelLineHeight={sizes.distanceLabelLineHeight}
+          valueColor={resolvedDistanceColor}
+          labelColor={resolvedDistanceLabelColor}
+          style={distanceStyle}
+        />
+      )
+    ) : null;
 
-  /* ==================================================================== */
-  /* FREE DELIVERY                                                        */
-  /* ==================================================================== */
+  /* --------------------------------------------------------------------------
+   * FREE DELIVERY
+   * ------------------------------------------------------------------------ */
 
   const freeDeliveryContent = resolvedFreeDelivery ? (
     typeof renderFreeDelivery === "function" ? (
@@ -1570,732 +1361,508 @@ export const UIRestaurantCard = memo(function UIRestaurantCard({
         restaurant,
       })
     ) : (
-      <View style={styles.freeDelivery}>
-        <RenderIcon
-          icon={freeDeliveryIcon}
-          size={freeDeliveryIconSize}
-          color={resolvedFreeIconColor}
-        />
-
-        <View style={styles.freeDeliveryTextContainer}>
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.freeDeliveryTitle,
-              {
-                color: resolvedFreeColor,
-              },
-            ]}
-          >
-            {resolvedFreeDeliveryText}
-          </Text>
-
-          {resolvedFreeDeliverySubtext ? (
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.freeDeliverySubtext,
-                {
-                  color: colors.textSecondary,
-                },
-              ]}
-            >
-              {resolvedFreeDeliverySubtext}
-            </Text>
-          ) : null}
-        </View>
-      </View>
+      <InfoItem
+        icon={freeDeliveryIcon}
+        iconSize={sizes.freeDeliveryIconSize}
+        value={freeDeliveryText}
+        label={freeDeliverySubtext}
+        valueFontSize={sizes.freeDeliveryFontSize}
+        valueLineHeight={sizes.freeDeliveryLineHeight}
+        labelFontSize={sizes.freeDeliverySubtextFontSize}
+        labelLineHeight={sizes.freeDeliverySubtextLineHeight}
+        valueColor={resolvedFreeDeliveryColor}
+        labelColor={resolvedFreeDeliverySubtextColor}
+        style={freeDeliveryStyle}
+      />
     )
   ) : null;
 
-  /* ==================================================================== */
-  /* LOGO                                                                 */
-  /* ==================================================================== */
+  /* ==========================================================================
+   * CARD CONTENT
+   * ======================================================================== */
 
-  const logoContent =
-    showLogo && resolvedLogo ? (
-      typeof renderLogo === "function" ? (
-        renderLogo({
-          restaurant,
-          logo: resolvedLogo,
-        })
-      ) : (
-        <View
-          style={[
-            styles.logoContainer,
+  const cardContent = (
+    <>
+      {/* ======================================================================
+       * IMAGE
+       * ==================================================================== */}
 
-            {
-              width: logoSize,
-
-              height: logoSize,
-
-              borderRadius: logoBorderRadius,
-            },
-
-            logoStyle,
-          ]}
-        >
-          <Image
-            source={normalizeImageSource(resolvedLogo)}
-            resizeMode="cover"
-            style={{
-              width: logoSize,
-
-              height: logoSize,
-            }}
-          />
-        </View>
-      )
-    ) : null;
-
-  /* ==================================================================== */
-  /* DEFAULT CONTENT                                                      */
-  /* ==================================================================== */
-
-  const defaultContent = (
-    <View
-      style={[
-        styles.content,
-
-        {
-          paddingHorizontal: spacing.lg ?? 16,
-        },
-
-        contentStyle,
-      ]}
-    >
-      {/* ================================================================ */}
-      {/* NAME + RATING                                                    */}
-      {/* ================================================================ */}
-
-      <View style={styles.titleRow}>
-        <View style={styles.titleContainer}>
-          <Text
-            numberOfLines={1}
-            style={[
-              styles.restaurantName,
-
-              {
-                color: resolvedNameColor,
-              },
-
-              nameStyle,
-            ]}
-          >
-            {resolvedName}
-          </Text>
-
-          {resolvedSubtitle ? (
-            <Text
-              numberOfLines={1}
-              style={[
-                styles.restaurantSubtitle,
-
-                {
-                  color: resolvedSubtitleColor,
-                },
-
-                subtitleStyle,
-              ]}
-            >
-              {resolvedSubtitle}
-            </Text>
-          ) : null}
-        </View>
-
-        {ratingContent}
-      </View>
-
-      {/* ================================================================ */}
-      {/* CUISINES                                                          */}
-      {/* ================================================================ */}
-
-      {tagsContent ? (
-        <View style={styles.tagsWrapper}>{tagsContent}</View>
-      ) : null}
-
-      {/* ================================================================ */}
-      {/* DIVIDER                                                           */}
-      {/* ================================================================ */}
-
-      {showDivider ? (
-        <View
-          style={[
-            styles.divider,
-
-            {
-              backgroundColor: resolvedDividerColor,
-            },
-          ]}
-        />
-      ) : null}
-
-      {/* ================================================================ */}
-      {/* INFO                                                              */}
-      {/* ================================================================ */}
-
-      <View style={styles.infoRow}>
-        {deliveryContent}
-
-        {distanceContent}
-
-        {freeDeliveryContent}
-      </View>
-
-      {/* ================================================================ */}
-      {/* FOOTER                                                            */}
-      {/* ================================================================ */}
-
-      {typeof renderFooter === "function"
-        ? renderFooter({
-            restaurant,
-          })
-        : null}
-
-      {children}
-    </View>
-  );
-
-  const content =
-    typeof renderContent === "function"
-      ? renderContent({
-          restaurant,
-
-          rating: resolvedRating,
-
-          reviewCount: resolvedReviewCount,
-
-          cuisines: resolvedCuisines,
-
-          deliveryTime: resolvedDeliveryTime,
-
-          distance: resolvedDistance,
-        })
-      : defaultContent;
-
-  /* ==================================================================== */
-  /* FINAL CARD                                                           */
-  /* ==================================================================== */
-
-  return (
-    <Animated.View
-      style={[
-        styles.card,
-
-        {
-          width,
-
-          borderRadius: cardRadius,
-
-          backgroundColor: cardColor,
-        },
-
-        shadow ? styles.shadow : null,
-
-        animatedCardStyle,
-
-        style,
-      ]}
-    >
       <View
         style={[
-          styles.cardInner,
-
+          styles.imageSection,
           {
-            borderRadius: cardRadius,
+            height: imageHeight,
           },
         ]}
       >
-        {/* ============================================================ */}
-        {/* IMAGE                                                         */}
-        {/* ============================================================ */}
+        <RestaurantImageCarousel
+          images={resolvedImages}
+          height={imageHeight}
+          autoplay={autoplay}
+          autoplayInterval={autoplayInterval}
+          loop={loop}
+          pauseOnTouch={pauseOnTouch}
+          borderRadius={borderRadius}
+          pagination={pagination}
+          paginationPosition={paginationPosition}
+          paginationDotSize={paginationDotSize}
+          paginationDotGap={paginationDotGap}
+          paginationActiveStyle={paginationActiveStyle}
+          paginationInactiveStyle={paginationInactiveStyle}
+          onImageChange={onImageChange}
+          imageResizeMode={imageResizeMode}
+          imageStyle={imageStyle}
+        />
 
-        <View
-          style={[
-            styles.imageSection,
+        {/* ================================================================
+         * TOP RATED
+         * ============================================================ */}
 
-            {
-              height: imageHeight,
+        {topRatedContent ? (
+          <View style={styles.topRatedPosition}>{topRatedContent}</View>
+        ) : null}
 
-              borderTopLeftRadius: cardRadius,
+        {/* ================================================================
+         * FAVORITE
+         * ============================================================ */}
 
-              borderTopRightRadius: cardRadius,
-            },
-          ]}
-        >
-          {imageContent}
+        <View style={styles.favoritePosition}>{favoriteContent}</View>
 
-          {/* ========================================================== */}
-          {/* TOP CONTROLS                                                */}
-          {/* ========================================================== */}
+        {/* ================================================================
+         * DISCOUNT
+         * ============================================================ */}
 
-          <View pointerEvents="box-none" style={styles.topOverlay}>
-            {/* TOP RATED */}
+        {discountContent ? (
+          <View style={styles.discountPosition}>{discountContent}</View>
+        ) : null}
 
-            {topRatedContent ? (
-              <View style={styles.topRatedPosition} pointerEvents="auto">
-                {topRatedContent}
-              </View>
-            ) : (
-              <View />
-            )}
-
-            {/* FAVORITE */}
-
-            {favoriteContent ? (
-              <View style={styles.favoritePosition} pointerEvents="auto">
-                {favoriteContent}
-              </View>
-            ) : null}
-          </View>
-
-          {/* ========================================================== */}
-          {/* DISCOUNT                                                    */}
-          {/* ========================================================== */}
-
-          {discountContent ? (
-            <View style={styles.discountPosition}>{discountContent}</View>
-          ) : null}
-        </View>
-
-        {/* ============================================================ */}
-        {/* LOGO                                                          */}
-        {/* ============================================================ */}
+        {/* ================================================================
+         * LOGO
+         *
+         * Logo overlaps the bottom of image.
+         * ============================================================ */}
 
         {logoContent ? (
           <View
             pointerEvents="none"
             style={[
               styles.logoPosition,
-
               {
                 left: spacing.lg ?? 16,
-
-                top: imageHeight - logoSize / 2,
+                bottom: -(logoSize / 2),
               },
             ]}
           >
             {logoContent}
           </View>
         ) : null}
-
-        {/* ============================================================ */}
-        {/* CONTENT                                                       */}
-        {/* ============================================================ */}
-
-        <Pressable
-          disabled={disabled}
-          onPress={handlePress}
-          onLongPress={handleLongPress}
-          onPressIn={handlePressIn}
-          onPressOut={handlePressOut}
-        >
-          {content}
-        </Pressable>
       </View>
+
+      {/* ======================================================================
+       * CONTENT
+       * ==================================================================== */}
+
+      <View
+        style={[
+          styles.content,
+          {
+            paddingHorizontal: spacing.lg ?? 16,
+
+            /*
+             * Space for the logo that overlaps
+             * the image.
+             */
+            paddingTop: logoContent
+              ? logoSize / 2 + (spacing.sm ?? 8)
+              : (spacing.md ?? 12),
+          },
+          contentStyle,
+        ]}
+      >
+        {/* ====================================================================
+         * NAME + RATING
+         *
+         * IMPORTANT:
+         * Name is now positioned to the RIGHT of the logo.
+         * ================================================================== */}
+
+        <View style={styles.nameRatingRow}>
+          <View
+            style={[
+              styles.nameSection,
+              logoContent
+                ? {
+                    paddingLeft: logoSize + (spacing.sm ?? 8),
+                  }
+                : null,
+            ]}
+          >
+            <Text
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+              style={[
+                styles.restaurantName,
+                {
+                  color: resolvedNameColor,
+                  fontSize: sizes.nameFontSize,
+                  lineHeight: sizes.nameLineHeight,
+                },
+                nameStyle,
+              ]}
+            >
+              {resolvedName}
+            </Text>
+          </View>
+
+          {ratingContent ? (
+            <View style={styles.ratingPosition}>{ratingContent}</View>
+          ) : null}
+        </View>
+
+        {/* ====================================================================
+         * SUBTITLE
+         *
+         * Subtitle is underneath the name/logo row.
+         * ================================================================== */}
+
+        {resolvedSubtitle ? (
+          <Text
+            numberOfLines={1}
+            style={[
+              styles.restaurantSubtitle,
+              {
+                color: resolvedSubtitleColor,
+                fontSize: sizes.subtitleFontSize,
+                lineHeight: sizes.subtitleLineHeight,
+              },
+              subtitleStyle,
+            ]}
+          >
+            {resolvedSubtitle}
+          </Text>
+        ) : null}
+
+        {/* ====================================================================
+         * CUISINES
+         * ================================================================== */}
+
+        {tagsContent ? (
+          <View style={styles.tagsWrapper}>{tagsContent}</View>
+        ) : null}
+
+        {/* ====================================================================
+         * DIVIDER
+         * ================================================================== */}
+
+        {showDivider ? (
+          <View
+            style={[
+              styles.divider,
+              {
+                backgroundColor: resolvedDividerColor,
+              },
+              dividerStyle,
+            ]}
+          />
+        ) : null}
+
+        {/* ====================================================================
+         * INFO ROW
+         * ================================================================== */}
+
+        <View style={styles.infoRow}>
+          {deliveryContent}
+          {distanceContent}
+          {freeDeliveryContent}
+        </View>
+
+        {/* ====================================================================
+         * FOOTER
+         * ================================================================== */}
+
+        {typeof renderFooter === "function"
+          ? renderFooter({
+              restaurant,
+            })
+          : null}
+
+        {children}
+      </View>
+    </>
+  );
+
+  /* ==========================================================================
+   * PRESSABLE CARD
+   * ======================================================================== */
+
+  return (
+    <Animated.View
+      style={[
+        {
+          width: width || "100%",
+        },
+        reanimated ? animatedCardStyle : null,
+      ]}
+    >
+      <Pressable
+        accessibilityRole="button"
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={[
+          styles.card,
+          {
+            backgroundColor: resolvedBackgroundColor,
+            borderRadius,
+          },
+          style,
+        ]}
+      >
+        {cardContent}
+      </Pressable>
     </Animated.View>
   );
-});
+}
 
-/* ==========================================================================
+/* ============================================================================
  * STYLES
  * ========================================================================== */
 
 const styles = StyleSheet.create({
-  /* ---------------------------------------------------------------------- */
-  /* CARD                                                                   */
-  /* ---------------------------------------------------------------------- */
-
   card: {
-    overflow: "visible",
-  },
-
-  cardInner: {
     width: "100%",
-
     overflow: "hidden",
   },
 
-  shadow: {
-    shadowColor: "#000000",
-
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
-
-    shadowOpacity: 0.12,
-
-    shadowRadius: 12,
-
-    elevation: 5,
-  },
-
-  /* ---------------------------------------------------------------------- */
-  /* IMAGE                                                                  */
-  /* ---------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------------
+   * IMAGE
+   * ------------------------------------------------------------------------ */
 
   imageSection: {
     width: "100%",
-
     position: "relative",
-
-    overflow: "hidden",
   },
 
-  carousel: {
-    width: "100%",
-
+  imageContainer: {
+    overflow: "hidden",
     position: "relative",
-
-    overflow: "hidden",
-  },
-
-  carouselItem: {
-    overflow: "hidden",
   },
 
   restaurantImage: {
     width: "100%",
+    height: "100%",
   },
 
-  imagePlaceholder: {
-    width: "100%",
-
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    backgroundColor: "#ECEEF1",
-  },
-
-  placeholderText: {
-    marginTop: 8,
-
-    fontSize: 13,
-
-    color: "#8B919B",
-  },
-
-  /* ---------------------------------------------------------------------- */
-  /* TOP OVERLAY                                                            */
-  /* ---------------------------------------------------------------------- */
-
-  topOverlay: {
-    position: "absolute",
-
-    left: 0,
-    right: 0,
-    top: 0,
-
-    zIndex: 100,
-
-    flexDirection: "row",
-
-    justifyContent: "space-between",
-
-    alignItems: "flex-start",
-
-    paddingHorizontal: 14,
-
-    paddingTop: 14,
-  },
-
-  /* ---------------------------------------------------------------------- */
-  /* TOP RATED                                                              */
-  /* ---------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------------
+   * TOP RATED
+   * ------------------------------------------------------------------------ */
 
   topRatedPosition: {
-    zIndex: 110,
+    position: "absolute",
+    top: 12,
+    left: 12,
+    zIndex: 30,
   },
 
   topRatedBadge: {
-    minHeight: 34,
-
-    paddingHorizontal: 12,
-
-    borderRadius: 18,
-
+    minHeight: 30,
+    paddingHorizontal: 10,
     flexDirection: "row",
-
     alignItems: "center",
-
     justifyContent: "center",
-
-    elevation: 4,
+    gap: 5,
+    borderRadius: 8,
   },
 
   topRatedText: {
-    marginLeft: 6,
-
     fontWeight: "700",
   },
 
-  /* ---------------------------------------------------------------------- */
-  /* FAVORITE                                                               */
-  /* ---------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------------
+   * FAVORITE
+   * ------------------------------------------------------------------------ */
 
   favoritePosition: {
-    zIndex: 110,
+    position: "absolute",
+    top: 12,
+    right: 12,
+    zIndex: 30,
   },
 
   favoriteButton: {
     alignItems: "center",
-
     justifyContent: "center",
-
-    elevation: 5,
   },
 
-  /* ---------------------------------------------------------------------- */
-  /* DISCOUNT                                                               */
-  /* ---------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------------
+   * DISCOUNT
+   * ------------------------------------------------------------------------ */
 
   discountPosition: {
     position: "absolute",
-
-    right: 14,
-
-    bottom: 14,
-
-    zIndex: 110,
+    right: 12,
+    bottom: 12,
+    zIndex: 30,
   },
 
   discountBadge: {
-    minHeight: 42,
-
-    paddingHorizontal: 17,
-
-    borderRadius: 15,
-
+    minHeight: 32,
+    paddingHorizontal: 10,
+    borderRadius: 7,
+    flexDirection: "row",
     alignItems: "center",
-
-    justifyContent: "center",
+    gap: 5,
   },
 
   discountText: {
-    fontSize: 16,
-
-    lineHeight: 21,
-
     fontWeight: "800",
   },
 
-  /* ---------------------------------------------------------------------- */
-  /* PAGINATION                                                             */
-  /* ---------------------------------------------------------------------- */
-
-  pagination: {
-    position: "absolute",
-
-    left: 0,
-    right: 0,
-
-    bottom: 12,
-
-    zIndex: 150,
-
-    flexDirection: "row",
-
-    alignItems: "center",
-
-    justifyContent: "center",
-  },
-
-  paginationDot: {
-    width: 8,
-
-    height: 8,
-
-    marginHorizontal: 4,
-
-    borderRadius: 999,
-  },
-
-  paginationDotActive: {
-    transform: [
-      {
-        scale: 1.15,
-      },
-    ],
-  },
-
-  paginationDotInactive: {
-    transform: [
-      {
-        scale: 1,
-      },
-    ],
-  },
-
-  /* ---------------------------------------------------------------------- */
-  /* LOGO                                                                   */
-  /* ---------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------------
+   * LOGO
+   * ------------------------------------------------------------------------ */
 
   logoPosition: {
     position: "absolute",
-
-    zIndex: 200,
+    zIndex: 40,
   },
 
-  logoContainer: {
+  logoWrapper: {
+    alignItems: "center",
+    justifyContent: "center",
+
     overflow: "hidden",
 
-    borderWidth: 3,
-
-    borderColor: "#FFFFFF",
-
-    backgroundColor: "#FFFFFF",
-
-    alignItems: "center",
-
-    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.12,
+    shadowRadius: 5,
 
     elevation: 5,
   },
 
-  /* ---------------------------------------------------------------------- */
-  /* CONTENT                                                                */
-  /* ---------------------------------------------------------------------- */
+  logoImage: {
+    resizeMode: "contain",
+  },
+
+  /* --------------------------------------------------------------------------
+   * CONTENT
+   * ------------------------------------------------------------------------ */
 
   content: {
     width: "100%",
-
-    paddingTop: 46,
-
     paddingBottom: 16,
   },
 
-  titleRow: {
+  /* --------------------------------------------------------------------------
+   * NAME + RATING
+   * ------------------------------------------------------------------------ */
+
+  nameRatingRow: {
     width: "100%",
+    minHeight: 28,
 
     flexDirection: "row",
-
-    alignItems: "flex-start",
+    alignItems: "center",
 
     justifyContent: "space-between",
   },
 
-  titleContainer: {
+  nameSection: {
     flex: 1,
-
     minWidth: 0,
-
-    paddingRight: 10,
+    justifyContent: "center",
   },
 
   restaurantName: {
-    fontSize: 25,
-
-    lineHeight: 31,
-
     fontWeight: "800",
+    includeFontPadding: false,
   },
+
+  ratingPosition: {
+    marginLeft: 10,
+    flexShrink: 0,
+  },
+
+  ratingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+
+  ratingText: {
+    fontWeight: "700",
+    includeFontPadding: false,
+  },
+
+  reviewCount: {
+    fontWeight: "500",
+    includeFontPadding: false,
+  },
+
+  /* --------------------------------------------------------------------------
+   * SUBTITLE
+   * ------------------------------------------------------------------------ */
 
   restaurantSubtitle: {
-    marginTop: 4,
-
-    fontSize: 15,
-
-    lineHeight: 21,
-
-    fontWeight: "400",
+    marginTop: 3,
+    fontWeight: "500",
+    includeFontPadding: false,
   },
 
-  /* ---------------------------------------------------------------------- */
-  /* RATING                                                                 */
-  /* ---------------------------------------------------------------------- */
-
-  rating: {
-    flexDirection: "row",
-
-    alignItems: "center",
-
-    minHeight: 31,
-  },
-
-  ratingValue: {
-    marginLeft: 5,
-
-    fontSize: 18,
-
-    lineHeight: 24,
-
-    fontWeight: "800",
-  },
-
-  ratingReviews: {
-    marginLeft: 4,
-
-    fontSize: 14,
-
-    lineHeight: 20,
-
-    fontWeight: "400",
-  },
-
-  /* ---------------------------------------------------------------------- */
-  /* CUISINES                                                               */
-  /* ---------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------------
+   * CUISINES
+   * ------------------------------------------------------------------------ */
 
   tagsWrapper: {
-    marginTop: 16,
+    marginTop: 10,
   },
 
   cuisineContainer: {
     flexDirection: "row",
-
+    flexWrap: "wrap",
     alignItems: "center",
-
-    overflow: "hidden",
+    gap: 6,
   },
 
   cuisineTag: {
-    minHeight: 38,
-
-    paddingHorizontal: 15,
-
-    marginRight: 8,
-
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    maxWidth: 160,
+    paddingHorizontal: 9,
+    paddingVertical: 5,
   },
 
   cuisineText: {
-    fontSize: 14,
-
-    lineHeight: 19,
-
-    fontWeight: "600",
+    fontWeight: "500",
+    includeFontPadding: false,
   },
 
-  /* ---------------------------------------------------------------------- */
-  /* DIVIDER                                                                */
-  /* ---------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------------
+   * DIVIDER
+   * ------------------------------------------------------------------------ */
 
   divider: {
     width: "100%",
-
     height: StyleSheet.hairlineWidth,
-
-    marginVertical: 16,
+    marginTop: 12,
   },
 
-  /* ---------------------------------------------------------------------- */
-  /* INFO                                                                   */
-  /* ---------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------------
+   * INFO
+   * ------------------------------------------------------------------------ */
 
   infoRow: {
     width: "100%",
+    marginTop: 11,
 
     flexDirection: "row",
-
-    alignItems: "flex-start",
+    alignItems: "center",
 
     justifyContent: "space-between",
+
+    gap: 8,
   },
 
   infoItem: {
@@ -2304,83 +1871,61 @@ const styles = StyleSheet.create({
     minWidth: 0,
 
     flexDirection: "row",
-
-    alignItems: "flex-start",
-
-    paddingRight: 10,
+    alignItems: "center",
   },
 
-  infoText: {
+  infoTextContainer: {
     flex: 1,
-
     minWidth: 0,
-
-    marginLeft: 8,
+    marginLeft: 6,
   },
 
   infoValue: {
-    fontSize: 16,
-
-    lineHeight: 22,
-
-    fontWeight: "800",
+    fontWeight: "700",
+    includeFontPadding: false,
   },
 
   infoLabel: {
-    marginTop: 2,
-
-    fontSize: 13,
-
-    lineHeight: 18,
-
-    fontWeight: "400",
+    marginTop: 1,
+    fontWeight: "500",
+    includeFontPadding: false,
   },
 
-  /* ---------------------------------------------------------------------- */
-  /* FREE DELIVERY                                                          */
-  /* ---------------------------------------------------------------------- */
+  /* --------------------------------------------------------------------------
+   * PAGINATION
+   * ------------------------------------------------------------------------ */
 
-  freeDelivery: {
-    flex: 1.25,
-
-    minWidth: 0,
+  pagination: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 10,
 
     flexDirection: "row",
-
-    alignItems: "flex-start",
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  freeDeliveryTextContainer: {
-    flex: 1,
-
-    minWidth: 0,
-
-    marginLeft: 8,
+  paginationTop: {
+    top: 10,
+    bottom: undefined,
   },
 
-  freeDeliveryTitle: {
-    fontSize: 16,
-
-    lineHeight: 22,
-
-    fontWeight: "800",
+  paginationDot: {
+    opacity: 0.95,
   },
 
-  freeDeliverySubtext: {
-    marginTop: 2,
+  paginationActive: {
+    backgroundColor: "#FFFFFF",
+  },
 
-    fontSize: 12,
-
-    lineHeight: 17,
-
-    fontWeight: "400",
+  paginationInactive: {
+    backgroundColor: "rgba(255,255,255,0.55)",
   },
 });
 
-export default UIRestaurantCard;
-
-/* ==========================================================================
- * NAMED EXPORTS
+/* ============================================================================
+ * EXPORTS
  * ========================================================================== */
 
 export {
@@ -2390,3 +1935,5 @@ export {
   CuisineTags,
   InfoItem,
 };
+
+export default memo(UIRestaurantCard);
