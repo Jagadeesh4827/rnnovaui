@@ -160,4 +160,5 @@ export {
   BottomSheetHandle,
   BottomSheetBackdrop,
   UIBottomSheetIcon,
+  UIModal,
 } from "./components";

@@ -171,3 +171,10 @@ export {
   BottomSheetBackdrop,
   UIBottomSheetIcon,
 } from "./UIBottomSheet";
+export {
+  default as UIModal,
+  UIModalVariants,
+  UIModalPositions,
+  UIModalTitlePositions,
+  UIModalAnimations,
+} from "./UIModal";

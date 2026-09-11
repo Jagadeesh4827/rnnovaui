@@ -12,6 +12,7 @@ import React, {
 import {
   Animated as RNAnimated,
   BackHandler,
+  Dimensions,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -22,1106 +23,1165 @@ import {
   View,
 } from "react-native";
 
+import { Ionicons } from "@expo/vector-icons";
+
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+
 import Animated, {
-  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
   withTiming,
 } from "react-native-reanimated";
 
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useUITheme } from "../../theme/UIProvider";
 
-import { Ionicons } from "@expo/vector-icons";
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
-import { useUITheme } from "../../theme";
+/* -------------------------------------------------------------------------- */
+/* Constants                                                                  */
+/* -------------------------------------------------------------------------- */
 
-/* ============================================================================
- * CONSTANTS
- * ========================================================================== */
+export const MODAL_VARIANTS = [
+  "default",
+  "center",
+  "fullscreen",
+  "bottom",
+  "top",
+];
 
-const DEFAULT_SPRING = {
-  damping: 20,
-  stiffness: 180,
-  mass: 0.8,
-};
+export const MODAL_POSITIONS = ["center", "top", "bottom"];
 
-const ANIMATION_TYPES = [
+export const MODAL_TITLE_POSITIONS = ["left", "center", "right"];
+
+export const MODAL_ANIMATIONS = [
+  "none",
   "fade",
   "scale",
-  "fadeScale",
+  "scaleUp",
+  "scaleDown",
   "slideUp",
   "slideDown",
   "slideLeft",
   "slideRight",
-  "none",
 ];
 
-/* ============================================================================
- * HELPERS
- * ========================================================================== */
+/* -------------------------------------------------------------------------- */
+/* Helpers                                                                    */
+/* -------------------------------------------------------------------------- */
 
-function resolveDimension(value, screenSize) {
-  if (typeof value === "string" && value.endsWith("%")) {
-    const percentage = parseFloat(value);
+const isValidNumber = (value) =>
+  typeof value === "number" && Number.isFinite(value);
 
-    if (Number.isFinite(percentage)) {
-      return screenSize * (percentage / 100);
-    }
-  }
+const getSafeValue = (value, fallback) => {
+  return value !== undefined && value !== null ? value : fallback;
+};
 
-  return value;
-}
-
-/* ============================================================================
- * ICON
- * ========================================================================== */
-
-function RenderIcon({ icon, size = 24, color = "#222222", style }) {
-  if (!icon) {
-    return null;
-  }
-
-  if (React.isValidElement(icon)) {
-    return React.cloneElement(icon, {
-      size,
-      color,
-      style: [icon.props?.style, style],
-    });
-  }
-
-  if (typeof icon === "string") {
-    return <Ionicons name={icon} size={size} color={color} style={style} />;
-  }
-
-  if (
-    typeof icon === "function" ||
-    (typeof icon === "object" && icon !== null)
-  ) {
-    const IconComponent = icon;
-
-    return <IconComponent size={size} color={color} style={style} />;
-  }
-
-  return null;
-}
-
-/* ============================================================================
- * MAIN COMPONENT
- * ========================================================================== */
+/* -------------------------------------------------------------------------- */
+/* Main Component                                                             */
+/* -------------------------------------------------------------------------- */
 
 const UIModal = forwardRef(function UIModal(
   {
-    /* ======================================================================
-     * VISIBILITY
-     * ==================================================================== */
+    /* ------------------------------------------------------------------ */
+    /* Visibility                                                          */
+    /* ------------------------------------------------------------------ */
 
     visible,
-
     defaultVisible = false,
 
     onVisibleChange,
+    onOpen,
+    onClose,
 
-    /* ======================================================================
-     * MODAL TYPE
-     * ==================================================================== */
+    /* ------------------------------------------------------------------ */
+    /* Variant                                                             */
+    /* ------------------------------------------------------------------ */
 
-    position = "center",
+    variant = "default",
+    position,
 
-    presentation = "modal",
-
-    /* ======================================================================
-     * DIMENSIONS
-     * ==================================================================== */
+    /* ------------------------------------------------------------------ */
+    /* Size                                                                */
+    /* ------------------------------------------------------------------ */
 
     width = "90%",
-
     height,
 
+    minWidth,
     maxWidth,
 
+    minHeight,
     maxHeight,
 
-    minWidth,
+    /* ------------------------------------------------------------------ */
+    /* Margin                                                              */
+    /* ------------------------------------------------------------------ */
 
-    minHeight,
+    margin = 0,
 
-    /* ======================================================================
-     * BACKDROP
-     * ==================================================================== */
+    marginHorizontal,
+    marginVertical,
 
-    showBackdrop = true,
+    marginTop,
+    marginBottom,
+    marginLeft,
+    marginRight,
 
-    backdropColor = "#000000",
+    /* ------------------------------------------------------------------ */
+    /* Padding                                                             */
+    /* ------------------------------------------------------------------ */
 
-    backdropOpacity = 0.45,
+    padding = 20,
 
-    closeOnBackdropPress = true,
+    paddingHorizontal,
+    paddingVertical,
 
-    backdropStyle,
+    paddingTop,
+    paddingBottom,
+    paddingLeft,
+    paddingRight,
 
-    renderBackdrop,
-
-    /* ======================================================================
-     * APPEARANCE
-     * ==================================================================== */
+    /* ------------------------------------------------------------------ */
+    /* Appearance                                                         */
+    /* ------------------------------------------------------------------ */
 
     backgroundColor,
 
     borderRadius,
-
-    topLeftRadius,
-
-    topRightRadius,
-
-    bottomLeftRadius,
-
-    bottomRightRadius,
+    borderTopLeftRadius,
+    borderTopRightRadius,
+    borderBottomLeftRadius,
+    borderBottomRightRadius,
 
     borderWidth = 0,
-
     borderColor,
-
-    /* ======================================================================
-     * SHADOW
-     * ==================================================================== */
 
     shadow = true,
 
-    shadowColor = "#000000",
+    style,
+    contentStyle,
 
-    shadowOpacity = 0.18,
+    /* ------------------------------------------------------------------ */
+    /* Backdrop                                                            */
+    /* ------------------------------------------------------------------ */
 
-    shadowRadius = 14,
+    showBackdrop = true,
 
-    shadowOffset = {
-      width: 0,
-      height: 5,
-    },
+    backdropColor = "#000000",
+    backdropOpacity = 0.5,
 
-    elevation = 10,
+    closeOnBackdropPress = true,
 
-    /* ======================================================================
-     * SPACING
-     * ==================================================================== */
+    /* ------------------------------------------------------------------ */
+    /* Header                                                              */
+    /* ------------------------------------------------------------------ */
 
-    margin = 0,
-
-    marginHorizontal = 0,
-
-    marginVertical = 0,
-
-    marginTop = 0,
-
-    marginBottom = 0,
-
-    marginLeft = 0,
-
-    marginRight = 0,
-
-    padding = 0,
-
-    paddingHorizontal = 0,
-
-    paddingVertical = 0,
-
-    paddingTop = 0,
-
-    paddingBottom = 0,
-
-    paddingLeft = 0,
-
-    paddingRight = 0,
-
-    /* ======================================================================
-     * SAFE AREA
-     * ==================================================================== */
-
-    safeArea = true,
-
-    safeAreaTop = false,
-
-    safeAreaBottom = true,
-
-    safeAreaLeft = false,
-
-    safeAreaRight = false,
-
-    /* ======================================================================
-     * HEADER
-     * ==================================================================== */
-
-    showHeader = false,
+    header,
 
     title,
 
+    titlePosition = "left",
     titleFontSize = 18,
-
-    titleLineHeight = 24,
-
-    titleFontWeight = "700",
-
     titleColor,
-
-    titleAlign = "left",
-
-    headerHeight,
-
-    headerPadding = 16,
-
-    headerPaddingHorizontal,
-
-    headerPaddingVertical,
-
-    headerPaddingTop,
-
-    headerPaddingBottom,
-
-    headerPaddingLeft,
-
-    headerPaddingRight,
-
-    headerStyle,
+    titleFontWeight = "700",
+    titleLineHeight,
 
     titleStyle,
+    headerStyle,
 
-    renderHeader,
+    /* ------------------------------------------------------------------ */
+    /* Close                                                               */
+    /* ------------------------------------------------------------------ */
 
-    /* ======================================================================
-     * CLOSE BUTTON
-     * ==================================================================== */
-
-    showCloseButton = false,
+    showClose = false,
 
     closeIcon = "close",
 
     closeIconSize = 24,
-
     closeIconColor,
-
-    closeButtonSize = 40,
-
-    closeButtonBackgroundColor,
-
-    closeButtonBorderRadius,
 
     closeButtonStyle,
 
-    onCloseButtonPress,
+    onClosePress,
 
-    /* ======================================================================
-     * CONTENT
-     * ==================================================================== */
+    /* ------------------------------------------------------------------ */
+    /* Content                                                             */
+    /* ------------------------------------------------------------------ */
+
+    children,
 
     scrollable = false,
 
-    contentPadding = 0,
-
-    contentPaddingHorizontal = 0,
-
-    contentPaddingVertical = 0,
-
-    contentPaddingTop = 0,
-
-    contentPaddingBottom = 0,
-
-    contentPaddingLeft = 0,
-
-    contentPaddingRight = 0,
-
-    contentStyle,
+    keyboardShouldPersistTaps = "handled",
 
     contentContainerStyle,
 
     showsVerticalScrollIndicator = false,
 
-    keyboardDismissMode = "on-drag",
+    /* ------------------------------------------------------------------ */
+    /* Footer                                                              */
+    /* ------------------------------------------------------------------ */
 
-    keyboardShouldPersistTaps = "handled",
+    footer,
+    footerStyle,
+
+    /* ------------------------------------------------------------------ */
+    /* Safe Area                                                           */
+    /* ------------------------------------------------------------------ */
+
+    safeArea = true,
+
+    /* ------------------------------------------------------------------ */
+    /* Animation                                                           */
+    /* ------------------------------------------------------------------ */
+
+    animation = "fade",
+
+    animationDuration,
+
+    springConfig,
+
+    reanimated = true,
+
+    /* ------------------------------------------------------------------ */
+    /* Keyboard                                                            */
+    /* ------------------------------------------------------------------ */
 
     keyboardAvoiding = true,
 
+    keyboardBehavior,
+
     keyboardVerticalOffset = 0,
 
-    /* ======================================================================
-     * FOOTER
-     * ==================================================================== */
+    /* ------------------------------------------------------------------ */
+    /* Android                                                             */
+    /* ------------------------------------------------------------------ */
 
-    footer,
+    enableBackHandler = true,
 
-    footerHeight,
+    /* ------------------------------------------------------------------ */
+    /* Modal                                                               */
+    /* ------------------------------------------------------------------ */
 
-    footerPadding = 16,
+    modalProps,
 
-    footerPaddingHorizontal,
+    /* ------------------------------------------------------------------ */
+    /* Misc                                                                */
+    /* ------------------------------------------------------------------ */
 
-    footerPaddingVertical,
-
-    footerPaddingTop,
-
-    footerPaddingBottom,
-
-    footerPaddingLeft,
-
-    footerPaddingRight,
-
-    footerStyle,
-
-    renderFooter,
-
-    /* ======================================================================
-     * ANIMATION
-     * ==================================================================== */
-
-    animation = "fadeScale",
-
-    animationDuration = 280,
-
-    closeAnimationDuration = 220,
-
-    animationSpring = DEFAULT_SPRING,
-
-    reanimated = false,
-
-    /* ======================================================================
-     * NATIVE MODAL
-     * ==================================================================== */
-
-    transparent = true,
-
-    statusBarTranslucent = true,
-
-    hardwareAccelerated = true,
-
-    onRequestClose,
-
-    /* ======================================================================
-     * CALLBACKS
-     * ==================================================================== */
-
-    onOpen,
-
-    onClose,
-
-    /* ======================================================================
-     * STYLE
-     * ==================================================================== */
-
-    style,
-
-    overlayStyle,
-
-    /* ======================================================================
-     * CHILDREN
-     * ==================================================================== */
-
-    children,
+    testID,
   },
   ref,
 ) {
+  /* -------------------------------------------------------------------- */
+  /* Theme                                                                */
+  /* -------------------------------------------------------------------- */
+
   const { theme } = useUITheme();
-
-  const colors = theme?.colors || {};
-
-  const radius = theme?.radius || {};
-
-  const themeAnimation = theme?.animation || {};
 
   const insets = useSafeAreaInsets();
 
-  /* ========================================================================
-   * CONTROLLED STATE
-   * ====================================================================== */
+  const colors = theme?.colors ?? {};
 
-  const isControlled = visible !== undefined;
+  const radius = theme?.radius ?? {};
+
+  const shadows = theme?.shadows ?? {};
+
+  const themeAnimation = theme?.animation ?? {};
+
+  /* -------------------------------------------------------------------- */
+  /* Controlled state                                                     */
+  /* -------------------------------------------------------------------- */
+
+  const controlled = visible !== undefined;
 
   const [internalVisible, setInternalVisible] = useState(defaultVisible);
 
-  const isVisible = isControlled ? visible : internalVisible;
+  const isVisible = controlled ? visible : internalVisible;
 
-  const setVisible = useCallback(
-    (next) => {
-      if (!isControlled) {
-        setInternalVisible(next);
-      }
+  const [modalVisible, setModalVisible] = useState(isVisible);
 
-      if (typeof onVisibleChange === "function") {
-        onVisibleChange(next);
-      }
-    },
-    [isControlled, onVisibleChange],
-  );
+  const mountedRef = useRef(false);
 
-  /* ========================================================================
-   * SCREEN DIMENSIONS
-   * ====================================================================== */
+  const previousVisibleRef = useRef(isVisible);
 
-  const screenWidth = require("react-native").Dimensions.get("window").width;
+  /* -------------------------------------------------------------------- */
+  /* Resolve variant                                                      */
+  /* -------------------------------------------------------------------- */
 
-  const screenHeight = require("react-native").Dimensions.get("window").height;
+  const resolvedVariant = MODAL_VARIANTS.includes(variant)
+    ? variant
+    : "default";
 
-  /* ========================================================================
-   * DIMENSIONS
-   * ====================================================================== */
+  const resolvedPosition = MODAL_POSITIONS.includes(position)
+    ? position
+    : resolvedVariant === "bottom"
+      ? "bottom"
+      : resolvedVariant === "top"
+        ? "top"
+        : "center";
 
-  const resolvedWidth = resolveDimension(width, screenWidth);
+  const resolvedTitlePosition = MODAL_TITLE_POSITIONS.includes(titlePosition)
+    ? titlePosition
+    : "left";
 
-  const resolvedHeight =
-    height !== undefined ? resolveDimension(height, screenHeight) : undefined;
+  const resolvedAnimation = MODAL_ANIMATIONS.includes(animation)
+    ? animation
+    : "fade";
 
-  const resolvedMaxWidth =
-    maxWidth !== undefined
-      ? resolveDimension(maxWidth, screenWidth)
-      : undefined;
+  /* -------------------------------------------------------------------- */
+  /* Theme colors                                                         */
+  /* -------------------------------------------------------------------- */
 
-  const resolvedMaxHeight =
-    maxHeight !== undefined
-      ? resolveDimension(maxHeight, screenHeight)
-      : undefined;
+  const resolvedBackgroundColor =
+    backgroundColor ??
+    colors.card ??
+    colors.surface ??
+    colors.background ??
+    "#FFFFFF";
 
-  const resolvedMinWidth =
-    minWidth !== undefined
-      ? resolveDimension(minWidth, screenWidth)
-      : undefined;
+  const resolvedBorderColor = borderColor ?? colors.border ?? "#E5E5E5";
 
-  const resolvedMinHeight =
-    minHeight !== undefined
-      ? resolveDimension(minHeight, screenHeight)
-      : undefined;
+  const resolvedTitleColor = titleColor ?? colors.text ?? "#111111";
 
-  /* ========================================================================
-   * ANIMATION VALUES
-   * ====================================================================== */
+  const resolvedCloseIconColor = closeIconColor ?? colors.text ?? "#111111";
+
+  const resolvedBorderRadius = borderRadius ?? radius.xl ?? 18;
+
+  /* -------------------------------------------------------------------- */
+  /* Animation duration                                                   */
+  /* -------------------------------------------------------------------- */
+
+  const resolvedAnimationDuration =
+    animationDuration ?? themeAnimation.normal ?? 280;
+
+  /* -------------------------------------------------------------------- */
+  /* Padding                                                              */
+  /* -------------------------------------------------------------------- */
+
+  const horizontalPadding = paddingHorizontal ?? padding;
+
+  const verticalPadding = paddingVertical ?? padding;
+
+  const resolvedPaddingTop = paddingTop ?? verticalPadding;
+
+  const resolvedPaddingBottom = paddingBottom ?? verticalPadding;
+
+  const resolvedPaddingLeft = paddingLeft ?? horizontalPadding;
+
+  const resolvedPaddingRight = paddingRight ?? horizontalPadding;
+
+  /* -------------------------------------------------------------------- */
+  /* Margin                                                               */
+  /* -------------------------------------------------------------------- */
+
+  const horizontalMargin = marginHorizontal ?? margin;
+
+  const verticalMargin = marginVertical ?? margin;
+
+  const resolvedMarginTop = marginTop ?? verticalMargin;
+
+  const resolvedMarginBottom = marginBottom ?? verticalMargin;
+
+  const resolvedMarginLeft = marginLeft ?? horizontalMargin;
+
+  const resolvedMarginRight = marginRight ?? horizontalMargin;
+
+  /* -------------------------------------------------------------------- */
+  /* Animation values                                                     */
+  /* -------------------------------------------------------------------- */
+
+  const opacity = useSharedValue(0);
+
+  const scale = useSharedValue(1);
+
+  const translateX = useSharedValue(0);
+
+  const translateY = useSharedValue(0);
+
+  /* -------------------------------------------------------------------- */
+  /* Native Animated values                                               */
+  /* -------------------------------------------------------------------- */
 
   const nativeOpacity = useRef(new RNAnimated.Value(0)).current;
 
-  const nativeScale = useRef(new RNAnimated.Value(0.92)).current;
+  const nativeScale = useRef(new RNAnimated.Value(1)).current;
 
   const nativeTranslateX = useRef(new RNAnimated.Value(0)).current;
 
   const nativeTranslateY = useRef(new RNAnimated.Value(0)).current;
 
-  const nativeBackdropOpacity = useRef(new RNAnimated.Value(0)).current;
+  /* -------------------------------------------------------------------- */
+  /* Spring configuration                                                 */
+  /* -------------------------------------------------------------------- */
 
-  /* ========================================================================
-   * REANIMATED VALUES
-   * ====================================================================== */
+  const resolvedSpringConfig = useMemo(
+    () => ({
+      damping: springConfig?.damping ?? themeAnimation?.spring?.damping ?? 18,
 
-  const animatedOpacity = useSharedValue(0);
+      stiffness:
+        springConfig?.stiffness ?? themeAnimation?.spring?.stiffness ?? 180,
 
-  const animatedScale = useSharedValue(0.92);
-
-  const animatedTranslateX = useSharedValue(0);
-
-  const animatedTranslateY = useSharedValue(0);
-
-  const animatedBackdropOpacity = useSharedValue(0);
-
-  /* ========================================================================
-   * ANIMATION OFFSETS
-   * ====================================================================== */
-
-  const getSlideOffset = useCallback(
-    (type) => {
-      switch (type) {
-        case "slideUp":
-          return {
-            x: 0,
-            y: screenHeight,
-          };
-
-        case "slideDown":
-          return {
-            x: 0,
-            y: -screenHeight,
-          };
-
-        case "slideLeft":
-          return {
-            x: screenWidth,
-            y: 0,
-          };
-
-        case "slideRight":
-          return {
-            x: -screenWidth,
-            y: 0,
-          };
-
-        default:
-          return {
-            x: 0,
-            y: 0,
-          };
-      }
-    },
-    [screenHeight, screenWidth],
+      mass: springConfig?.mass ?? themeAnimation?.spring?.mass ?? 0.8,
+    }),
+    [springConfig, themeAnimation],
   );
 
-  /* ========================================================================
-   * OPEN ANIMATION
-   * ====================================================================== */
+  /* -------------------------------------------------------------------- */
+  /* Visibility setter                                                    */
+  /* -------------------------------------------------------------------- */
 
-  const openModal = useCallback(() => {
-    const type = ANIMATION_TYPES.includes(animation) ? animation : "fadeScale";
-
-    const offset = getSlideOffset(type);
-
-    if (reanimated) {
-      animatedBackdropOpacity.value = withTiming(backdropOpacity, {
-        duration: animationDuration,
-      });
-
-      if (type === "none") {
-        animatedOpacity.value = 1;
-
-        animatedScale.value = 1;
-
-        animatedTranslateX.value = 0;
-
-        animatedTranslateY.value = 0;
-
-        return;
+  const setVisibility = useCallback(
+    (nextVisible) => {
+      if (!controlled) {
+        setInternalVisible(nextVisible);
       }
 
-      if (type === "fade" || type === "fadeScale") {
-        animatedOpacity.value = withTiming(1, {
-          duration: animationDuration,
-        });
-      } else {
-        animatedOpacity.value = withTiming(1, {
-          duration: animationDuration,
-        });
-      }
+      onVisibleChange?.(nextVisible);
+    },
+    [controlled, onVisibleChange],
+  );
 
-      if (type === "scale" || type === "fadeScale") {
-        animatedScale.value = withSpring(
-          1,
-          animationSpring || themeAnimation.spring || DEFAULT_SPRING,
-        );
-      } else {
-        animatedScale.value = 1;
-      }
+  /* -------------------------------------------------------------------- */
+  /* Initial animation values                                            */
+  /* -------------------------------------------------------------------- */
 
-      if (
-        type === "slideUp" ||
-        type === "slideDown" ||
-        type === "slideLeft" ||
-        type === "slideRight"
-      ) {
-        animatedTranslateX.value = withTiming(0, {
-          duration: animationDuration,
-        });
+  const getInitialAnimationValues = useCallback(() => {
+    switch (resolvedAnimation) {
+      case "none":
+        return {
+          opacity: 1,
+          scale: 1,
+          x: 0,
+          y: 0,
+        };
 
-        animatedTranslateY.value = withTiming(0, {
-          duration: animationDuration,
-        });
-      } else {
-        animatedTranslateX.value = 0;
+      case "fade":
+        return {
+          opacity: 0,
+          scale: 1,
+          x: 0,
+          y: 0,
+        };
 
-        animatedTranslateY.value = 0;
-      }
+      case "scale":
+      case "scaleUp":
+        return {
+          opacity: 0,
+          scale: 0.85,
+          x: 0,
+          y: 0,
+        };
 
+      case "scaleDown":
+        return {
+          opacity: 0,
+          scale: 1.15,
+          x: 0,
+          y: 0,
+        };
+
+      case "slideUp":
+        return {
+          opacity: 0,
+          scale: 1,
+          x: 0,
+          y: 60,
+        };
+
+      case "slideDown":
+        return {
+          opacity: 0,
+          scale: 1,
+          x: 0,
+          y: -60,
+        };
+
+      case "slideLeft":
+        return {
+          opacity: 0,
+          scale: 1,
+          x: 80,
+          y: 0,
+        };
+
+      case "slideRight":
+        return {
+          opacity: 0,
+          scale: 1,
+          x: -80,
+          y: 0,
+        };
+
+      default:
+        return {
+          opacity: 0,
+          scale: 1,
+          x: 0,
+          y: 0,
+        };
+    }
+  }, [resolvedAnimation]);
+
+  /* -------------------------------------------------------------------- */
+  /* Reanimated open                                                      */
+  /* -------------------------------------------------------------------- */
+
+  const animateReanimatedOpen = useCallback(() => {
+    const initial = getInitialAnimationValues();
+
+    opacity.value = initial.opacity;
+
+    scale.value = initial.scale;
+
+    translateX.value = initial.x;
+
+    translateY.value = initial.y;
+
+    setModalVisible(true);
+
+    if (resolvedAnimation === "none") {
       return;
     }
 
-    nativeBackdropOpacity.setValue(0);
-
-    nativeOpacity.setValue(type === "none" ? 1 : 0);
-
-    nativeScale.setValue(type === "scale" || type === "fadeScale" ? 0.92 : 1);
-
-    nativeTranslateX.setValue(offset.x);
-
-    nativeTranslateY.setValue(offset.y);
-
-    const animations = [
-      RNAnimated.timing(nativeBackdropOpacity, {
-        toValue: backdropOpacity,
-
-        duration: animationDuration,
-
-        useNativeDriver: true,
-      }),
-    ];
-
-    if (type === "scale" || type === "fadeScale") {
-      animations.push(
-        RNAnimated.parallel([
-          RNAnimated.timing(nativeOpacity, {
-            toValue: 1,
-
-            duration: animationDuration,
-
-            useNativeDriver: true,
-          }),
-
-          RNAnimated.spring(nativeScale, {
-            toValue: 1,
-
-            damping:
-              animationSpring?.damping ??
-              themeAnimation.spring?.damping ??
-              DEFAULT_SPRING.damping,
-
-            stiffness:
-              animationSpring?.stiffness ??
-              themeAnimation.spring?.stiffness ??
-              DEFAULT_SPRING.stiffness,
-
-            mass:
-              animationSpring?.mass ??
-              themeAnimation.spring?.mass ??
-              DEFAULT_SPRING.mass,
-
-            useNativeDriver: true,
-          }),
-        ]),
-      );
-    } else {
-      animations.push(
-        RNAnimated.timing(nativeOpacity, {
-          toValue: 1,
-
-          duration: animationDuration,
-
-          useNativeDriver: true,
-        }),
-      );
-    }
+    opacity.value = withTiming(1, {
+      duration: resolvedAnimationDuration,
+    });
 
     if (
-      type === "slideUp" ||
-      type === "slideDown" ||
-      type === "slideLeft" ||
-      type === "slideRight"
+      resolvedAnimation === "scale" ||
+      resolvedAnimation === "scaleUp" ||
+      resolvedAnimation === "scaleDown"
     ) {
-      animations.push(
-        RNAnimated.parallel([
-          RNAnimated.timing(nativeTranslateX, {
-            toValue: 0,
-
-            duration: animationDuration,
-
-            useNativeDriver: true,
-          }),
-
-          RNAnimated.timing(nativeTranslateY, {
-            toValue: 0,
-
-            duration: animationDuration,
-
-            useNativeDriver: true,
-          }),
-        ]),
-      );
+      scale.value = withSpring(1, resolvedSpringConfig);
+    } else {
+      scale.value = withTiming(1, {
+        duration: resolvedAnimationDuration,
+      });
     }
 
-    RNAnimated.parallel(animations).start();
+    translateX.value = withTiming(0, {
+      duration: resolvedAnimationDuration,
+    });
 
-    if (typeof onOpen === "function") {
-      onOpen();
-    }
+    translateY.value = withTiming(0, {
+      duration: resolvedAnimationDuration,
+    });
   }, [
-    animation,
-    animationDuration,
-    animationSpring,
-    animatedBackdropOpacity,
-    animatedOpacity,
-    animatedScale,
-    animatedTranslateX,
-    animatedTranslateY,
-    backdropOpacity,
-    getSlideOffset,
-    nativeBackdropOpacity,
+    getInitialAnimationValues,
+    opacity,
+    scale,
+    translateX,
+    translateY,
+    resolvedAnimation,
+    resolvedAnimationDuration,
+    resolvedSpringConfig,
+  ]);
+
+  /* -------------------------------------------------------------------- */
+  /* Reanimated close                                                     */
+  /* -------------------------------------------------------------------- */
+
+  const animateReanimatedClose = useCallback(() => {
+    if (resolvedAnimation === "none") {
+      opacity.value = 0;
+      setModalVisible(false);
+      return;
+    }
+
+    opacity.value = withTiming(0, {
+      duration: resolvedAnimationDuration,
+    });
+
+    scale.value = withTiming(0.96, {
+      duration: resolvedAnimationDuration,
+    });
+
+    translateX.value = withTiming(0, {
+      duration: resolvedAnimationDuration,
+    });
+
+    translateY.value = withTiming(0, {
+      duration: resolvedAnimationDuration,
+    });
+
+    setTimeout(() => {
+      setModalVisible(false);
+    }, resolvedAnimationDuration);
+  }, [
+    resolvedAnimation,
+    opacity,
+    scale,
+    translateX,
+    translateY,
+    resolvedAnimationDuration,
+  ]);
+
+  /* -------------------------------------------------------------------- */
+  /* Native open                                                           */
+  /* -------------------------------------------------------------------- */
+
+  const animateNativeOpen = useCallback(() => {
+    const initial = getInitialAnimationValues();
+
+    nativeOpacity.setValue(initial.opacity);
+
+    nativeScale.setValue(initial.scale);
+
+    nativeTranslateX.setValue(initial.x);
+
+    nativeTranslateY.setValue(initial.y);
+
+    setModalVisible(true);
+
+    if (resolvedAnimation === "none") {
+      nativeOpacity.setValue(1);
+      return;
+    }
+
+    RNAnimated.parallel([
+      RNAnimated.timing(nativeOpacity, {
+        toValue: 1,
+        duration: resolvedAnimationDuration,
+        useNativeDriver: true,
+      }),
+
+      RNAnimated.spring(nativeScale, {
+        toValue: 1,
+        useNativeDriver: true,
+        ...resolvedSpringConfig,
+      }),
+
+      RNAnimated.timing(nativeTranslateX, {
+        toValue: 0,
+        duration: resolvedAnimationDuration,
+        useNativeDriver: true,
+      }),
+
+      RNAnimated.timing(nativeTranslateY, {
+        toValue: 0,
+        duration: resolvedAnimationDuration,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [
+    getInitialAnimationValues,
     nativeOpacity,
     nativeScale,
     nativeTranslateX,
     nativeTranslateY,
-    onOpen,
-    reanimated,
-    themeAnimation.spring,
+    resolvedAnimation,
+    resolvedAnimationDuration,
+    resolvedSpringConfig,
   ]);
 
-  /* ========================================================================
-   * CLOSE ANIMATION
-   * ====================================================================== */
+  /* -------------------------------------------------------------------- */
+  /* Native close                                                          */
+  /* -------------------------------------------------------------------- */
 
-  const closeModal = useCallback(() => {
-    const type = ANIMATION_TYPES.includes(animation) ? animation : "fadeScale";
+  const finishNativeClose = useCallback(() => {
+    setModalVisible(false);
+    onClose?.();
+  }, [onClose]);
 
-    const offset = getSlideOffset(type);
-
-    if (reanimated) {
-      animatedBackdropOpacity.value = withTiming(0, {
-        duration: closeAnimationDuration,
-      });
-
-      if (type === "none") {
-        animatedOpacity.value = 0;
-
-        animatedScale.value = 0.92;
-
-        setVisible(false);
-
-        if (typeof onClose === "function") {
-          onClose();
-        }
-
-        return;
-      }
-
-      animatedOpacity.value = withTiming(
-        0,
-        {
-          duration: closeAnimationDuration,
-        },
-        (finished) => {
-          if (finished) {
-            runOnJS(setVisible)(false);
-
-            if (typeof onClose === "function") {
-              runOnJS(onClose)();
-            }
-          }
-        },
-      );
-
-      if (type === "scale" || type === "fadeScale") {
-        animatedScale.value = withTiming(0.92, {
-          duration: closeAnimationDuration,
-        });
-      }
-
-      if (
-        type === "slideUp" ||
-        type === "slideDown" ||
-        type === "slideLeft" ||
-        type === "slideRight"
-      ) {
-        animatedTranslateX.value = withTiming(offset.x, {
-          duration: closeAnimationDuration,
-        });
-
-        animatedTranslateY.value = withTiming(offset.y, {
-          duration: closeAnimationDuration,
-        });
-      }
-
+  const animateNativeClose = useCallback(() => {
+    if (resolvedAnimation === "none") {
+      finishNativeClose();
       return;
     }
 
-    const animations = [
+    RNAnimated.parallel([
       RNAnimated.timing(nativeOpacity, {
         toValue: 0,
-
-        duration: closeAnimationDuration,
-
+        duration: resolvedAnimationDuration,
         useNativeDriver: true,
       }),
 
-      RNAnimated.timing(nativeBackdropOpacity, {
-        toValue: 0,
-
-        duration: closeAnimationDuration,
-
+      RNAnimated.timing(nativeScale, {
+        toValue: 0.96,
+        duration: resolvedAnimationDuration,
         useNativeDriver: true,
       }),
-    ];
-
-    if (type === "scale" || type === "fadeScale") {
-      animations.push(
-        RNAnimated.timing(nativeScale, {
-          toValue: 0.92,
-
-          duration: closeAnimationDuration,
-
-          useNativeDriver: true,
-        }),
-      );
-    }
-
-    if (
-      type === "slideUp" ||
-      type === "slideDown" ||
-      type === "slideLeft" ||
-      type === "slideRight"
-    ) {
-      animations.push(
-        RNAnimated.parallel([
-          RNAnimated.timing(nativeTranslateX, {
-            toValue: offset.x,
-
-            duration: closeAnimationDuration,
-
-            useNativeDriver: true,
-          }),
-
-          RNAnimated.timing(nativeTranslateY, {
-            toValue: offset.y,
-
-            duration: closeAnimationDuration,
-
-            useNativeDriver: true,
-          }),
-        ]),
-      );
-    }
-
-    RNAnimated.parallel(animations).start(({ finished }) => {
-      if (!finished) {
-        return;
-      }
-
-      setVisible(false);
-
-      if (typeof onClose === "function") {
-        onClose();
+    ]).start(({ finished }) => {
+      if (finished) {
+        finishNativeClose();
       }
     });
   }, [
-    animation,
-    animatedBackdropOpacity,
-    animatedOpacity,
-    animatedScale,
-    animatedTranslateX,
-    animatedTranslateY,
-    closeAnimationDuration,
-    getSlideOffset,
-    nativeBackdropOpacity,
+    resolvedAnimation,
     nativeOpacity,
     nativeScale,
-    nativeTranslateX,
-    nativeTranslateY,
-    onClose,
-    reanimated,
-    setVisible,
+    resolvedAnimationDuration,
+    finishNativeClose,
   ]);
 
-  /* ========================================================================
-   * IMPERATIVE API
-   * ====================================================================== */
+  /* -------------------------------------------------------------------- */
+  /* Open                                                                  */
+  /* -------------------------------------------------------------------- */
+
+  const animateOpen = useCallback(() => {
+    if (reanimated) {
+      animateReanimatedOpen();
+    } else {
+      animateNativeOpen();
+    }
+  }, [reanimated, animateReanimatedOpen, animateNativeOpen]);
+
+  /* -------------------------------------------------------------------- */
+  /* Close                                                                 */
+  /* -------------------------------------------------------------------- */
+
+  const animateClose = useCallback(() => {
+    if (reanimated) {
+      animateReanimatedClose();
+    } else {
+      animateNativeClose();
+    }
+  }, [reanimated, animateReanimatedClose, animateNativeClose]);
+
+  /* -------------------------------------------------------------------- */
+  /* Public open                                                           */
+  /* -------------------------------------------------------------------- */
+
+  const open = useCallback(() => {
+    const wasVisible = isVisible;
+
+    setVisibility(true);
+
+    animateOpen();
+
+    if (!wasVisible) {
+      onOpen?.();
+    }
+  }, [isVisible, setVisibility, animateOpen, onOpen]);
+
+  /* -------------------------------------------------------------------- */
+  /* Public close                                                          */
+  /* -------------------------------------------------------------------- */
+
+  const close = useCallback(() => {
+    if (!modalVisible) {
+      setVisibility(false);
+      return;
+    }
+
+    setVisibility(false);
+
+    animateClose();
+  }, [modalVisible, setVisibility, animateClose]);
+
+  /* -------------------------------------------------------------------- */
+  /* Toggle                                                                */
+  /* -------------------------------------------------------------------- */
+
+  const toggle = useCallback(() => {
+    if (isVisible) {
+      close();
+    } else {
+      open();
+    }
+  }, [isVisible, close, open]);
+
+  /* -------------------------------------------------------------------- */
+  /* Imperative API                                                        */
+  /* -------------------------------------------------------------------- */
 
   useImperativeHandle(
     ref,
     () => ({
-      open: openModal,
+      open,
+      close,
+      toggle,
 
-      close: closeModal,
-
-      toggle: () => {
-        if (isVisible) {
-          closeModal();
-        } else {
-          setVisible(true);
-        }
-      },
+      isVisible: () => isVisible,
     }),
-    [closeModal, isVisible, openModal, setVisible],
+    [open, close, toggle, isVisible],
   );
 
-  /* ========================================================================
-   * VISIBILITY EFFECT
-   * ====================================================================== */
+  /* -------------------------------------------------------------------- */
+  /* Controlled visibility effect                                          */
+  /* -------------------------------------------------------------------- */
 
   useEffect(() => {
-    if (isVisible) {
-      openModal();
+    const previous = previousVisibleRef.current;
+
+    previousVisibleRef.current = isVisible;
+
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+
+      if (isVisible) {
+        setModalVisible(true);
+
+        const timer = setTimeout(() => {
+          animateOpen();
+        }, 20);
+
+        return () => clearTimeout(timer);
+      }
+
+      return undefined;
     }
-  }, [isVisible]);
 
-  /* ========================================================================
-   * ANDROID BACK BUTTON
-   * ====================================================================== */
+    if (isVisible && !previous) {
+      setModalVisible(true);
+
+      const timer = setTimeout(() => {
+        animateOpen();
+      }, 20);
+
+      return () => clearTimeout(timer);
+    }
+
+    if (!isVisible && previous) {
+      animateClose();
+    }
+
+    return undefined;
+  }, [isVisible, animateOpen, animateClose]);
+
+  /* -------------------------------------------------------------------- */
+  /* Android back                                                         */
+  /* -------------------------------------------------------------------- */
 
   useEffect(() => {
-    if (!isVisible) {
+    if (!modalVisible || !enableBackHandler) {
       return undefined;
     }
 
     const subscription = BackHandler.addEventListener(
       "hardwareBackPress",
       () => {
-        if (typeof onRequestClose === "function") {
-          onRequestClose();
-        } else {
-          closeModal();
-        }
-
+        close();
         return true;
       },
     );
 
-    return () => {
-      subscription.remove();
-    };
-  }, [closeModal, isVisible, onRequestClose]);
+    return () => subscription.remove();
+  }, [modalVisible, enableBackHandler, close]);
 
-  /* ========================================================================
-   * REANIMATED STYLES
-   * ====================================================================== */
+  /* -------------------------------------------------------------------- */
+  /* Reanimated styles                                                    */
+  /* -------------------------------------------------------------------- */
 
-  const reanimatedContentStyle = useAnimatedStyle(() => ({
-    opacity: animatedOpacity.value,
+  const animatedModalStyle = useAnimatedStyle(
+    () => ({
+      opacity: opacity.value,
+
+      transform: [
+        {
+          translateX: translateX.value,
+        },
+
+        {
+          translateY: translateY.value,
+        },
+
+        {
+          scale: scale.value,
+        },
+      ],
+    }),
+    [],
+  );
+
+  const animatedBackdropStyle = useAnimatedStyle(
+    () => ({
+      opacity: opacity.value * backdropOpacity,
+    }),
+    [backdropOpacity],
+  );
+
+  /* -------------------------------------------------------------------- */
+  /* Native styles                                                        */
+  /* -------------------------------------------------------------------- */
+
+  const nativeModalStyle = {
+    opacity: nativeOpacity,
 
     transform: [
       {
-        scale: animatedScale.value,
+        translateX: nativeTranslateX,
       },
 
       {
-        translateX: animatedTranslateX.value,
+        translateY: nativeTranslateY,
       },
 
       {
-        translateY: animatedTranslateY.value,
+        scale: nativeScale,
       },
     ],
-  }));
+  };
 
-  const reanimatedBackdropStyle = useAnimatedStyle(() => ({
-    opacity: animatedBackdropOpacity.value,
-  }));
+  const nativeBackdropStyle = {
+    opacity: nativeOpacity.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0, backdropOpacity],
+    }),
+  };
 
-  /* ========================================================================
-   * SAFE AREA
-   * ====================================================================== */
+  /* -------------------------------------------------------------------- */
+  /* Position                                                             */
+  /* -------------------------------------------------------------------- */
 
-  const safeTop = safeArea && safeAreaTop ? insets.top : 0;
+  const positionStyle = useMemo(() => {
+    switch (resolvedPosition) {
+      case "top":
+        return {
+          justifyContent: "flex-start",
+        };
 
-  const safeBottom = safeArea && safeAreaBottom ? insets.bottom : 0;
+      case "bottom":
+        return {
+          justifyContent: "flex-end",
+        };
 
-  const safeLeft = safeArea && safeAreaLeft ? insets.left : 0;
+      case "center":
+      default:
+        return {
+          justifyContent: "center",
+        };
+    }
+  }, [resolvedPosition]);
 
-  const safeRight = safeArea && safeAreaRight ? insets.right : 0;
+  /* -------------------------------------------------------------------- */
+  /* Variant                                                              */
+  /* -------------------------------------------------------------------- */
 
-  /* ========================================================================
-   * CONTENT PADDING
-   * ====================================================================== */
+  const variantStyle = useMemo(() => {
+    if (resolvedVariant === "fullscreen") {
+      return {
+        width: "100%",
+        height: "100%",
+        margin: 0,
+        borderRadius: 0,
+      };
+    }
 
-  const finalContentPaddingLeft =
-    contentPaddingLeft ?? contentPaddingHorizontal ?? contentPadding;
+    if (resolvedVariant === "bottom") {
+      return {
+        width: "100%",
 
-  const finalContentPaddingRight =
-    contentPaddingRight ?? contentPaddingHorizontal ?? contentPadding;
+        borderTopLeftRadius: borderTopLeftRadius ?? resolvedBorderRadius,
 
-  const finalContentPaddingTop =
-    contentPaddingTop ?? contentPaddingVertical ?? contentPadding;
+        borderTopRightRadius: borderTopRightRadius ?? resolvedBorderRadius,
 
-  const finalContentPaddingBottom =
-    contentPaddingBottom ?? contentPaddingVertical ?? contentPadding;
+        borderBottomLeftRadius: borderBottomLeftRadius ?? 0,
 
-  /* ========================================================================
-   * HEADER PADDING
-   * ====================================================================== */
+        borderBottomRightRadius: borderBottomRightRadius ?? 0,
 
-  const finalHeaderPaddingLeft =
-    headerPaddingLeft ?? headerPaddingHorizontal ?? headerPadding;
+        marginLeft: 0,
+        marginRight: 0,
+        marginBottom: 0,
+      };
+    }
 
-  const finalHeaderPaddingRight =
-    headerPaddingRight ?? headerPaddingHorizontal ?? headerPadding;
+    if (resolvedVariant === "top") {
+      return {
+        width: "100%",
 
-  const finalHeaderPaddingTop =
-    headerPaddingTop ?? headerPaddingVertical ?? headerPadding;
+        borderTopLeftRadius: borderTopLeftRadius ?? 0,
 
-  const finalHeaderPaddingBottom =
-    headerPaddingBottom ?? headerPaddingVertical ?? headerPadding;
+        borderTopRightRadius: borderTopRightRadius ?? 0,
 
-  /* ========================================================================
-   * FOOTER PADDING
-   * ====================================================================== */
+        borderBottomLeftRadius: borderBottomLeftRadius ?? resolvedBorderRadius,
 
-  const finalFooterPaddingLeft =
-    footerPaddingLeft ?? footerPaddingHorizontal ?? footerPadding;
+        borderBottomRightRadius:
+          borderBottomRightRadius ?? resolvedBorderRadius,
 
-  const finalFooterPaddingRight =
-    footerPaddingRight ?? footerPaddingHorizontal ?? footerPadding;
+        marginLeft: 0,
+        marginRight: 0,
+        marginTop: 0,
+      };
+    }
 
-  const finalFooterPaddingTop =
-    footerPaddingTop ?? footerPaddingVertical ?? footerPadding;
+    return {};
+  }, [
+    resolvedVariant,
+    borderTopLeftRadius,
+    borderTopRightRadius,
+    borderBottomLeftRadius,
+    borderBottomRightRadius,
+    resolvedBorderRadius,
+  ]);
 
-  const finalFooterPaddingBottom =
-    footerPaddingBottom ?? footerPaddingVertical ?? footerPadding;
+  /* -------------------------------------------------------------------- */
+  /* Modal style                                                          */
+  /* -------------------------------------------------------------------- */
 
-  /* ========================================================================
-   * COLORS
-   * ====================================================================== */
+  const modalStyle = [
+    modalStyles.modal,
 
-  const resolvedBackgroundColor =
-    backgroundColor ?? colors.card ?? colors.surface ?? "#FFFFFF";
+    {
+      width: resolvedVariant === "fullscreen" ? "100%" : width,
 
-  const resolvedBorderColor = borderColor ?? colors.border ?? "#E5E5E5";
+      height: resolvedVariant === "fullscreen" ? "100%" : height,
 
-  const resolvedTitleColor = titleColor ?? colors.text ?? "#222222";
+      minWidth,
+      maxWidth,
+      minHeight,
+      maxHeight,
 
-  const resolvedCloseIconColor = closeIconColor ?? colors.text ?? "#222222";
+      marginTop: resolvedVariant === "fullscreen" ? 0 : resolvedMarginTop,
 
-  const resolvedCloseBackgroundColor =
-    closeButtonBackgroundColor ?? colors.surfaceSecondary ?? "#F2F2F2";
+      marginBottom: resolvedVariant === "fullscreen" ? 0 : resolvedMarginBottom,
 
-  /* ========================================================================
-   * RADIUS
-   * ====================================================================== */
+      marginLeft: resolvedVariant === "fullscreen" ? 0 : resolvedMarginLeft,
 
-  const resolvedRadius = borderRadius ?? radius.xxl ?? 24;
+      marginRight: resolvedVariant === "fullscreen" ? 0 : resolvedMarginRight,
 
-  const resolvedTopLeftRadius = topLeftRadius ?? resolvedRadius;
+      backgroundColor: resolvedBackgroundColor,
 
-  const resolvedTopRightRadius = topRightRadius ?? resolvedRadius;
+      borderWidth,
 
-  const resolvedBottomLeftRadius = bottomLeftRadius ?? resolvedRadius;
+      borderColor: resolvedBorderColor,
 
-  const resolvedBottomRightRadius = bottomRightRadius ?? resolvedRadius;
+      borderRadius: resolvedBorderRadius,
 
-  /* ========================================================================
-   * HEADER
-   * ====================================================================== */
+      borderTopLeftRadius: borderTopLeftRadius ?? resolvedBorderRadius,
 
-  const headerContent =
-    typeof renderHeader === "function" ? (
-      renderHeader({
-        close: closeModal,
-      })
-    ) : showHeader || title ? (
+      borderTopRightRadius: borderTopRightRadius ?? resolvedBorderRadius,
+
+      borderBottomLeftRadius: borderBottomLeftRadius ?? resolvedBorderRadius,
+
+      borderBottomRightRadius: borderBottomRightRadius ?? resolvedBorderRadius,
+
+      paddingTop:
+        resolvedPaddingTop +
+        (safeArea && resolvedPosition === "top" ? insets.top : 0),
+
+      paddingBottom:
+        resolvedPaddingBottom +
+        (safeArea && resolvedPosition === "bottom" ? insets.bottom : 0),
+
+      paddingLeft: resolvedPaddingLeft,
+
+      paddingRight: resolvedPaddingRight,
+
+      ...(shadow ? (shadows?.md ?? {}) : {}),
+    },
+
+    variantStyle,
+
+    style,
+  ];
+
+  /* -------------------------------------------------------------------- */
+  /* Header                                                               */
+  /* -------------------------------------------------------------------- */
+
+  const renderHeader = () => {
+    if (header) {
+      return <View style={[modalStyles.header, headerStyle]}>{header}</View>;
+    }
+
+    if (!title && !showClose) {
+      return null;
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Center                                                            */
+    /* ---------------------------------------------------------------- */
+
+    if (resolvedTitlePosition === "center") {
+      return (
+        <View
+          style={[modalStyles.header, modalStyles.headerCenter, headerStyle]}
+        >
+          {typeof title === "string" ? (
+            <Text
+              numberOfLines={1}
+              style={[
+                modalStyles.title,
+
+                modalStyles.titleCenter,
+
+                {
+                  fontSize: titleFontSize,
+
+                  color: resolvedTitleColor,
+
+                  fontWeight: titleFontWeight,
+
+                  ...(titleLineHeight
+                    ? {
+                        lineHeight: titleLineHeight,
+                      }
+                    : {}),
+                },
+
+                titleStyle,
+              ]}
+            >
+              {title}
+            </Text>
+          ) : (
+            title
+          )}
+
+          {showClose ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close"
+              hitSlop={10}
+              onPress={() => {
+                if (onClosePress) {
+                  onClosePress();
+                } else {
+                  close();
+                }
+              }}
+              style={[modalStyles.closeButton, closeButtonStyle]}
+            >
+              <Ionicons
+                name={closeIcon}
+                size={closeIconSize}
+                color={resolvedCloseIconColor}
+              />
+            </Pressable>
+          ) : null}
+        </View>
+      );
+    }
+
+    /* ---------------------------------------------------------------- */
+    /* Left / Right                                                      */
+    /* ---------------------------------------------------------------- */
+
+    return (
       <View
         style={[
-          styles.header,
+          modalStyles.header,
 
-          headerHeight
-            ? {
-                minHeight: headerHeight,
-              }
-            : null,
-
-          {
-            paddingTop: finalHeaderPaddingTop,
-
-            paddingBottom: finalHeaderPaddingBottom,
-
-            paddingLeft: finalHeaderPaddingLeft,
-
-            paddingRight: finalHeaderPaddingRight,
-          },
+          resolvedTitlePosition === "right" && modalStyles.headerRight,
 
           headerStyle,
         ]}
       >
-        <View style={styles.headerTitle}>
+        {typeof title === "string" ? (
           <Text
             numberOfLines={1}
             style={[
-              styles.title,
+              modalStyles.title,
 
               {
-                color: resolvedTitleColor,
-
                 fontSize: titleFontSize,
 
-                lineHeight: titleLineHeight,
+                color: resolvedTitleColor,
 
                 fontWeight: titleFontWeight,
 
-                textAlign: titleAlign,
+                ...(titleLineHeight
+                  ? {
+                      lineHeight: titleLineHeight,
+                    }
+                  : {}),
+              },
+
+              resolvedTitlePosition === "right" && {
+                textAlign: "right",
               },
 
               titleStyle,
@@ -1129,557 +1189,313 @@ const UIModal = forwardRef(function UIModal(
           >
             {title}
           </Text>
-        </View>
+        ) : (
+          title
+        )}
 
-        {showCloseButton ? (
+        {showClose ? (
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close"
-            onPress={onCloseButtonPress || closeModal}
-            style={[
-              styles.closeButton,
-
-              {
-                width: closeButtonSize,
-
-                height: closeButtonSize,
-
-                borderRadius: closeButtonBorderRadius ?? closeButtonSize / 2,
-
-                backgroundColor: resolvedCloseBackgroundColor,
-              },
-
-              closeButtonStyle,
-            ]}
+            hitSlop={10}
+            onPress={() => {
+              if (onClosePress) {
+                onClosePress();
+              } else {
+                close();
+              }
+            }}
+            style={[modalStyles.closeButton, closeButtonStyle]}
           >
-            <RenderIcon
-              icon={closeIcon}
+            <Ionicons
+              name={closeIcon}
               size={closeIconSize}
               color={resolvedCloseIconColor}
             />
           </Pressable>
         ) : null}
       </View>
-    ) : null;
+    );
+  };
 
-  /* ========================================================================
-   * CONTENT
-   * ====================================================================== */
+  /* -------------------------------------------------------------------- */
+  /* Content                                                              */
+  /* -------------------------------------------------------------------- */
 
-  const contentElement = scrollable ? (
-    <ScrollView
-      style={[styles.scrollContent, contentStyle]}
-      contentContainerStyle={[
-        {
-          paddingTop: finalContentPaddingTop,
+  const renderContent = () => {
+    if (scrollable) {
+      return (
+        <ScrollView
+          style={modalStyles.scrollView}
+          contentContainerStyle={[
+            modalStyles.scrollContent,
+            contentContainerStyle,
+            contentStyle,
+          ]}
+          keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+          showsVerticalScrollIndicator={showsVerticalScrollIndicator}
+          nestedScrollEnabled
+        >
+          {children}
+        </ScrollView>
+      );
+    }
 
-          paddingBottom: finalContentPaddingBottom,
+    return (
+      <View style={[modalStyles.content, contentContainerStyle, contentStyle]}>
+        {children}
+      </View>
+    );
+  };
 
-          paddingLeft: finalContentPaddingLeft,
+  /* -------------------------------------------------------------------- */
+  /* Card content                                                         */
+  /* -------------------------------------------------------------------- */
 
-          paddingRight: finalContentPaddingRight,
-        },
+  const cardContent = (
+    <>
+      {renderHeader()}
 
-        contentContainerStyle,
-      ]}
-      showsVerticalScrollIndicator={showsVerticalScrollIndicator}
-      keyboardDismissMode={keyboardDismissMode}
-      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
-    >
-      {children}
-    </ScrollView>
-  ) : (
-    <View
-      style={[
-        styles.content,
+      {renderContent()}
 
-        {
-          paddingTop: finalContentPaddingTop,
-
-          paddingBottom: finalContentPaddingBottom,
-
-          paddingLeft: finalContentPaddingLeft,
-
-          paddingRight: finalContentPaddingRight,
-        },
-
-        contentStyle,
-      ]}
-    >
-      {children}
-    </View>
+      {footer ? (
+        <View style={[modalStyles.footer, footerStyle]}>{footer}</View>
+      ) : null}
+    </>
   );
 
-  /* ========================================================================
-   * FOOTER
-   * ====================================================================== */
+  /* -------------------------------------------------------------------- */
+  /* Backdrop                                                             */
+  /* -------------------------------------------------------------------- */
 
-  const footerContent =
-    typeof renderFooter === "function"
-      ? renderFooter({
-          close: closeModal,
-        })
-      : footer;
+  const renderBackdrop = () => {
+    if (!showBackdrop) {
+      return null;
+    }
 
-  /* ========================================================================
-   * MODAL CONTENT
-   * ====================================================================== */
+    const onBackdropPress = () => {
+      if (closeOnBackdropPress) {
+        close();
+      }
+    };
 
-  const modalContent = reanimated ? (
-    <Animated.View
-      style={[
-        styles.modal,
-
-        {
-          width: resolvedWidth,
-
-          height: resolvedHeight,
-
-          maxWidth: resolvedMaxWidth,
-
-          maxHeight: resolvedMaxHeight,
-
-          minWidth: resolvedMinWidth,
-
-          minHeight: resolvedMinHeight,
-
-          margin,
-
-          marginHorizontal,
-
-          marginVertical,
-
-          marginTop,
-
-          marginBottom,
-
-          marginLeft,
-
-          marginRight,
-
-          backgroundColor: resolvedBackgroundColor,
-
-          borderTopLeftRadius: resolvedTopLeftRadius,
-
-          borderTopRightRadius: resolvedTopRightRadius,
-
-          borderBottomLeftRadius: resolvedBottomLeftRadius,
-
-          borderBottomRightRadius: resolvedBottomRightRadius,
-
-          borderWidth,
-
-          borderColor: resolvedBorderColor,
-
-          padding,
-
-          paddingHorizontal,
-
-          paddingVertical,
-
-          paddingTop: paddingTop + safeTop,
-
-          paddingBottom: paddingBottom + safeBottom,
-
-          paddingLeft: paddingLeft + safeLeft,
-
-          paddingRight: paddingRight + safeRight,
-        },
-
-        shadow
-          ? {
-              shadowColor,
-
-              shadowOpacity,
-
-              shadowRadius,
-
-              shadowOffset,
-
-              elevation,
-            }
-          : null,
-
-        reanimatedContentStyle,
-
-        style,
-      ]}
-    >
-      {headerContent}
-
-      {contentElement}
-
-      {footerContent ? (
-        <View
+    if (reanimated) {
+      return (
+        <Animated.View
           style={[
-            styles.footer,
-
-            footerHeight
-              ? {
-                  minHeight: footerHeight,
-                }
-              : null,
+            modalStyles.backdrop,
 
             {
-              paddingTop: finalFooterPaddingTop,
-
-              paddingBottom: finalFooterPaddingBottom + safeBottom,
-
-              paddingLeft: finalFooterPaddingLeft,
-
-              paddingRight: finalFooterPaddingRight,
+              backgroundColor: backdropColor,
             },
 
-            footerStyle,
+            animatedBackdropStyle,
           ]}
         >
-          {footerContent}
-        </View>
-      ) : null}
+          <Pressable
+            onPress={onBackdropPress}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </Animated.View>
+      );
+    }
+
+    return (
+      <RNAnimated.View
+        style={[
+          modalStyles.backdrop,
+
+          {
+            backgroundColor: backdropColor,
+          },
+
+          nativeBackdropStyle,
+        ]}
+      >
+        <Pressable
+          onPress={onBackdropPress}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </RNAnimated.View>
+    );
+  };
+
+  /* -------------------------------------------------------------------- */
+  /* Closed                                                               */
+  /* -------------------------------------------------------------------- */
+
+  if (!modalVisible) {
+    return null;
+  }
+
+  /* -------------------------------------------------------------------- */
+  /* Render                                                               */
+  /* -------------------------------------------------------------------- */
+
+  const renderedCard = reanimated ? (
+    <Animated.View style={[modalStyle, animatedModalStyle]}>
+      {cardContent}
     </Animated.View>
   ) : (
-    <RNAnimated.View
-      style={[
-        styles.modal,
-
-        {
-          width: resolvedWidth,
-
-          height: resolvedHeight,
-
-          maxWidth: resolvedMaxWidth,
-
-          maxHeight: resolvedMaxHeight,
-
-          minWidth: resolvedMinWidth,
-
-          minHeight: resolvedMinHeight,
-
-          margin,
-
-          marginHorizontal,
-
-          marginVertical,
-
-          marginTop,
-
-          marginBottom,
-
-          marginLeft,
-
-          marginRight,
-
-          backgroundColor: resolvedBackgroundColor,
-
-          borderTopLeftRadius: resolvedTopLeftRadius,
-
-          borderTopRightRadius: resolvedTopRightRadius,
-
-          borderBottomLeftRadius: resolvedBottomLeftRadius,
-
-          borderBottomRightRadius: resolvedBottomRightRadius,
-
-          borderWidth,
-
-          borderColor: resolvedBorderColor,
-
-          padding,
-
-          paddingHorizontal,
-
-          paddingVertical,
-
-          paddingTop: paddingTop + safeTop,
-
-          paddingBottom: paddingBottom + safeBottom,
-
-          paddingLeft: paddingLeft + safeLeft,
-
-          paddingRight: paddingRight + safeRight,
-        },
-
-        shadow
-          ? {
-              shadowColor,
-
-              shadowOpacity,
-
-              shadowRadius,
-
-              shadowOffset,
-
-              elevation,
-            }
-          : null,
-
-        {
-          opacity: nativeOpacity,
-
-          transform: [
-            {
-              scale: nativeScale,
-            },
-
-            {
-              translateX: nativeTranslateX,
-            },
-
-            {
-              translateY: nativeTranslateY,
-            },
-          ],
-        },
-
-        style,
-      ]}
-    >
-      {headerContent}
-
-      {contentElement}
-
-      {footerContent ? (
-        <View
-          style={[
-            styles.footer,
-
-            footerHeight
-              ? {
-                  minHeight: footerHeight,
-                }
-              : null,
-
-            {
-              paddingTop: finalFooterPaddingTop,
-
-              paddingBottom: finalFooterPaddingBottom + safeBottom,
-
-              paddingLeft: finalFooterPaddingLeft,
-
-              paddingRight: finalFooterPaddingRight,
-            },
-
-            footerStyle,
-          ]}
-        >
-          {footerContent}
-        </View>
-      ) : null}
+    <RNAnimated.View style={[modalStyle, nativeModalStyle]}>
+      {cardContent}
     </RNAnimated.View>
   );
 
-  /* ========================================================================
-   * BACKDROP
-   * ====================================================================== */
-
-  const backdropElement = showBackdrop ? (
-    typeof renderBackdrop === "function" ? (
-      renderBackdrop({
-        close: closeModal,
-      })
-    ) : reanimated ? (
-      <Animated.View
-        style={[
-          styles.backdrop,
-
-          {
-            backgroundColor: backdropColor,
-          },
-
-          reanimatedBackdropStyle,
-
-          backdropStyle,
-        ]}
-      >
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={closeOnBackdropPress ? closeModal : undefined}
-        />
-      </Animated.View>
-    ) : (
-      <RNAnimated.View
-        style={[
-          styles.backdrop,
-
-          {
-            backgroundColor: backdropColor,
-
-            opacity: nativeBackdropOpacity,
-          },
-
-          backdropStyle,
-        ]}
-      >
-        <Pressable
-          style={StyleSheet.absoluteFill}
-          onPress={closeOnBackdropPress ? closeModal : undefined}
-        />
-      </RNAnimated.View>
-    )
-  ) : null;
-
-  /* ========================================================================
-   * POSITION
-   * ====================================================================== */
-
-  const positionStyle =
-    position === "bottom"
-      ? styles.positionBottom
-      : position === "top"
-        ? styles.positionTop
-        : position === "left"
-          ? styles.positionLeft
-          : position === "right"
-            ? styles.positionRight
-            : styles.positionCenter;
-
-  /* ========================================================================
-   * RENDER
-   * ====================================================================== */
-
   return (
     <Modal
-      visible={isVisible}
-      transparent={transparent}
+      visible={modalVisible}
+      transparent
       animationType="none"
-      statusBarTranslucent={statusBarTranslucent}
-      hardwareAccelerated={hardwareAccelerated}
-      onRequestClose={onRequestClose || closeModal}
+      statusBarTranslucent
+      onRequestClose={close}
+      {...modalProps}
     >
-      <View style={[styles.overlay, positionStyle, overlayStyle]}>
-        {backdropElement}
+      <View testID={testID} style={[modalStyles.modalRoot, positionStyle]}>
+        {renderBackdrop()}
 
         {keyboardAvoiding ? (
           <KeyboardAvoidingView
-            behavior={Platform.OS === "ios" ? "padding" : undefined}
+            behavior={
+              keyboardBehavior ??
+              (Platform.OS === "ios" ? "padding" : undefined)
+            }
             keyboardVerticalOffset={keyboardVerticalOffset}
-            style={styles.keyboardContainer}
+            style={modalStyles.keyboardContainer}
           >
-            {modalContent}
+            {renderedCard}
           </KeyboardAvoidingView>
         ) : (
-          modalContent
+          renderedCard
         )}
       </View>
     </Modal>
   );
 });
 
-/* ============================================================================
- * STYLES
- * ========================================================================== */
+UIModal.displayName = "UIModal";
 
-const styles = StyleSheet.create({
-  overlay: {
+/* -------------------------------------------------------------------------- */
+/* Styles                                                                     */
+/* -------------------------------------------------------------------------- */
+
+const modalStyles = StyleSheet.create({
+  modalRoot: {
     flex: 1,
-
     width: "100%",
-
-    height: "100%",
   },
 
-  positionCenter: {
+  keyboardContainer: {
+    width: "100%",
     alignItems: "center",
-
-    justifyContent: "center",
-  },
-
-  positionBottom: {
-    alignItems: "center",
-
-    justifyContent: "flex-end",
-  },
-
-  positionTop: {
-    alignItems: "center",
-
-    justifyContent: "flex-start",
-  },
-
-  positionLeft: {
-    alignItems: "flex-start",
-
-    justifyContent: "center",
-  },
-
-  positionRight: {
-    alignItems: "flex-end",
-
     justifyContent: "center",
   },
 
   backdrop: {
     ...StyleSheet.absoluteFillObject,
-
-    zIndex: 0,
-  },
-
-  keyboardContainer: {
-    width: "100%",
-
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    zIndex: 1,
   },
 
   modal: {
     overflow: "hidden",
-
-    zIndex: 2,
+    maxWidth: "100%",
   },
+
+  /* -------------------------------------------------------------------- */
+  /* Header                                                               */
+  /* -------------------------------------------------------------------- */
 
   header: {
     width: "100%",
+    minHeight: 52,
 
     flexDirection: "row",
 
     alignItems: "center",
-
-    justifyContent: "space-between",
   },
 
-  headerTitle: {
-    flex: 1,
-
-    minWidth: 0,
+  headerCenter: {
+    position: "relative",
 
     justifyContent: "center",
   },
 
-  title: {
-    includeFontPadding: false,
+  headerRight: {
+    justifyContent: "flex-end",
   },
 
+  /* -------------------------------------------------------------------- */
+  /* Title                                                                */
+  /* -------------------------------------------------------------------- */
+
+  title: {
+    flex: 1,
+
+    fontSize: 18,
+
+    lineHeight: 24,
+
+    fontWeight: "700",
+  },
+
+  titleCenter: {
+    position: "absolute",
+
+    left: 0,
+
+    right: 0,
+
+    textAlign: "center",
+  },
+
+  /* -------------------------------------------------------------------- */
+  /* Close                                                                */
+  /* -------------------------------------------------------------------- */
+
   closeButton: {
+    width: 44,
+
+    height: 44,
+
     alignItems: "center",
 
     justifyContent: "center",
 
-    marginLeft: 8,
-
-    flexShrink: 0,
+    zIndex: 20,
   },
+
+  /* -------------------------------------------------------------------- */
+  /* Content                                                              */
+  /* -------------------------------------------------------------------- */
 
   content: {
     width: "100%",
+
+    flexShrink: 1,
+  },
+
+  scrollView: {
+    width: "100%",
+
+    flexShrink: 1,
   },
 
   scrollContent: {
-    width: "100%",
-
-    flexGrow: 0,
+    flexGrow: 1,
   },
+
+  /* -------------------------------------------------------------------- */
+  /* Footer                                                               */
+  /* -------------------------------------------------------------------- */
 
   footer: {
     width: "100%",
   },
 });
 
-/* ============================================================================
- * EXPORTS
- * ========================================================================== */
+/* -------------------------------------------------------------------------- */
+/* Exports                                                                    */
+/* -------------------------------------------------------------------------- */
 
-export { RenderIcon, ANIMATION_TYPES as UIModalAnimationTypes };
+export { UIModal };
 
 export default memo(UIModal);
