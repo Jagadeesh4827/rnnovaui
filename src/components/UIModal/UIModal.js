@@ -12,7 +12,6 @@ import React, {
 import {
   Animated as RNAnimated,
   BackHandler,
-  Dimensions,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -24,7 +23,6 @@ import {
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
-
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import Animated, {
@@ -35,8 +33,6 @@ import Animated, {
 } from "react-native-reanimated";
 
 import { useUITheme } from "../../theme/UIProvider";
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
 /* -------------------------------------------------------------------------- */
 /* Constants                                                                  */
@@ -70,9 +66,6 @@ export const MODAL_ANIMATIONS = [
 /* Helpers                                                                    */
 /* -------------------------------------------------------------------------- */
 
-const isValidNumber = (value) =>
-  typeof value === "number" && Number.isFinite(value);
-
 const getSafeValue = (value, fallback) => {
   return value !== undefined && value !== null ? value : fallback;
 };
@@ -95,7 +88,7 @@ const UIModal = forwardRef(function UIModal(
     onClose,
 
     /* ------------------------------------------------------------------ */
-    /* Variant                                                             */
+    /* Variant / Position                                                  */
     /* ------------------------------------------------------------------ */
 
     variant = "default",
@@ -291,7 +284,7 @@ const UIModal = forwardRef(function UIModal(
   const themeAnimation = theme?.animation ?? {};
 
   /* -------------------------------------------------------------------- */
-  /* Controlled state                                                     */
+  /* Controlled / Uncontrolled                                            */
   /* -------------------------------------------------------------------- */
 
   const controlled = visible !== undefined;
@@ -307,7 +300,7 @@ const UIModal = forwardRef(function UIModal(
   const previousVisibleRef = useRef(isVisible);
 
   /* -------------------------------------------------------------------- */
-  /* Resolve variant                                                      */
+  /* Resolved variant                                                     */
   /* -------------------------------------------------------------------- */
 
   const resolvedVariant = MODAL_VARIANTS.includes(variant)
@@ -331,65 +324,83 @@ const UIModal = forwardRef(function UIModal(
     : "fade";
 
   /* -------------------------------------------------------------------- */
-  /* Theme colors                                                         */
+  /* Theme values                                                         */
   /* -------------------------------------------------------------------- */
 
-  const resolvedBackgroundColor =
-    backgroundColor ??
-    colors.card ??
-    colors.surface ??
-    colors.background ??
-    "#FFFFFF";
+  const resolvedBackgroundColor = getSafeValue(
+    backgroundColor,
+    colors.card ?? colors.surface ?? colors.background ?? "#FFFFFF",
+  );
 
-  const resolvedBorderColor = borderColor ?? colors.border ?? "#E5E5E5";
+  const resolvedBorderColor = getSafeValue(
+    borderColor,
+    colors.border ?? "#E5E5E5",
+  );
 
-  const resolvedTitleColor = titleColor ?? colors.text ?? "#111111";
+  const resolvedTitleColor = getSafeValue(titleColor, colors.text ?? "#111111");
 
-  const resolvedCloseIconColor = closeIconColor ?? colors.text ?? "#111111";
+  const resolvedCloseIconColor = getSafeValue(
+    closeIconColor,
+    colors.text ?? "#111111",
+  );
 
-  const resolvedBorderRadius = borderRadius ?? radius.xl ?? 18;
+  const resolvedBorderRadius = getSafeValue(borderRadius, radius.xl ?? 18);
 
-  /* -------------------------------------------------------------------- */
-  /* Animation duration                                                   */
-  /* -------------------------------------------------------------------- */
-
-  const resolvedAnimationDuration =
-    animationDuration ?? themeAnimation.normal ?? 280;
+  const resolvedAnimationDuration = getSafeValue(
+    animationDuration,
+    themeAnimation.normal ?? 280,
+  );
 
   /* -------------------------------------------------------------------- */
   /* Padding                                                              */
   /* -------------------------------------------------------------------- */
 
-  const horizontalPadding = paddingHorizontal ?? padding;
+  const finalHorizontalPadding = paddingHorizontal ?? padding;
 
-  const verticalPadding = paddingVertical ?? padding;
+  const finalVerticalPadding = paddingVertical ?? padding;
 
-  const resolvedPaddingTop = paddingTop ?? verticalPadding;
+  const finalPaddingTop = paddingTop ?? finalVerticalPadding;
 
-  const resolvedPaddingBottom = paddingBottom ?? verticalPadding;
+  const finalPaddingBottom = paddingBottom ?? finalVerticalPadding;
 
-  const resolvedPaddingLeft = paddingLeft ?? horizontalPadding;
+  const finalPaddingLeft = paddingLeft ?? finalHorizontalPadding;
 
-  const resolvedPaddingRight = paddingRight ?? horizontalPadding;
+  const finalPaddingRight = paddingRight ?? finalHorizontalPadding;
 
   /* -------------------------------------------------------------------- */
   /* Margin                                                               */
   /* -------------------------------------------------------------------- */
 
-  const horizontalMargin = marginHorizontal ?? margin;
+  const finalHorizontalMargin = marginHorizontal ?? margin;
 
-  const verticalMargin = marginVertical ?? margin;
+  const finalVerticalMargin = marginVertical ?? margin;
 
-  const resolvedMarginTop = marginTop ?? verticalMargin;
+  const finalMarginTop = marginTop ?? finalVerticalMargin;
 
-  const resolvedMarginBottom = marginBottom ?? verticalMargin;
+  const finalMarginBottom = marginBottom ?? finalVerticalMargin;
 
-  const resolvedMarginLeft = marginLeft ?? horizontalMargin;
+  const finalMarginLeft = marginLeft ?? finalHorizontalMargin;
 
-  const resolvedMarginRight = marginRight ?? horizontalMargin;
+  const finalMarginRight = marginRight ?? finalHorizontalMargin;
 
   /* -------------------------------------------------------------------- */
-  /* Animation values                                                     */
+  /* Spring                                                               */
+  /* -------------------------------------------------------------------- */
+
+  const resolvedSpringConfig = useMemo(
+    () => ({
+      damping: springConfig?.damping ?? themeAnimation?.spring?.damping ?? 18,
+
+      stiffness:
+        springConfig?.stiffness ?? themeAnimation?.spring?.stiffness ?? 180,
+
+      mass: springConfig?.mass ?? themeAnimation?.spring?.mass ?? 0.8,
+    }),
+    [springConfig, themeAnimation],
+  );
+
+  /* -------------------------------------------------------------------- */
+  /* Reanimated values                                                    */
   /* -------------------------------------------------------------------- */
 
   const opacity = useSharedValue(0);
@@ -413,22 +424,6 @@ const UIModal = forwardRef(function UIModal(
   const nativeTranslateY = useRef(new RNAnimated.Value(0)).current;
 
   /* -------------------------------------------------------------------- */
-  /* Spring configuration                                                 */
-  /* -------------------------------------------------------------------- */
-
-  const resolvedSpringConfig = useMemo(
-    () => ({
-      damping: springConfig?.damping ?? themeAnimation?.spring?.damping ?? 18,
-
-      stiffness:
-        springConfig?.stiffness ?? themeAnimation?.spring?.stiffness ?? 180,
-
-      mass: springConfig?.mass ?? themeAnimation?.spring?.mass ?? 0.8,
-    }),
-    [springConfig, themeAnimation],
-  );
-
-  /* -------------------------------------------------------------------- */
   /* Visibility setter                                                    */
   /* -------------------------------------------------------------------- */
 
@@ -444,10 +439,10 @@ const UIModal = forwardRef(function UIModal(
   );
 
   /* -------------------------------------------------------------------- */
-  /* Initial animation values                                            */
+  /* Initial animation values                                             */
   /* -------------------------------------------------------------------- */
 
-  const getInitialAnimationValues = useCallback(() => {
+  const getInitialValues = useCallback(() => {
     switch (resolvedAnimation) {
       case "none":
         return {
@@ -525,11 +520,11 @@ const UIModal = forwardRef(function UIModal(
   }, [resolvedAnimation]);
 
   /* -------------------------------------------------------------------- */
-  /* Reanimated open                                                      */
+  /* Reanimated OPEN                                                      */
   /* -------------------------------------------------------------------- */
 
   const animateReanimatedOpen = useCallback(() => {
-    const initial = getInitialAnimationValues();
+    const initial = getInitialValues();
 
     opacity.value = initial.opacity;
 
@@ -569,7 +564,7 @@ const UIModal = forwardRef(function UIModal(
       duration: resolvedAnimationDuration,
     });
   }, [
-    getInitialAnimationValues,
+    getInitialValues,
     opacity,
     scale,
     translateX,
@@ -580,7 +575,7 @@ const UIModal = forwardRef(function UIModal(
   ]);
 
   /* -------------------------------------------------------------------- */
-  /* Reanimated close                                                     */
+  /* Reanimated CLOSE                                                     */
   /* -------------------------------------------------------------------- */
 
   const animateReanimatedClose = useCallback(() => {
@@ -606,9 +601,11 @@ const UIModal = forwardRef(function UIModal(
       duration: resolvedAnimationDuration,
     });
 
-    setTimeout(() => {
+    const timer = setTimeout(() => {
       setModalVisible(false);
     }, resolvedAnimationDuration);
+
+    return () => clearTimeout(timer);
   }, [
     resolvedAnimation,
     opacity,
@@ -619,11 +616,11 @@ const UIModal = forwardRef(function UIModal(
   ]);
 
   /* -------------------------------------------------------------------- */
-  /* Native open                                                           */
+  /* Native OPEN                                                          */
   /* -------------------------------------------------------------------- */
 
   const animateNativeOpen = useCallback(() => {
-    const initial = getInitialAnimationValues();
+    const initial = getInitialValues();
 
     nativeOpacity.setValue(initial.opacity);
 
@@ -637,6 +634,7 @@ const UIModal = forwardRef(function UIModal(
 
     if (resolvedAnimation === "none") {
       nativeOpacity.setValue(1);
+
       return;
     }
 
@@ -666,7 +664,7 @@ const UIModal = forwardRef(function UIModal(
       }),
     ]).start();
   }, [
-    getInitialAnimationValues,
+    getInitialValues,
     nativeOpacity,
     nativeScale,
     nativeTranslateX,
@@ -677,17 +675,19 @@ const UIModal = forwardRef(function UIModal(
   ]);
 
   /* -------------------------------------------------------------------- */
-  /* Native close                                                          */
+  /* Native CLOSE                                                         */
   /* -------------------------------------------------------------------- */
 
   const finishNativeClose = useCallback(() => {
     setModalVisible(false);
+
     onClose?.();
   }, [onClose]);
 
   const animateNativeClose = useCallback(() => {
     if (resolvedAnimation === "none") {
       finishNativeClose();
+
       return;
     }
 
@@ -717,7 +717,7 @@ const UIModal = forwardRef(function UIModal(
   ]);
 
   /* -------------------------------------------------------------------- */
-  /* Open                                                                  */
+  /* Open animation                                                       */
   /* -------------------------------------------------------------------- */
 
   const animateOpen = useCallback(() => {
@@ -729,7 +729,7 @@ const UIModal = forwardRef(function UIModal(
   }, [reanimated, animateReanimatedOpen, animateNativeOpen]);
 
   /* -------------------------------------------------------------------- */
-  /* Close                                                                 */
+  /* Close animation                                                      */
   /* -------------------------------------------------------------------- */
 
   const animateClose = useCallback(() => {
@@ -741,7 +741,7 @@ const UIModal = forwardRef(function UIModal(
   }, [reanimated, animateReanimatedClose, animateNativeClose]);
 
   /* -------------------------------------------------------------------- */
-  /* Public open                                                           */
+  /* Public OPEN                                                          */
   /* -------------------------------------------------------------------- */
 
   const open = useCallback(() => {
@@ -757,12 +757,13 @@ const UIModal = forwardRef(function UIModal(
   }, [isVisible, setVisibility, animateOpen, onOpen]);
 
   /* -------------------------------------------------------------------- */
-  /* Public close                                                          */
+  /* Public CLOSE                                                         */
   /* -------------------------------------------------------------------- */
 
   const close = useCallback(() => {
     if (!modalVisible) {
       setVisibility(false);
+
       return;
     }
 
@@ -784,7 +785,7 @@ const UIModal = forwardRef(function UIModal(
   }, [isVisible, close, open]);
 
   /* -------------------------------------------------------------------- */
-  /* Imperative API                                                        */
+  /* Ref API                                                               */
   /* -------------------------------------------------------------------- */
 
   useImperativeHandle(
@@ -800,7 +801,7 @@ const UIModal = forwardRef(function UIModal(
   );
 
   /* -------------------------------------------------------------------- */
-  /* Controlled visibility effect                                          */
+  /* Controlled visibility                                                */
   /* -------------------------------------------------------------------- */
 
   useEffect(() => {
@@ -854,6 +855,7 @@ const UIModal = forwardRef(function UIModal(
       "hardwareBackPress",
       () => {
         close();
+
         return true;
       },
     );
@@ -862,7 +864,7 @@ const UIModal = forwardRef(function UIModal(
   }, [modalVisible, enableBackHandler, close]);
 
   /* -------------------------------------------------------------------- */
-  /* Reanimated styles                                                    */
+  /* Animated styles                                                      */
   /* -------------------------------------------------------------------- */
 
   const animatedModalStyle = useAnimatedStyle(
@@ -885,6 +887,17 @@ const UIModal = forwardRef(function UIModal(
     }),
     [],
   );
+
+  /*
+   * IMPORTANT:
+   * The backdrop uses the same animation progress but applies
+   * backdropOpacity to it.
+   *
+   * Therefore:
+   *
+   * Modal opacity = 1
+   * Overlay opacity = backdropOpacity
+   */
 
   const animatedBackdropStyle = useAnimatedStyle(
     () => ({
@@ -918,6 +931,7 @@ const UIModal = forwardRef(function UIModal(
   const nativeBackdropStyle = {
     opacity: nativeOpacity.interpolate({
       inputRange: [0, 1],
+
       outputRange: [0, backdropOpacity],
     }),
   };
@@ -955,7 +969,9 @@ const UIModal = forwardRef(function UIModal(
       return {
         width: "100%",
         height: "100%",
+
         margin: 0,
+
         borderRadius: 0,
       };
     }
@@ -1008,10 +1024,10 @@ const UIModal = forwardRef(function UIModal(
   ]);
 
   /* -------------------------------------------------------------------- */
-  /* Modal style                                                          */
+  /* Modal card                                                           */
   /* -------------------------------------------------------------------- */
 
-  const modalStyle = [
+  const modalCardStyle = [
     modalStyles.modal,
 
     {
@@ -1024,13 +1040,13 @@ const UIModal = forwardRef(function UIModal(
       minHeight,
       maxHeight,
 
-      marginTop: resolvedVariant === "fullscreen" ? 0 : resolvedMarginTop,
+      marginTop: resolvedVariant === "fullscreen" ? 0 : finalMarginTop,
 
-      marginBottom: resolvedVariant === "fullscreen" ? 0 : resolvedMarginBottom,
+      marginBottom: resolvedVariant === "fullscreen" ? 0 : finalMarginBottom,
 
-      marginLeft: resolvedVariant === "fullscreen" ? 0 : resolvedMarginLeft,
+      marginLeft: resolvedVariant === "fullscreen" ? 0 : finalMarginLeft,
 
-      marginRight: resolvedVariant === "fullscreen" ? 0 : resolvedMarginRight,
+      marginRight: resolvedVariant === "fullscreen" ? 0 : finalMarginRight,
 
       backgroundColor: resolvedBackgroundColor,
 
@@ -1049,16 +1065,16 @@ const UIModal = forwardRef(function UIModal(
       borderBottomRightRadius: borderBottomRightRadius ?? resolvedBorderRadius,
 
       paddingTop:
-        resolvedPaddingTop +
+        finalPaddingTop +
         (safeArea && resolvedPosition === "top" ? insets.top : 0),
 
       paddingBottom:
-        resolvedPaddingBottom +
+        finalPaddingBottom +
         (safeArea && resolvedPosition === "bottom" ? insets.bottom : 0),
 
-      paddingLeft: resolvedPaddingLeft,
+      paddingLeft: finalPaddingLeft,
 
-      paddingRight: resolvedPaddingRight,
+      paddingRight: finalPaddingRight,
 
       ...(shadow ? (shadows?.md ?? {}) : {}),
     },
@@ -1081,16 +1097,57 @@ const UIModal = forwardRef(function UIModal(
       return null;
     }
 
-    /* ---------------------------------------------------------------- */
-    /* Center                                                            */
-    /* ---------------------------------------------------------------- */
+    /*
+     * Header structure:
+     *
+     * ┌──────────────────────────────────┐
+     * │                                  │
+     * │       CENTER TITLE           X   │
+     * │                                  │
+     * └──────────────────────────────────┘
+     *
+     * The center title is absolute.
+     * The close button has its own right-side
+     * slot, so it never sits on top of the title.
+     */
 
-    if (resolvedTitlePosition === "center") {
-      return (
-        <View
-          style={[modalStyles.header, modalStyles.headerCenter, headerStyle]}
-        >
-          {typeof title === "string" ? (
+    return (
+      <View style={[modalStyles.header, headerStyle]}>
+        {/* LEFT SIDE -------------------------------------------------- */}
+
+        <View style={modalStyles.headerLeft}>
+          {resolvedTitlePosition === "left" && typeof title === "string" ? (
+            <Text
+              numberOfLines={1}
+              style={[
+                modalStyles.title,
+
+                {
+                  fontSize: titleFontSize,
+
+                  color: resolvedTitleColor,
+
+                  fontWeight: titleFontWeight,
+
+                  ...(titleLineHeight
+                    ? {
+                        lineHeight: titleLineHeight,
+                      }
+                    : {}),
+                },
+
+                titleStyle,
+              ]}
+            >
+              {title}
+            </Text>
+          ) : null}
+        </View>
+
+        {/* CENTER ----------------------------------------------------- */}
+
+        <View pointerEvents="none" style={modalStyles.headerCenter}>
+          {resolvedTitlePosition === "center" && typeof title === "string" ? (
             <Text
               numberOfLines={1}
               style={[
@@ -1117,9 +1174,40 @@ const UIModal = forwardRef(function UIModal(
             >
               {title}
             </Text>
-          ) : (
-            title
-          )}
+          ) : null}
+        </View>
+
+        {/* RIGHT SIDE ------------------------------------------------- */}
+
+        <View style={modalStyles.headerRight}>
+          {resolvedTitlePosition === "right" && typeof title === "string" ? (
+            <Text
+              numberOfLines={1}
+              style={[
+                modalStyles.title,
+
+                {
+                  fontSize: titleFontSize,
+
+                  color: resolvedTitleColor,
+
+                  fontWeight: titleFontWeight,
+
+                  ...(titleLineHeight
+                    ? {
+                        lineHeight: titleLineHeight,
+                      }
+                    : {}),
+
+                  textAlign: "right",
+                },
+
+                titleStyle,
+              ]}
+            >
+              {title}
+            </Text>
+          ) : null}
 
           {showClose ? (
             <Pressable
@@ -1127,7 +1215,7 @@ const UIModal = forwardRef(function UIModal(
               accessibilityLabel="Close"
               hitSlop={10}
               onPress={() => {
-                if (onClosePress) {
+                if (typeof onClosePress === "function") {
                   onClosePress();
                 } else {
                   close();
@@ -1143,77 +1231,6 @@ const UIModal = forwardRef(function UIModal(
             </Pressable>
           ) : null}
         </View>
-      );
-    }
-
-    /* ---------------------------------------------------------------- */
-    /* Left / Right                                                      */
-    /* ---------------------------------------------------------------- */
-
-    return (
-      <View
-        style={[
-          modalStyles.header,
-
-          resolvedTitlePosition === "right" && modalStyles.headerRight,
-
-          headerStyle,
-        ]}
-      >
-        {typeof title === "string" ? (
-          <Text
-            numberOfLines={1}
-            style={[
-              modalStyles.title,
-
-              {
-                fontSize: titleFontSize,
-
-                color: resolvedTitleColor,
-
-                fontWeight: titleFontWeight,
-
-                ...(titleLineHeight
-                  ? {
-                      lineHeight: titleLineHeight,
-                    }
-                  : {}),
-              },
-
-              resolvedTitlePosition === "right" && {
-                textAlign: "right",
-              },
-
-              titleStyle,
-            ]}
-          >
-            {title}
-          </Text>
-        ) : (
-          title
-        )}
-
-        {showClose ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel="Close"
-            hitSlop={10}
-            onPress={() => {
-              if (onClosePress) {
-                onClosePress();
-              } else {
-                close();
-              }
-            }}
-            style={[modalStyles.closeButton, closeButtonStyle]}
-          >
-            <Ionicons
-              name={closeIcon}
-              size={closeIconSize}
-              color={resolvedCloseIconColor}
-            />
-          </Pressable>
-        ) : null}
       </View>
     );
   };
@@ -1249,6 +1266,74 @@ const UIModal = forwardRef(function UIModal(
   };
 
   /* -------------------------------------------------------------------- */
+  /* Backdrop                                                             */
+  /* -------------------------------------------------------------------- */
+
+  const renderBackdrop = () => {
+    if (!showBackdrop) {
+      return null;
+    }
+
+    const handleBackdropPress = () => {
+      if (closeOnBackdropPress) {
+        close();
+      }
+    };
+
+    /*
+     * IMPORTANT:
+     *
+     * This backdrop is absolute-fill,
+     * so it covers the ENTIRE screen.
+     *
+     * The modal card is rendered separately
+     * above it.
+     */
+
+    if (reanimated) {
+      return (
+        <Animated.View
+          pointerEvents="box-none"
+          style={[
+            modalStyles.backdrop,
+
+            {
+              backgroundColor: backdropColor,
+            },
+
+            animatedBackdropStyle,
+          ]}
+        >
+          <Pressable
+            onPress={handleBackdropPress}
+            style={StyleSheet.absoluteFillObject}
+          />
+        </Animated.View>
+      );
+    }
+
+    return (
+      <RNAnimated.View
+        pointerEvents="box-none"
+        style={[
+          modalStyles.backdrop,
+
+          {
+            backgroundColor: backdropColor,
+          },
+
+          nativeBackdropStyle,
+        ]}
+      >
+        <Pressable
+          onPress={handleBackdropPress}
+          style={StyleSheet.absoluteFillObject}
+        />
+      </RNAnimated.View>
+    );
+  };
+
+  /* -------------------------------------------------------------------- */
   /* Card content                                                         */
   /* -------------------------------------------------------------------- */
 
@@ -1265,62 +1350,6 @@ const UIModal = forwardRef(function UIModal(
   );
 
   /* -------------------------------------------------------------------- */
-  /* Backdrop                                                             */
-  /* -------------------------------------------------------------------- */
-
-  const renderBackdrop = () => {
-    if (!showBackdrop) {
-      return null;
-    }
-
-    const onBackdropPress = () => {
-      if (closeOnBackdropPress) {
-        close();
-      }
-    };
-
-    if (reanimated) {
-      return (
-        <Animated.View
-          style={[
-            modalStyles.backdrop,
-
-            {
-              backgroundColor: backdropColor,
-            },
-
-            animatedBackdropStyle,
-          ]}
-        >
-          <Pressable
-            onPress={onBackdropPress}
-            style={StyleSheet.absoluteFillObject}
-          />
-        </Animated.View>
-      );
-    }
-
-    return (
-      <RNAnimated.View
-        style={[
-          modalStyles.backdrop,
-
-          {
-            backgroundColor: backdropColor,
-          },
-
-          nativeBackdropStyle,
-        ]}
-      >
-        <Pressable
-          onPress={onBackdropPress}
-          style={StyleSheet.absoluteFillObject}
-        />
-      </RNAnimated.View>
-    );
-  };
-
-  /* -------------------------------------------------------------------- */
   /* Closed                                                               */
   /* -------------------------------------------------------------------- */
 
@@ -1329,18 +1358,22 @@ const UIModal = forwardRef(function UIModal(
   }
 
   /* -------------------------------------------------------------------- */
-  /* Render                                                               */
+  /* Animated card                                                        */
   /* -------------------------------------------------------------------- */
 
   const renderedCard = reanimated ? (
-    <Animated.View style={[modalStyle, animatedModalStyle]}>
+    <Animated.View style={[modalCardStyle, animatedModalStyle]}>
       {cardContent}
     </Animated.View>
   ) : (
-    <RNAnimated.View style={[modalStyle, nativeModalStyle]}>
+    <RNAnimated.View style={[modalCardStyle, nativeModalStyle]}>
       {cardContent}
     </RNAnimated.View>
   );
+
+  /* -------------------------------------------------------------------- */
+  /* Render                                                               */
+  /* -------------------------------------------------------------------- */
 
   return (
     <Modal
@@ -1352,8 +1385,10 @@ const UIModal = forwardRef(function UIModal(
       {...modalProps}
     >
       <View testID={testID} style={[modalStyles.modalRoot, positionStyle]}>
+        {/* FULL SCREEN OVERLAY */}
         {renderBackdrop()}
 
+        {/* MODAL CARD */}
         {keyboardAvoiding ? (
           <KeyboardAvoidingView
             behavior={
@@ -1373,6 +1408,10 @@ const UIModal = forwardRef(function UIModal(
   );
 });
 
+/* -------------------------------------------------------------------------- */
+/* Display name                                                               */
+/* -------------------------------------------------------------------------- */
+
 UIModal.displayName = "UIModal";
 
 /* -------------------------------------------------------------------------- */
@@ -1380,75 +1419,144 @@ UIModal.displayName = "UIModal";
 /* -------------------------------------------------------------------------- */
 
 const modalStyles = StyleSheet.create({
+  /* -------------------------------------------------------------------- */
+  /* Root                                                                 */
+  /* -------------------------------------------------------------------- */
+
   modalRoot: {
     flex: 1,
+
     width: "100%",
-  },
-
-  keyboardContainer: {
-    width: "100%",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-
-  backdrop: {
-    ...StyleSheet.absoluteFillObject,
-  },
-
-  modal: {
-    overflow: "hidden",
-    maxWidth: "100%",
   },
 
   /* -------------------------------------------------------------------- */
-  /* Header                                                               */
+  /* Keyboard                                                              */
+  /* -------------------------------------------------------------------- */
+
+  keyboardContainer: {
+    width: "100%",
+
+    alignItems: "center",
+
+    justifyContent: "center",
+  },
+
+  /* -------------------------------------------------------------------- */
+  /* Full screen backdrop                                                  */
+  /* -------------------------------------------------------------------- */
+
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+
+    zIndex: 0,
+  },
+
+  /* -------------------------------------------------------------------- */
+  /* Modal                                                                 */
+  /* -------------------------------------------------------------------- */
+
+  modal: {
+    overflow: "hidden",
+
+    maxWidth: "100%",
+
+    zIndex: 10,
+  },
+
+  /* -------------------------------------------------------------------- */
+  /* Header                                                                */
   /* -------------------------------------------------------------------- */
 
   header: {
     width: "100%",
+
     minHeight: 52,
 
     flexDirection: "row",
 
     alignItems: "center",
-  },
 
-  headerCenter: {
     position: "relative",
-
-    justifyContent: "center",
-  },
-
-  headerRight: {
-    justifyContent: "flex-end",
   },
 
   /* -------------------------------------------------------------------- */
-  /* Title                                                                */
+  /* Left header area                                                      */
   /* -------------------------------------------------------------------- */
 
-  title: {
+  headerLeft: {
     flex: 1,
 
-    fontSize: 18,
+    minWidth: 0,
 
-    lineHeight: 24,
+    justifyContent: "center",
 
-    fontWeight: "700",
+    alignItems: "flex-start",
   },
 
-  titleCenter: {
+  /* -------------------------------------------------------------------- */
+  /* Center header area                                                    */
+  /* -------------------------------------------------------------------- */
+
+  headerCenter: {
     position: "absolute",
 
     left: 0,
 
     right: 0,
 
-    textAlign: "center",
+    top: 0,
+
+    bottom: 0,
+
+    alignItems: "center",
+
+    justifyContent: "center",
+
+    zIndex: 1,
+
+    paddingHorizontal: 50,
   },
 
   /* -------------------------------------------------------------------- */
-  /* Close                                                                */
+  /* Right header area                                                     */
+  /* -------------------------------------------------------------------- */
+
+  headerRight: {
+    flex: 1,
+
+    minWidth: 0,
+
+    flexDirection: "row",
+
+    alignItems: "center",
+
+    justifyContent: "flex-end",
+
+    zIndex: 2,
+  },
+
+  /* -------------------------------------------------------------------- */
+  /* Title                                                                 */
+  /* -------------------------------------------------------------------- */
+
+  title: {
+    fontSize: 18,
+
+    lineHeight: 24,
+
+    fontWeight: "700",
+
+    includeFontPadding: false,
+  },
+
+  titleCenter: {
+    textAlign: "center",
+
+    flexShrink: 1,
+  },
+
+  /* -------------------------------------------------------------------- */
+  /* Close                                                                 */
   /* -------------------------------------------------------------------- */
 
   closeButton: {
@@ -1460,11 +1568,13 @@ const modalStyles = StyleSheet.create({
 
     justifyContent: "center",
 
+    marginLeft: 8,
+
     zIndex: 20,
   },
 
   /* -------------------------------------------------------------------- */
-  /* Content                                                              */
+  /* Content                                                               */
   /* -------------------------------------------------------------------- */
 
   content: {
@@ -1484,7 +1594,7 @@ const modalStyles = StyleSheet.create({
   },
 
   /* -------------------------------------------------------------------- */
-  /* Footer                                                               */
+  /* Footer                                                                */
   /* -------------------------------------------------------------------- */
 
   footer: {
@@ -1493,7 +1603,7 @@ const modalStyles = StyleSheet.create({
 });
 
 /* -------------------------------------------------------------------------- */
-/* Exports                                                                    */
+/* Export                                                                     */
 /* -------------------------------------------------------------------------- */
 
 export { UIModal };
