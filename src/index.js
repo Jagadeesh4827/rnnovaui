@@ -162,4 +162,8 @@ export {
   UIBottomSheetIcon,
   UIModal,
   UICarousel,
+  UICarouselAnimations,
+  UICarouselTextAnimations,
+  UICarouselAssetAnimations,
+  UICarouselBackgroundAnimations,
 } from "./components";
