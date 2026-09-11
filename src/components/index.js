@@ -189,4 +189,4 @@ export {
   CAROUSEL_TEXT_ANIMATIONS as UICarouselTextAnimations,
   CAROUSEL_ASSET_ANIMATIONS as UICarouselAssetAnimations,
   CAROUSEL_BACKGROUND_ANIMATIONS as UICarouselBackgroundAnimations,
-} from "./Carousel";
+} from "./UICarousel";
