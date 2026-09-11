@@ -161,4 +161,5 @@ export {
   BottomSheetBackdrop,
   UIBottomSheetIcon,
   UIModal,
+  UICarousel,
 } from "./components";
