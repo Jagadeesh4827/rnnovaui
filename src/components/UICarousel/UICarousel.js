@@ -4,7 +4,6 @@ import React, {
   useCallback,
   useEffect,
   useImperativeHandle,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -20,7 +19,6 @@ import {
 } from "react-native";
 
 import { Ionicons } from "@expo/vector-icons";
-
 import { LinearGradient } from "expo-linear-gradient";
 
 import Animated, {
@@ -31,22 +29,20 @@ import Animated, {
   useSharedValue,
   withDelay,
   withRepeat,
-  withSequence,
-  withSpring,
   withTiming,
 } from "react-native-reanimated";
 
 import { useUITheme } from "../../theme/UIProvider";
 
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 /* Constants                                                                  */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
+const SCREEN_WIDTH = Dimensions.get("window").width;
 
-/* -------------------------------------------------------------------------- */
-/* Animation constants                                                        */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+/* Animation lists                                                            */
+/* ========================================================================== */
 
 export const CAROUSEL_ANIMATIONS = [
   "none",
@@ -96,18 +92,42 @@ export const CAROUSEL_BACKGROUND_ANIMATIONS = [
   "shimmer",
 ];
 
-/* -------------------------------------------------------------------------- */
-/* Utility                                                                    */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+/* Dimension helper                                                           */
+/* ========================================================================== */
 
-const isValidAnimation = (animation) => CAROUSEL_ANIMATIONS.includes(animation);
+const resolveDimension = (value, parentWidth) => {
+  if (value == null) {
+    return parentWidth;
+  }
 
-/* -------------------------------------------------------------------------- */
+  if (typeof value === "number") {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim().endsWith("%")) {
+    const percentage = parseFloat(value);
+
+    if (Number.isFinite(percentage)) {
+      return parentWidth * (percentage / 100);
+    }
+  }
+
+  const numericValue = Number(value);
+
+  if (Number.isFinite(numericValue)) {
+    return numericValue;
+  }
+
+  return parentWidth;
+};
+
+/* ========================================================================== */
 /* Animated asset                                                             */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 const UIAnimatedAsset = memo(function UIAnimatedAsset({
-  animation = "fade",
+  animation = "none",
 
   delay = 0,
 
@@ -121,58 +141,66 @@ const UIAnimatedAsset = memo(function UIAnimatedAsset({
 
   active = true,
 
+  reanimated = true,
+
   style,
 
   children,
 }) {
   const progress = useSharedValue(0);
 
-  const resolvedAnimation = isValidAnimation(animation) ? animation : "none";
+  const validAnimation = CAROUSEL_ANIMATIONS.includes(animation)
+    ? animation
+    : "none";
 
   useEffect(() => {
+    if (!reanimated) {
+      progress.value = 1;
+      return;
+    }
+
     if (!active) {
       progress.value = 0;
       return;
     }
 
-    if (resolvedAnimation === "none") {
+    if (validAnimation === "none") {
       progress.value = 1;
       return;
     }
 
     progress.value = 0;
 
-    let animationValue;
+    const timing = withTiming(1, {
+      duration,
+      easing: Easing.out(Easing.cubic),
+    });
 
     if (repeat) {
-      animationValue = withRepeat(
-        withTiming(1, {
-          duration,
-          easing: Easing.inOut(Easing.cubic),
-        }),
-        repeatCount,
-        repeatReverse,
+      progress.value = withDelay(
+        delay,
+        withRepeat(timing, repeatCount, repeatReverse),
       );
     } else {
-      animationValue = withTiming(1, {
-        duration,
-        easing: Easing.out(Easing.cubic),
-      });
+      progress.value = withDelay(delay, timing);
     }
-
-    progress.value = withDelay(delay, animationValue);
   }, [
     active,
-    resolvedAnimation,
     delay,
     duration,
     repeat,
     repeatCount,
     repeatReverse,
+    reanimated,
+    validAnimation,
     progress,
   ]);
 
   const animatedStyle = useAnimatedStyle(() => {
+    if (!reanimated) {
+      return {};
+    }
+
     const p = progress.value;
 
     let opacity = 1;
@@ -187,89 +215,53 @@ const UIAnimatedAsset = memo(function UIAnimatedAsset({
     let rotateX = 0;
     let rotateY = 0;
 
-    switch (resolvedAnimation) {
-      /* ------------------------------------------------------------ */
-      /* Fade                                                          */
-      /* ------------------------------------------------------------ */
-
+    switch (validAnimation) {
       case "fade":
         opacity = p;
         break;
 
-      /* ------------------------------------------------------------ */
-      /* Slides                                                        */
-      /* ------------------------------------------------------------ */
-
       case "slideUp":
         opacity = p;
-
         translateY = 60 * (1 - p);
-
         break;
 
       case "slideDown":
         opacity = p;
-
         translateY = -60 * (1 - p);
-
         break;
 
       case "slideLeft":
         opacity = p;
-
         translateX = 70 * (1 - p);
-
         break;
 
       case "slideRight":
         opacity = p;
-
         translateX = -70 * (1 - p);
-
         break;
-
-      /* ------------------------------------------------------------ */
-      /* Scale                                                         */
-      /* ------------------------------------------------------------ */
 
       case "scale":
         opacity = p;
-
         scale = 0.75 + 0.25 * p;
-
         break;
 
       case "scaleUp":
         opacity = p;
-
         scale = 0.4 + 0.6 * p;
-
         break;
 
       case "scaleDown":
         opacity = p;
-
         scale = 1.3 - 0.3 * p;
-
         break;
-
-      /* ------------------------------------------------------------ */
-      /* Zoom                                                          */
-      /* ------------------------------------------------------------ */
 
       case "zoomIn":
         scale = 0.7 + 0.3 * p;
-
         break;
 
       case "zoomOut":
         scale = 1.3 - 0.3 * p;
-
         break;
-
-      /* ------------------------------------------------------------ */
-      /* Bounce                                                        */
-      /* ------------------------------------------------------------ */
 
       case "bounce":
         opacity = p;
@@ -283,11 +275,9 @@ const UIAnimatedAsset = memo(function UIAnimatedAsset({
 
         break;
 
-      /* ------------------------------------------------------------ */
-      /* Elastic                                                       */
-      /* ------------------------------------------------------------ */
-
       case "elastic":
+        opacity = p;
+
         scale = interpolate(
           p,
           [0, 0.3, 0.55, 0.75, 1],
@@ -295,22 +285,11 @@ const UIAnimatedAsset = memo(function UIAnimatedAsset({
           Extrapolation.CLAMP,
         );
 
-        opacity = p;
-
         break;
-
-      /* ------------------------------------------------------------ */
-      /* Pulse                                                         */
-      /* ------------------------------------------------------------ */
 
       case "pulse":
         scale = interpolate(p, [0, 0.5, 1], [1, 1.12, 1], Extrapolation.CLAMP);
-
         break;
-
-      /* ------------------------------------------------------------ */
-      /* Float                                                         */
-      /* ------------------------------------------------------------ */
 
       case "float":
         translateY = interpolate(
@@ -319,26 +298,15 @@ const UIAnimatedAsset = memo(function UIAnimatedAsset({
           [0, -12, 0],
           Extrapolation.CLAMP,
         );
-
         break;
-
-      /* ------------------------------------------------------------ */
-      /* Rotation                                                      */
-      /* ------------------------------------------------------------ */
 
       case "rotate":
         rotate = interpolate(p, [0, 1], [-8, 8], Extrapolation.CLAMP);
-
         break;
 
       case "rotateReverse":
         rotate = interpolate(p, [0, 1], [8, -8], Extrapolation.CLAMP);
-
         break;
-
-      /* ------------------------------------------------------------ */
-      /* Swing                                                         */
-      /* ------------------------------------------------------------ */
 
       case "swing":
         rotate = interpolate(
@@ -347,12 +315,7 @@ const UIAnimatedAsset = memo(function UIAnimatedAsset({
           [-12, 10, -8, 6, -3, 0],
           Extrapolation.CLAMP,
         );
-
         break;
-
-      /* ------------------------------------------------------------ */
-      /* Shake                                                         */
-      /* ------------------------------------------------------------ */
 
       case "shake":
         translateX = interpolate(
@@ -361,26 +324,19 @@ const UIAnimatedAsset = memo(function UIAnimatedAsset({
           [0, -8, 8, -7, 6, -3, 0],
           Extrapolation.CLAMP,
         );
-
         break;
-
-      /* ------------------------------------------------------------ */
-      /* Flip                                                          */
-      /* ------------------------------------------------------------ */
 
       case "flip":
       case "flipY":
-        rotateY = interpolate(p, [0, 1], [90, 0], Extrapolation.CLAMP);
-
         opacity = p;
 
+        rotateY = interpolate(p, [0, 1], [90, 0], Extrapolation.CLAMP);
         break;
 
       case "flipX":
-        rotateX = interpolate(p, [0, 1], [90, 0], Extrapolation.CLAMP);
-
         opacity = p;
 
+        rotateX = interpolate(p, [0, 1], [90, 0], Extrapolation.CLAMP);
         break;
 
       default:
@@ -394,46 +350,45 @@ const UIAnimatedAsset = memo(function UIAnimatedAsset({
         {
           translateX,
         },
-
         {
           translateY,
         },
-
         {
           scale,
         },
-
         {
           rotate: `${rotate}deg`,
         },
-
         {
           rotateX: `${rotateX}deg`,
         },
-
         {
           rotateY: `${rotateY}deg`,
         },
       ],
     };
-  }, [resolvedAnimation]);
+  }, [reanimated, validAnimation]);
+
+  if (!reanimated) {
+    return <View style={style}>{children}</View>;
+  }
 
   return (
     <Animated.View style={[style, animatedStyle]}>{children}</Animated.View>
   );
 });
 
-/* -------------------------------------------------------------------------- */
-/* Animated text                                                              */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+/* Text                                                                       */
+/* ========================================================================== */
 
-const CarouselText = memo(function CarouselText({ item, active }) {
+const CarouselText = memo(function CarouselText({ item, active, reanimated }) {
   if (!item) {
     return null;
   }
 
   const {
-    text,
+    text = "",
 
     x = 0,
     y = 0,
@@ -451,6 +406,10 @@ const CarouselText = memo(function CarouselText({ item, active }) {
 
     numberOfLines,
 
+    opacity = 1,
+
+    zIndex = 20,
+
     animation = "fade",
 
     delay = 0,
@@ -463,11 +422,7 @@ const CarouselText = memo(function CarouselText({ item, active }) {
 
     repeatReverse = true,
 
-    opacity = 1,
-
     rotation,
-
-    zIndex = 20,
 
     style,
   } = item;
@@ -481,6 +436,7 @@ const CarouselText = memo(function CarouselText({ item, active }) {
       repeatCount={repeatCount}
       repeatReverse={repeatReverse}
       active={active}
+      reanimated={reanimated}
       style={[
         carouselStyles.absoluteAsset,
 
@@ -509,7 +465,6 @@ const CarouselText = memo(function CarouselText({ item, active }) {
         style={[
           {
             fontSize,
-
             lineHeight,
 
             color,
@@ -530,11 +485,15 @@ const CarouselText = memo(function CarouselText({ item, active }) {
   );
 });
 
-/* -------------------------------------------------------------------------- */
-/* Animated image                                                             */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+/* Image                                                                      */
+/* ========================================================================== */
 
-const CarouselImage = memo(function CarouselImage({ item, active }) {
+const CarouselImage = memo(function CarouselImage({
+  item,
+  active,
+  reanimated,
+}) {
   if (!item?.source) {
     return null;
   }
@@ -552,11 +511,11 @@ const CarouselImage = memo(function CarouselImage({ item, active }) {
 
     opacity = 1,
 
-    rotation,
+    borderRadius = 0,
 
     zIndex = 10,
 
-    borderRadius = 0,
+    rotation,
 
     animation = "fade",
 
@@ -584,6 +543,7 @@ const CarouselImage = memo(function CarouselImage({ item, active }) {
       repeatCount={repeatCount}
       repeatReverse={repeatReverse}
       active={active}
+      reanimated={reanimated}
       style={[
         carouselStyles.absoluteAsset,
 
@@ -634,11 +594,11 @@ const CarouselImage = memo(function CarouselImage({ item, active }) {
   );
 });
 
-/* -------------------------------------------------------------------------- */
-/* Animated icon                                                              */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+/* Icon                                                                       */
+/* ========================================================================== */
 
-const CarouselIcon = memo(function CarouselIcon({ item, active }) {
+const CarouselIcon = memo(function CarouselIcon({ item, active, reanimated }) {
   if (!item) {
     return null;
   }
@@ -657,9 +617,9 @@ const CarouselIcon = memo(function CarouselIcon({ item, active }) {
 
     opacity = 1,
 
-    rotation,
-
     zIndex = 30,
+
+    rotation,
 
     animation = "fade",
 
@@ -687,6 +647,7 @@ const CarouselIcon = memo(function CarouselIcon({ item, active }) {
       repeatCount={repeatCount}
       repeatReverse={repeatReverse}
       active={active}
+      reanimated={reanimated}
       style={[
         carouselStyles.absoluteAsset,
 
@@ -719,11 +680,16 @@ const CarouselIcon = memo(function CarouselIcon({ item, active }) {
   );
 });
 
-/* -------------------------------------------------------------------------- */
-/* Animated button                                                            */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+/* Button                                                                     */
+/* ========================================================================== */
 
-const CarouselButton = memo(function CarouselButton({ item, active, onPress }) {
+const CarouselButton = memo(function CarouselButton({
+  item,
+  active,
+  reanimated,
+  onPress,
+}) {
   if (!item) {
     return null;
   }
@@ -784,6 +750,7 @@ const CarouselButton = memo(function CarouselButton({ item, active, onPress }) {
       repeatCount={repeatCount}
       repeatReverse={repeatReverse}
       active={active}
+      reanimated={reanimated}
       style={[
         carouselStyles.absoluteAsset,
 
@@ -800,7 +767,6 @@ const CarouselButton = memo(function CarouselButton({ item, active, onPress }) {
         style={[
           {
             width,
-
             height,
 
             paddingHorizontal: 18,
@@ -808,7 +774,6 @@ const CarouselButton = memo(function CarouselButton({ item, active, onPress }) {
             borderRadius,
 
             borderWidth,
-
             borderColor,
 
             backgroundColor,
@@ -865,15 +830,16 @@ const CarouselButton = memo(function CarouselButton({ item, active, onPress }) {
   );
 });
 
-/* -------------------------------------------------------------------------- */
-/* Animated background                                                        */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+/* Background                                                                 */
+/* ========================================================================== */
 
 const CarouselBackground = memo(function CarouselBackground({
   background,
   width,
   height,
   active,
+  reanimated,
 }) {
   if (!background) {
     return null;
@@ -902,55 +868,68 @@ const CarouselBackground = memo(function CarouselBackground({
 
     animation = "none",
 
-    duration = 1000,
+    duration = 5000,
 
     opacity = 1,
 
     style,
   } = background;
 
-  const backgroundProgress = useSharedValue(0);
+  const progress = useSharedValue(0);
 
   useEffect(() => {
+    if (!reanimated) {
+      progress.value = 1;
+      return;
+    }
+
     if (!active) {
-      backgroundProgress.value = 0;
+      progress.value = 0;
       return;
     }
 
     if (animation === "none") {
-      backgroundProgress.value = 1;
+      progress.value = 1;
       return;
     }
 
-    backgroundProgress.value = withRepeat(
+    progress.value = withRepeat(
       withTiming(1, {
         duration,
+
         easing: Easing.inOut(Easing.ease),
       }),
       -1,
       true,
     );
-  }, [active, animation, duration, backgroundProgress]);
+  }, [active, animation, duration, reanimated, progress]);
 
   const animatedStyle = useAnimatedStyle(() => {
+    if (!reanimated) {
+      return {};
+    }
+
     let scale = 1;
+
     let translateX = 0;
+
     let translateY = 0;
+
     let animatedOpacity = opacity;
 
     switch (animation) {
       case "fade":
         animatedOpacity = interpolate(
-          backgroundProgress.value,
+          progress.value,
           [0, 1],
-          [0.7, opacity],
+          [opacity * 0.7, opacity],
           Extrapolation.CLAMP,
         );
         break;
 
       case "zoomIn":
         scale = interpolate(
-          backgroundProgress.value,
+          progress.value,
           [0, 1],
           [1, 1.08],
           Extrapolation.CLAMP,
@@ -959,7 +938,7 @@ const CarouselBackground = memo(function CarouselBackground({
 
       case "zoomOut":
         scale = interpolate(
-          backgroundProgress.value,
+          progress.value,
           [0, 1],
           [1.08, 1],
           Extrapolation.CLAMP,
@@ -968,7 +947,7 @@ const CarouselBackground = memo(function CarouselBackground({
 
       case "pulse":
         scale = interpolate(
-          backgroundProgress.value,
+          progress.value,
           [0, 0.5, 1],
           [1, 1.04, 1],
           Extrapolation.CLAMP,
@@ -977,7 +956,7 @@ const CarouselBackground = memo(function CarouselBackground({
 
       case "float":
         translateY = interpolate(
-          backgroundProgress.value,
+          progress.value,
           [0, 0.5, 1],
           [0, -8, 0],
           Extrapolation.CLAMP,
@@ -986,7 +965,7 @@ const CarouselBackground = memo(function CarouselBackground({
 
       case "shimmer":
         translateX = interpolate(
-          backgroundProgress.value,
+          progress.value,
           [0, 1],
           [-width, width],
           Extrapolation.CLAMP,
@@ -1014,33 +993,19 @@ const CarouselBackground = memo(function CarouselBackground({
         },
       ],
     };
-  }, [animation, opacity, width]);
+  }, [animation, opacity, reanimated, width]);
 
-  if (type === "gradient") {
-    return (
-      <Animated.View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFillObject, animatedStyle, style]}
-      >
-        <LinearGradient
-          colors={colors}
-          start={start}
-          end={end}
-          style={{
-            width,
-            height,
-          }}
-        />
-      </Animated.View>
-    );
+  const contentStyle = [StyleSheet.absoluteFillObject, animatedStyle, style];
+
+  if (!reanimated) {
+    contentStyle.push({
+      opacity,
+    });
   }
 
   if (type === "image" && source) {
     return (
-      <Animated.View
-        pointerEvents="none"
-        style={[StyleSheet.absoluteFillObject, animatedStyle, style]}
-      >
+      <Animated.View pointerEvents="none" style={contentStyle}>
         <Image
           source={
             typeof source === "string"
@@ -1059,27 +1024,39 @@ const CarouselBackground = memo(function CarouselBackground({
     );
   }
 
+  if (type === "gradient") {
+    return (
+      <Animated.View pointerEvents="none" style={contentStyle}>
+        <LinearGradient
+          colors={colors}
+          start={start}
+          end={end}
+          style={{
+            width,
+            height,
+          }}
+        />
+      </Animated.View>
+    );
+  }
+
   return (
     <Animated.View
       pointerEvents="none"
       style={[
-        StyleSheet.absoluteFillObject,
+        contentStyle,
 
         {
           backgroundColor: color,
         },
-
-        animatedStyle,
-
-        style,
       ]}
     />
   );
 });
 
-/* -------------------------------------------------------------------------- */
-/* Advanced slide                                                             */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
+/* Slide                                                                      */
+/* ========================================================================== */
 
 const CarouselSlide = memo(function CarouselSlide({
   slide,
@@ -1087,9 +1064,14 @@ const CarouselSlide = memo(function CarouselSlide({
   height,
   active,
   borderRadius,
+  reanimated,
   onPress,
   onButtonPress,
 }) {
+  if (!slide) {
+    return null;
+  }
+
   const {
     background,
 
@@ -1101,13 +1083,15 @@ const CarouselSlide = memo(function CarouselSlide({
 
     button,
 
-    overlay,
+    overlay = false,
 
     overlayColor = "#000000",
 
     overlayOpacity = 0.2,
 
     renderContent,
+
+    style,
   } = slide;
 
   return (
@@ -1118,25 +1102,23 @@ const CarouselSlide = memo(function CarouselSlide({
         {
           width,
           height,
-
           borderRadius,
         },
+
+        style,
       ]}
     >
-      {/* -------------------------------------------------------------- */}
-      {/* BACKGROUND                                                     */}
-      {/* -------------------------------------------------------------- */}
+      {/* Background */}
 
       <CarouselBackground
         background={background}
         width={width}
         height={height}
         active={active}
+        reanimated={reanimated}
       />
 
-      {/* -------------------------------------------------------------- */}
-      {/* OVERLAY                                                        */}
-      {/* -------------------------------------------------------------- */}
+      {/* Overlay */}
 
       {overlay ? (
         <View
@@ -1155,45 +1137,46 @@ const CarouselSlide = memo(function CarouselSlide({
         />
       ) : null}
 
-      {/* -------------------------------------------------------------- */}
-      {/* IMAGES                                                         */}
-      {/* -------------------------------------------------------------- */}
+      {/* Images */}
 
-      {images.map((image, index) => (
-        <CarouselImage
-          key={image.id ?? `image-${index}`}
-          item={image}
-          active={active}
-        />
-      ))}
+      {Array.isArray(images)
+        ? images.map((image, index) => (
+            <CarouselImage
+              key={image.id ?? `image-${index}`}
+              item={image}
+              active={active}
+              reanimated={reanimated}
+            />
+          ))
+        : null}
 
-      {/* -------------------------------------------------------------- */}
-      {/* ICONS                                                          */}
-      {/* -------------------------------------------------------------- */}
+      {/* Icons */}
 
-      {icons.map((icon, index) => (
-        <CarouselIcon
-          key={icon.id ?? `icon-${index}`}
-          item={icon}
-          active={active}
-        />
-      ))}
+      {Array.isArray(icons)
+        ? icons.map((icon, index) => (
+            <CarouselIcon
+              key={icon.id ?? `icon-${index}`}
+              item={icon}
+              active={active}
+              reanimated={reanimated}
+            />
+          ))
+        : null}
 
-      {/* -------------------------------------------------------------- */}
-      {/* TEXTS                                                          */}
-      {/* -------------------------------------------------------------- */}
+      {/* Text */}
 
-      {texts.map((text, index) => (
-        <CarouselText
-          key={text.id ?? `text-${index}`}
-          item={text}
-          active={active}
-        />
-      ))}
+      {Array.isArray(texts)
+        ? texts.map((text, index) => (
+            <CarouselText
+              key={text.id ?? `text-${index}`}
+              item={text}
+              active={active}
+              reanimated={reanimated}
+            />
+          ))
+        : null}
 
-      {/* -------------------------------------------------------------- */}
-      {/* CUSTOM CONTENT                                                  */}
-      {/* -------------------------------------------------------------- */}
+      {/* Custom content */}
 
       {typeof renderContent === "function"
         ? renderContent({
@@ -1202,21 +1185,18 @@ const CarouselSlide = memo(function CarouselSlide({
           })
         : null}
 
-      {/* -------------------------------------------------------------- */}
-      {/* BUTTON                                                          */}
-      {/* -------------------------------------------------------------- */}
+      {/* Button */}
 
       {button ? (
         <CarouselButton
           item={button}
           active={active}
+          reanimated={reanimated}
           onPress={() => onButtonPress?.(slide)}
         />
       ) : null}
 
-      {/* -------------------------------------------------------------- */}
-      {/* SLIDE PRESS                                                     */}
-      {/* -------------------------------------------------------------- */}
+      {/* Slide press */}
 
       {onPress ? (
         <Pressable
@@ -1228,21 +1208,17 @@ const CarouselSlide = memo(function CarouselSlide({
   );
 });
 
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 /* Main UICarousel                                                            */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 const UICarousel = forwardRef(function UICarousel(
   {
-    /* ---------------------------------------------------------------- */
-    /* Data                                                              */
-    /* ---------------------------------------------------------------- */
+    /* Data */
 
     data = [],
 
-    /* ---------------------------------------------------------------- */
-    /* Dimensions                                                       */
-    /* ---------------------------------------------------------------- */
+    /* Size */
 
     width,
 
@@ -1254,9 +1230,7 @@ const UICarousel = forwardRef(function UICarousel(
 
     horizontalPadding = 0,
 
-    /* ---------------------------------------------------------------- */
-    /* Appearance                                                       */
-    /* ---------------------------------------------------------------- */
+    /* Appearance */
 
     borderRadius,
 
@@ -1266,9 +1240,7 @@ const UICarousel = forwardRef(function UICarousel(
 
     slideStyle,
 
-    /* ---------------------------------------------------------------- */
-    /* Margin                                                            */
-    /* ---------------------------------------------------------------- */
+    /* Margins */
 
     margin = 0,
 
@@ -1284,9 +1256,7 @@ const UICarousel = forwardRef(function UICarousel(
 
     marginRight,
 
-    /* ---------------------------------------------------------------- */
-    /* Autoplay                                                         */
-    /* ---------------------------------------------------------------- */
+    /* Autoplay */
 
     autoplay = false,
 
@@ -1294,15 +1264,11 @@ const UICarousel = forwardRef(function UICarousel(
 
     pauseOnInteraction = true,
 
-    /* ---------------------------------------------------------------- */
-    /* Loop                                                              */
-    /* ---------------------------------------------------------------- */
+    /* Loop */
 
     loop = true,
 
-    /* ---------------------------------------------------------------- */
-    /* Scroll                                                            */
-    /* ---------------------------------------------------------------- */
+    /* Scroll */
 
     scrollEnabled = true,
 
@@ -1310,9 +1276,7 @@ const UICarousel = forwardRef(function UICarousel(
 
     bounces = false,
 
-    /* ---------------------------------------------------------------- */
-    /* Pagination                                                       */
-    /* ---------------------------------------------------------------- */
+    /* Pagination */
 
     showPagination = true,
 
@@ -1338,53 +1302,40 @@ const UICarousel = forwardRef(function UICarousel(
 
     renderPagination,
 
-    /* ---------------------------------------------------------------- */
-    /* Index                                                             */
-    /* ---------------------------------------------------------------- */
+    /* Index */
 
     initialIndex = 0,
 
     onIndexChange,
 
-    /* ---------------------------------------------------------------- */
-    /* Callbacks                                                        */
-    /* ---------------------------------------------------------------- */
+    /* Events */
 
     onPress,
 
     onButtonPress,
 
-    /* ---------------------------------------------------------------- */
-    /* Rendering                                                        */
-    /* ---------------------------------------------------------------- */
+    /* Custom rendering */
 
     renderItem,
 
-    /* ---------------------------------------------------------------- */
-    /* Reanimated                                                       */
-    /* ---------------------------------------------------------------- */
+    /* Animation */
 
     reanimated = true,
 
-    /* ---------------------------------------------------------------- */
-    /* Misc                                                             */
-    /* ---------------------------------------------------------------- */
+    /* Misc */
 
     testID,
 
     ...flatListProps
   },
+
   ref,
 ) {
-  /* ------------------------------------------------------------------ */
-  /* Theme                                                              */
-  /* ------------------------------------------------------------------ */
-
   const { theme } = useUITheme();
 
   const colors = theme?.colors ?? {};
 
-  const radius = theme?.radius ?? {};
+  const themeRadius = theme?.radius ?? {};
 
   /* ------------------------------------------------------------------ */
   /* Data                                                               */
@@ -1395,17 +1346,33 @@ const UICarousel = forwardRef(function UICarousel(
   const itemCount = safeData.length;
 
   /* ------------------------------------------------------------------ */
-  /* Dimensions                                                         */
+  /* Width                                                               */
   /* ------------------------------------------------------------------ */
 
-  const containerWidth = width ?? SCREEN_WIDTH;
+  const rawContainerWidth = resolveDimension(width, SCREEN_WIDTH);
 
-  const resolvedSlideWidth = slideWidth ?? containerWidth;
+  const contentWidth = Math.max(0, rawContainerWidth - horizontalPadding * 2);
 
-  const resolvedBorderRadius = borderRadius ?? radius.card ?? radius.lg ?? 18;
+  const resolvedSlideWidth = resolveDimension(slideWidth, contentWidth);
+
+  /*
+   * IMPORTANT:
+   *
+   * snapToInterval MUST always receive
+   * a number on Android.
+   */
+
+  const snapInterval = Number(resolvedSlideWidth + gap);
 
   /* ------------------------------------------------------------------ */
-  /* Margins                                                            */
+  /* Radius                                                              */
+  /* ------------------------------------------------------------------ */
+
+  const resolvedBorderRadius =
+    borderRadius ?? themeRadius.card ?? themeRadius.lg ?? 18;
+
+  /* ------------------------------------------------------------------ */
+  /* Margins                                                             */
   /* ------------------------------------------------------------------ */
 
   const resolvedMarginTop = marginTop ?? marginVertical ?? margin;
@@ -1417,7 +1384,7 @@ const UICarousel = forwardRef(function UICarousel(
   const resolvedMarginRight = marginRight ?? marginHorizontal ?? margin;
 
   /* ------------------------------------------------------------------ */
-  /* Current index                                                      */
+  /* Current index                                                       */
   /* ------------------------------------------------------------------ */
 
   const [currentIndex, setCurrentIndex] = useState(() =>
@@ -1425,21 +1392,17 @@ const UICarousel = forwardRef(function UICarousel(
   );
 
   /* ------------------------------------------------------------------ */
-  /* FlatList                                                            */
+  /* Refs                                                                */
   /* ------------------------------------------------------------------ */
 
   const flatListRef = useRef(null);
-
-  /* ------------------------------------------------------------------ */
-  /* Autoplay                                                            */
-  /* ------------------------------------------------------------------ */
 
   const autoplayTimer = useRef(null);
 
   const interactionRef = useRef(false);
 
   /* ------------------------------------------------------------------ */
-  /* Scroll to index                                                     */
+  /* Scroll to index                                                      */
   /* ------------------------------------------------------------------ */
 
   const scrollToIndex = useCallback(
@@ -1448,7 +1411,11 @@ const UICarousel = forwardRef(function UICarousel(
         return;
       }
 
-      let target = index;
+      let target = Number(index);
+
+      if (!Number.isFinite(target)) {
+        target = 0;
+      }
 
       if (loop) {
         if (target >= itemCount) {
@@ -1462,13 +1429,14 @@ const UICarousel = forwardRef(function UICarousel(
         target = Math.max(0, Math.min(target, itemCount - 1));
       }
 
-      flatListRef.current?.scrollToOffset({
-        offset: target * (resolvedSlideWidth + gap),
+      const offset = Number(target * snapInterval);
 
+      flatListRef.current?.scrollToOffset({
+        offset,
         animated,
       });
     },
-    [itemCount, loop, resolvedSlideWidth, gap],
+    [itemCount, loop, snapInterval],
   );
 
   /* ------------------------------------------------------------------ */
@@ -1492,7 +1460,7 @@ const UICarousel = forwardRef(function UICarousel(
   }, [itemCount, currentIndex, loop, scrollToIndex]);
 
   /* ------------------------------------------------------------------ */
-  /* Previous                                                            */
+  /* Previous                                                             */
   /* ------------------------------------------------------------------ */
 
   const previous = useCallback(() => {
@@ -1512,7 +1480,7 @@ const UICarousel = forwardRef(function UICarousel(
   }, [itemCount, currentIndex, loop, scrollToIndex]);
 
   /* ------------------------------------------------------------------ */
-  /* Ref API                                                             */
+  /* Imperative API                                                       */
   /* ------------------------------------------------------------------ */
 
   useImperativeHandle(
@@ -1532,7 +1500,7 @@ const UICarousel = forwardRef(function UICarousel(
   );
 
   /* ------------------------------------------------------------------ */
-  /* Autoplay stop                                                       */
+  /* Stop autoplay                                                        */
   /* ------------------------------------------------------------------ */
 
   const stopAutoplay = useCallback(() => {
@@ -1544,7 +1512,7 @@ const UICarousel = forwardRef(function UICarousel(
   }, []);
 
   /* ------------------------------------------------------------------ */
-  /* Autoplay start                                                      */
+  /* Start autoplay                                                       */
   /* ------------------------------------------------------------------ */
 
   const startAutoplay = useCallback(() => {
@@ -1561,7 +1529,7 @@ const UICarousel = forwardRef(function UICarousel(
 
       next();
     }, autoplayInterval);
-  }, [autoplay, itemCount, autoplayInterval, next, stopAutoplay]);
+  }, [autoplay, autoplayInterval, itemCount, next, stopAutoplay]);
 
   /* ------------------------------------------------------------------ */
   /* Autoplay lifecycle                                                  */
@@ -1581,9 +1549,9 @@ const UICarousel = forwardRef(function UICarousel(
 
   const handleMomentumScrollEnd = useCallback(
     (event) => {
-      const offset = event.nativeEvent.contentOffset.x;
+      const offset = Number(event.nativeEvent?.contentOffset?.x ?? 0);
 
-      const index = Math.round(offset / (resolvedSlideWidth + gap));
+      const index = Math.round(offset / snapInterval);
 
       const safeIndex = Math.max(0, Math.min(index, itemCount - 1));
 
@@ -1596,8 +1564,7 @@ const UICarousel = forwardRef(function UICarousel(
       flatListProps.onMomentumScrollEnd?.(event);
     },
     [
-      resolvedSlideWidth,
-      gap,
+      snapInterval,
       itemCount,
       currentIndex,
       onIndexChange,
@@ -1651,11 +1618,15 @@ const UICarousel = forwardRef(function UICarousel(
       if (typeof renderItem === "function") {
         return (
           <View
-            style={{
-              width: resolvedSlideWidth,
+            style={[
+              {
+                width: resolvedSlideWidth,
 
-              marginRight: gap,
-            }}
+                marginRight: gap,
+              },
+
+              slideStyle,
+            ]}
           >
             {renderItem({
               item,
@@ -1684,6 +1655,7 @@ const UICarousel = forwardRef(function UICarousel(
             height={height}
             active={active}
             borderRadius={resolvedBorderRadius}
+            reanimated={reanimated}
             onPress={onPress ? () => onPress(item, index) : undefined}
             onButtonPress={
               onButtonPress ? () => onButtonPress(item, index) : undefined
@@ -1700,6 +1672,7 @@ const UICarousel = forwardRef(function UICarousel(
       slideStyle,
       height,
       resolvedBorderRadius,
+      reanimated,
       onPress,
       onButtonPress,
     ],
@@ -1777,7 +1750,7 @@ const UICarousel = forwardRef(function UICarousel(
         carouselStyles.container,
 
         {
-          width: containerWidth,
+          width: rawContainerWidth,
 
           marginTop: resolvedMarginTop,
 
@@ -1802,16 +1775,16 @@ const UICarousel = forwardRef(function UICarousel(
         showsHorizontalScrollIndicator={showsHorizontalScrollIndicator}
         scrollEnabled={scrollEnabled}
         bounces={bounces}
+        nestedScrollEnabled
         decelerationRate="fast"
-        snapToInterval={resolvedSlideWidth + gap}
+        snapToInterval={snapInterval}
         snapToAlignment="start"
         disableIntervalMomentum
-        nestedScrollEnabled
-        initialScrollIndex={Math.min(initialIndex, itemCount - 1)}
+        initialScrollIndex={Math.min(Math.max(initialIndex, 0), itemCount - 1)}
         getItemLayout={(_data, index) => ({
-          length: resolvedSlideWidth + gap,
+          length: snapInterval,
 
-          offset: (resolvedSlideWidth + gap) * index,
+          offset: snapInterval * index,
 
           index,
         })}
@@ -1827,7 +1800,9 @@ const UICarousel = forwardRef(function UICarousel(
       {typeof renderPagination === "function"
         ? renderPagination({
             currentIndex,
+
             count: itemCount,
+
             scrollToIndex,
           })
         : renderDefaultPagination()}
@@ -1835,15 +1810,15 @@ const UICarousel = forwardRef(function UICarousel(
   );
 });
 
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 /* Display name                                                               */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 UICarousel.displayName = "UICarousel";
 
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 /* Styles                                                                     */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 const carouselStyles = StyleSheet.create({
   container: {
@@ -1905,9 +1880,9 @@ const carouselStyles = StyleSheet.create({
   },
 });
 
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 /* Exports                                                                    */
-/* -------------------------------------------------------------------------- */
+/* ========================================================================== */
 
 export {
   UICarousel,
