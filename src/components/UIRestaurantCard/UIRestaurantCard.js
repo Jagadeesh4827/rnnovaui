@@ -646,7 +646,10 @@ function UIRestaurantCard({
   logoSize = 64,
   logoBorderRadius = 14,
 
-  logoBackgroundColor = backgroundColor,
+  logoBackgroundColor = backgroundColor ??
+    colors.card ??
+    colors.surface ??
+    "#FFFFFF",
 
   logoBorderWidth = 1,
   logoBorderColor = "#EEEEEE",
