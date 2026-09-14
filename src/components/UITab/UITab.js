@@ -14,7 +14,6 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import Animated, {
   FadeIn,
   FadeOut,
-  Easing,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -55,8 +54,10 @@ export const UI_TABS_SIZES = ["xs", "sm", "md", "lg"];
 const UITabItem = memo(function UITabItem({
   item,
   active,
+
   variant,
   size,
+
   palette,
 
   spacing,
@@ -64,7 +65,6 @@ const UITabItem = memo(function UITabItem({
   typography,
 
   equalWidth,
-  scrollable,
 
   onPress,
   onLayout,
@@ -83,17 +83,13 @@ const UITabItem = memo(function UITabItem({
 
   disabledOpacity,
 }) {
-  /*
-  |--------------------------------------------------------------------------
-  | ICONS
-  |--------------------------------------------------------------------------
-  */
-
   const LeftIcon = item?.leftIcon;
-
   const RightIcon = item?.rightIcon;
 
   const disabled = item?.disabled === true;
+
+  const fontSizes = typography?.fontSizes || {};
+  const fontWeights = typography?.fontWeights || {};
 
   /*
   |--------------------------------------------------------------------------
@@ -102,80 +98,77 @@ const UITabItem = memo(function UITabItem({
   */
 
   const metrics = useMemo(() => {
-    const fontSizes = typography?.fontSizes || {};
-
-    const fontWeights = typography?.fontWeights || {};
-
     switch (size) {
       case "xs":
         return {
-          horizontal: spacing.xs,
+          horizontal: spacing?.xs ?? 4,
 
-          vertical: spacing.xs,
+          vertical: spacing?.xs ?? 4,
 
           icon: iconSize ?? fontSizes.sm ?? 12,
 
-          gap: spacing.xs,
+          gap: spacing?.xs ?? 4,
 
-          radius: radius.sm,
+          radius: radius?.sm ?? 6,
 
           text: fontSizes.sm ?? 12,
 
-          fontWeight: fontWeights.medium ?? "500",
+          fontWeight: String(fontWeights.medium ?? 500),
         };
 
       case "sm":
         return {
-          horizontal: spacing.sm,
+          horizontal: spacing?.sm ?? 8,
 
-          vertical: spacing.xs,
+          vertical: spacing?.xs ?? 4,
 
           icon: iconSize ?? fontSizes.sm ?? 12,
 
-          gap: spacing.xs,
+          gap: spacing?.xs ?? 4,
 
-          radius: radius.md,
+          radius: radius?.md ?? 10,
 
           text: fontSizes.sm ?? 12,
 
-          fontWeight: fontWeights.medium ?? "500",
+          fontWeight: String(fontWeights.medium ?? 500),
         };
 
       case "lg":
         return {
-          horizontal: spacing.xl,
+          horizontal: spacing?.xl ?? 24,
 
-          vertical: spacing.md,
+          vertical: spacing?.md ?? 12,
 
           icon: iconSize ?? fontSizes.lg ?? 18,
 
-          gap: spacing.sm,
+          gap: spacing?.sm ?? 8,
 
-          radius: radius.xl,
+          radius: radius?.xl ?? 18,
 
           text: fontSizes.lg ?? 18,
 
-          fontWeight: fontWeights.medium ?? "500",
+          fontWeight: String(fontWeights.medium ?? 500),
         };
 
+      case "md":
       default:
         return {
-          horizontal: spacing.lg,
+          horizontal: spacing?.lg ?? 16,
 
-          vertical: spacing.sm,
+          vertical: spacing?.sm ?? 8,
 
           icon: iconSize ?? fontSizes.base ?? 16,
 
-          gap: spacing.xs,
+          gap: spacing?.xs ?? 4,
 
-          radius: radius.lg,
+          radius: radius?.lg ?? 14,
 
           text: fontSizes.md ?? 14,
 
-          fontWeight: fontWeights.medium ?? "500",
+          fontWeight: String(fontWeights.medium ?? 500),
         };
     }
-  }, [iconSize, radius, size, spacing, typography]);
+  }, [fontSizes, fontWeights, iconSize, radius, size, spacing]);
 
   /*
   |--------------------------------------------------------------------------
@@ -186,21 +179,18 @@ const UITabItem = memo(function UITabItem({
   const backgroundColor = useMemo(() => {
     switch (variant) {
       case "filled":
-        return active ? palette.active : "transparent";
-
       case "pill":
-        return active ? palette.active : "transparent";
-
       case "contained":
         return active ? palette.active : "transparent";
 
       case "soft":
         return active ? palette.activeSoft : "transparent";
 
+      case "underline":
       default:
         return "transparent";
     }
-  }, [active, palette, variant]);
+  }, [active, palette.active, palette.activeSoft, variant]);
 
   /*
   |--------------------------------------------------------------------------
@@ -208,11 +198,13 @@ const UITabItem = memo(function UITabItem({
   |--------------------------------------------------------------------------
   */
 
-  const textColor = active
-    ? variant === "filled" || variant === "contained" || variant === "pill"
+  const textColor =
+    active &&
+    (variant === "filled" || variant === "contained" || variant === "pill")
       ? palette.onActive
-      : palette.active
-    : palette.inactive;
+      : active
+        ? palette.active
+        : palette.inactive;
 
   /*
   |--------------------------------------------------------------------------
@@ -224,7 +216,7 @@ const UITabItem = memo(function UITabItem({
 
   /*
   |--------------------------------------------------------------------------
-  | PRESSABLE
+  | RENDER
   |--------------------------------------------------------------------------
   */
 
@@ -244,7 +236,7 @@ const UITabItem = memo(function UITabItem({
       style={[
         styles.tabPressable,
 
-        equalWidth && styles.equalWidthTab,
+        equalWidth ? styles.equalWidthTab : null,
 
         {
           paddingHorizontal: metrics.horizontal,
@@ -264,18 +256,11 @@ const UITabItem = memo(function UITabItem({
       <View
         style={[
           styles.tabContent,
-
           {
             gap: metrics.gap,
           },
         ]}
       >
-        {/*
-        ----------------------------------------------------------------------
-        Left icon
-        ----------------------------------------------------------------------
-        */}
-
         {LeftIcon ? (
           <LeftIcon
             size={metrics.icon}
@@ -284,13 +269,7 @@ const UITabItem = memo(function UITabItem({
           />
         ) : null}
 
-        {/*
-        ----------------------------------------------------------------------
-        Label
-        ----------------------------------------------------------------------
-        */}
-
-        {item?.title !== undefined ? (
+        {item?.title !== undefined && item?.title !== null ? (
           <Text
             numberOfLines={1}
             ellipsizeMode="tail"
@@ -312,12 +291,6 @@ const UITabItem = memo(function UITabItem({
           </Text>
         ) : null}
 
-        {/*
-        ----------------------------------------------------------------------
-        Right icon
-        ----------------------------------------------------------------------
-        */}
-
         {RightIcon ? (
           <RightIcon
             size={metrics.icon}
@@ -326,27 +299,21 @@ const UITabItem = memo(function UITabItem({
           />
         ) : null}
 
-        {/*
-        ----------------------------------------------------------------------
-        Badge
-        ----------------------------------------------------------------------
-        */}
-
         {item?.badge !== undefined && item?.badge !== null ? (
           <View
             style={[
               styles.badge,
 
               {
-                marginLeft: spacing.xxs,
+                marginLeft: spacing?.xxs ?? 2,
 
-                minWidth: metrics.text + spacing.sm,
+                minWidth: metrics.text + (spacing?.sm ?? 8),
 
-                minHeight: metrics.text + spacing.xxs,
+                minHeight: metrics.text + (spacing?.xxs ?? 2),
 
-                paddingHorizontal: spacing.xs,
+                paddingHorizontal: spacing?.xs ?? 4,
 
-                borderRadius: radius.pill,
+                borderRadius: radius?.pill ?? 999,
 
                 backgroundColor: active
                   ? palette.badgeActive
@@ -366,7 +333,7 @@ const UITabItem = memo(function UITabItem({
 
                   fontSize: Math.max(metrics.text - 2, 9),
 
-                  fontWeight: typography?.fontWeights?.bold ?? "700",
+                  fontWeight: String(fontWeights.bold ?? 700),
                 },
 
                 badgeTextStyle,
@@ -376,12 +343,6 @@ const UITabItem = memo(function UITabItem({
             </Text>
           </View>
         ) : null}
-
-        {/*
-        ----------------------------------------------------------------------
-        Dot
-        ----------------------------------------------------------------------
-        */}
 
         {item?.dot ? (
           <View
@@ -405,6 +366,8 @@ const UITabItem = memo(function UITabItem({
   );
 });
 
+UITabItem.displayName = "UITabItem";
+
 /*
 |--------------------------------------------------------------------------
 | TAB INDICATOR
@@ -413,6 +376,7 @@ const UITabItem = memo(function UITabItem({
 
 const UITabIndicator = memo(function UITabIndicator({
   layout,
+
   variant,
   palette,
   radius,
@@ -433,6 +397,12 @@ const UITabIndicator = memo(function UITabIndicator({
 
   const height = useSharedValue(indicatorHeight);
 
+  /*
+    |--------------------------------------------------------------------------
+    | ANIMATION
+    |--------------------------------------------------------------------------
+    */
+
   useEffect(() => {
     if (!layout) {
       return;
@@ -444,14 +414,20 @@ const UITabIndicator = memo(function UITabIndicator({
 
     height.value = withSpring(indicatorHeight, springConfig);
   }, [
-    indicatorHeight,
-    indicatorWidth,
     layout,
+    indicatorWidth,
+    indicatorHeight,
     springConfig,
     translateX,
     width,
     height,
   ]);
+
+  /*
+    |--------------------------------------------------------------------------
+    | ANIMATED STYLE
+    |--------------------------------------------------------------------------
+    */
 
   const animatedStyle = useAnimatedStyle(() => ({
     transform: [
@@ -465,13 +441,38 @@ const UITabIndicator = memo(function UITabIndicator({
     height: height.value,
   }));
 
+  /*
+    |--------------------------------------------------------------------------
+    | VARIANT
+    |--------------------------------------------------------------------------
+    */
+
   const isUnderline = variant === "underline";
+
+  /*
+    |--------------------------------------------------------------------------
+    | COLOR
+    |--------------------------------------------------------------------------
+    */
 
   const background =
     indicatorColor ?? (isUnderline ? palette.indicator : palette.active);
 
+  /*
+    |--------------------------------------------------------------------------
+    | RADIUS
+    |--------------------------------------------------------------------------
+    */
+
   const resolvedRadius =
-    indicatorRadius ?? (isUnderline ? radius.pill : radius.lg);
+    indicatorRadius ??
+    (isUnderline ? (radius?.pill ?? 999) : (radius?.lg ?? 14));
+
+  /*
+    |--------------------------------------------------------------------------
+    | RENDER
+    |--------------------------------------------------------------------------
+    */
 
   return (
     <Animated.View
@@ -484,11 +485,11 @@ const UITabIndicator = memo(function UITabIndicator({
 
           borderRadius: resolvedRadius,
 
+          left: 0,
+
           bottom: isUnderline ? 0 : undefined,
 
           top: isUnderline ? undefined : 0,
-
-          left: 0,
         },
 
         animatedStyle,
@@ -499,6 +500,8 @@ const UITabIndicator = memo(function UITabIndicator({
   );
 });
 
+UITabIndicator.displayName = "UITabIndicator";
+
 /*
 |--------------------------------------------------------------------------
 | TAB PANEL
@@ -507,6 +510,7 @@ const UITabIndicator = memo(function UITabIndicator({
 
 const UITabPanel = memo(function UITabPanel({
   value,
+
   children,
 
   lazy = true,
@@ -539,7 +543,7 @@ const UITabPanel = memo(function UITabPanel({
   const context = useContext(UITabsContext);
 
   if (!context) {
-    throw new Error("UITabPanel must be used inside UITabs.");
+    throw new Error("UITabPanel must be used inside UITab.");
   }
 
   const {
@@ -552,7 +556,19 @@ const UITabPanel = memo(function UITabPanel({
     panelContentStyle: contextPanelContentStyle,
   } = context;
 
+  /*
+    |--------------------------------------------------------------------------
+    | ACTIVE
+    |--------------------------------------------------------------------------
+    */
+
   const active = value === activeTab;
+
+  /*
+    |--------------------------------------------------------------------------
+    | LAZY MOUNT
+    |--------------------------------------------------------------------------
+    */
 
   const [mounted, setMounted] = useState(active);
 
@@ -564,7 +580,7 @@ const UITabPanel = memo(function UITabPanel({
 
   /*
     |--------------------------------------------------------------------------
-    | Lazy mounting
+    | VISIBILITY
     |--------------------------------------------------------------------------
     */
 
@@ -576,43 +592,45 @@ const UITabPanel = memo(function UITabPanel({
     return null;
   }
 
+  /*
+    |--------------------------------------------------------------------------
+    | PANEL STYLE
+    |--------------------------------------------------------------------------
+    */
+
   const panelStyles = [
     styles.panel,
 
     {
       padding,
-
       paddingTop,
-
       paddingBottom,
-
       paddingLeft,
-
       paddingRight,
-
       paddingHorizontal,
-
       paddingVertical,
 
       margin,
-
       marginTop,
-
       marginBottom,
-
       marginLeft,
-
       marginRight,
-
       marginHorizontal,
-
       marginVertical,
+
+      display: active ? "flex" : "none",
     },
 
     contextPanelStyle,
 
     style,
   ];
+
+  /*
+    |--------------------------------------------------------------------------
+    | CONTENT STYLE
+    |--------------------------------------------------------------------------
+    */
 
   const contentStyles = [
     styles.panelContent,
@@ -622,48 +640,49 @@ const UITabPanel = memo(function UITabPanel({
     contentContainerStyle,
   ];
 
+  /*
+    |--------------------------------------------------------------------------
+    | NO ANIMATION
+    |--------------------------------------------------------------------------
+    */
+
   if (!animation) {
     return (
-      <View
-        style={[
-          panelStyles,
-          {
-            display: active ? "flex" : "none",
-          },
-        ]}
-      >
+      <View style={panelStyles}>
         <View style={contentStyles}>{children}</View>
       </View>
     );
   }
 
+  /*
+    |--------------------------------------------------------------------------
+    | ANIMATED
+    |--------------------------------------------------------------------------
+    */
+
   return (
     <Animated.View
       entering={FadeIn.duration(animationDuration)}
       exiting={FadeOut.duration(exitAnimationDuration)}
-      style={[
-        panelStyles,
-
-        {
-          display: active ? "flex" : "none",
-        },
-      ]}
+      style={panelStyles}
     >
       <Animated.View style={contentStyles}>{children}</Animated.View>
     </Animated.View>
   );
 });
 
+UITabPanel.displayName = "UITabPanel";
+
 /*
 |--------------------------------------------------------------------------
-| MAIN UI TABS
+| MAIN UITAB
 |--------------------------------------------------------------------------
 */
 
 function UITab({
   /*
   |--------------------------------------------------------------------------
-  | Data
+  | DATA
   |--------------------------------------------------------------------------
   */
 
@@ -679,7 +698,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Variant
+  | VARIANT
   |--------------------------------------------------------------------------
   */
 
@@ -689,7 +708,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Layout
+  | LAYOUT
   |--------------------------------------------------------------------------
   */
 
@@ -699,7 +718,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Animation
+  | ANIMATION
   |--------------------------------------------------------------------------
   */
 
@@ -711,7 +730,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Divider
+  | DIVIDER
   |--------------------------------------------------------------------------
   */
 
@@ -723,7 +742,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Panel
+  | PANELS
   |--------------------------------------------------------------------------
   */
 
@@ -735,7 +754,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Colors
+  | COLORS
   |--------------------------------------------------------------------------
   */
 
@@ -765,7 +784,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Tab styles
+  | STYLES
   |--------------------------------------------------------------------------
   */
 
@@ -783,7 +802,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Tab metrics
+  | TAB METRICS
   |--------------------------------------------------------------------------
   */
 
@@ -801,7 +820,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Indicator
+  | INDICATOR
   |--------------------------------------------------------------------------
   */
 
@@ -813,7 +832,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Badge / dot
+  | BADGE / DOT
   |--------------------------------------------------------------------------
   */
 
@@ -825,7 +844,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Scroll
+  | SCROLL
   |--------------------------------------------------------------------------
   */
 
@@ -835,7 +854,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Accessibility
+  | ACCESSIBILITY
   |--------------------------------------------------------------------------
   */
 
@@ -843,19 +862,25 @@ function UITab({
 
   testID,
 }) {
+  /*
+  |--------------------------------------------------------------------------
+  | THEME
+  |--------------------------------------------------------------------------
+  */
+
   const { theme } = useUITheme();
 
   const {
-    colors,
-    spacing,
-    radius,
-    typography,
-    animation: themeAnimation,
-  } = theme;
+    colors = {},
+    spacing = {},
+    radius = {},
+    typography = {},
+    animation: themeAnimation = {},
+  } = theme || {};
 
   /*
   |--------------------------------------------------------------------------
-  | Controlled / uncontrolled
+  | CONTROLLED / UNCONTROLLED
   |--------------------------------------------------------------------------
   */
 
@@ -869,23 +894,21 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Theme-safe color helpers
+  | COLORS
   |--------------------------------------------------------------------------
   */
 
-  const resolvedColors = colors || {};
+  const resolvedPrimary = colors.primary ?? "#1976D2";
 
-  const resolvedPrimary = resolvedColors.primary || "#1976D2";
+  const resolvedText = colors.text || {};
 
-  const resolvedText = resolvedColors.text;
+  const resolvedBorder = colors.border || {};
 
-  const resolvedBorder = resolvedColors.border;
-
-  const resolvedBackground = resolvedColors.background;
+  const resolvedBackground = colors.background || {};
 
   /*
   |--------------------------------------------------------------------------
-  | Palette
+  | PALETTE
   |--------------------------------------------------------------------------
   */
 
@@ -895,24 +918,24 @@ function UITab({
 
       inactive:
         inactiveColor ??
-        resolvedText?.secondary ??
-        resolvedText?.primary ??
+        resolvedText.secondary ??
+        resolvedText.primary ??
         "#666666",
 
       indicator: indicatorColor ?? resolvedPrimary,
 
       background:
         backgroundColor ??
-        resolvedBackground?.primary ??
-        resolvedColors.surface ??
+        resolvedBackground.primary ??
+        colors.surface ??
         "#FFFFFF",
 
-      border: borderColor ?? resolvedBorder?.primary ?? "#E5E7EB",
+      border: borderColor ?? resolvedBorder.primary ?? "#E5E7EB",
 
       activeSoft:
-        activeSoftColor ?? resolvedColors.primarySoft ?? `${resolvedPrimary}20`,
+        activeSoftColor ?? colors.primarySoft ?? `${resolvedPrimary}20`,
 
-      onActive: onActiveColor ?? resolvedColors.onPrimary ?? "#FFFFFF",
+      onActive: onActiveColor ?? colors.onPrimary ?? "#FFFFFF",
 
       activeRipple: rippleColor ?? `${resolvedPrimary}22`,
 
@@ -921,7 +944,7 @@ function UITab({
       badgeInactive:
         badgeInactiveColor ??
         inactiveColor ??
-        resolvedText?.secondary ??
+        resolvedText.secondary ??
         "#777777",
 
       badgeText: badgeTextColor ?? "#FFFFFF",
@@ -936,13 +959,13 @@ function UITab({
       badgeInactiveColor,
       badgeTextColor,
       borderColor,
+      colors,
       dotColor,
       inactiveColor,
       indicatorColor,
       onActiveColor,
       resolvedBackground,
       resolvedBorder,
-      resolvedColors,
       resolvedPrimary,
       resolvedText,
       rippleColor,
@@ -951,7 +974,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Scroll ref
+  | SCROLL REF
   |--------------------------------------------------------------------------
   */
 
@@ -959,7 +982,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Tab layouts
+  | TAB LAYOUTS
   |--------------------------------------------------------------------------
   */
 
@@ -969,7 +992,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Spring configuration
+  | SPRING CONFIG
   |--------------------------------------------------------------------------
   */
 
@@ -994,33 +1017,33 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Size-based spacing
+  | CUSTOM TAB PADDING
   |--------------------------------------------------------------------------
   */
 
   const resolvedTabStyle = useMemo(() => {
-    const styleObject = {};
+    const result = {};
 
     if (tabHorizontalPadding !== undefined) {
-      styleObject.paddingHorizontal = tabHorizontalPadding;
+      result.paddingHorizontal = tabHorizontalPadding;
     }
 
     if (tabVerticalPadding !== undefined) {
-      styleObject.paddingVertical = tabVerticalPadding;
+      result.paddingVertical = tabVerticalPadding;
     }
 
-    return styleObject;
+    return result;
   }, [tabHorizontalPadding, tabVerticalPadding]);
 
   /*
   |--------------------------------------------------------------------------
-  | Move indicator
+  | MOVE INDICATOR
   |--------------------------------------------------------------------------
   */
 
   const moveIndicator = useCallback(
     (id) => {
-      if (!id && id !== 0) {
+      if (id === undefined || id === null) {
         return;
       }
 
@@ -1031,12 +1054,6 @@ function UITab({
       }
 
       setIndicatorLayout(layout);
-
-      /*
-        ----------------------------------------------------------------------
-        Scroll active tab into view
-        ----------------------------------------------------------------------
-        */
 
       if (scrollable && scrollToActive && scrollRef.current) {
         const offset = Math.max(layout.x - scrollOffset, 0);
@@ -1052,7 +1069,7 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Active tab changed
+  | ACTIVE TAB CHANGE
   |--------------------------------------------------------------------------
   */
 
@@ -1060,12 +1077,6 @@ function UITab({
     if (activeValue === undefined || activeValue === null) {
       return;
     }
-
-    /*
-    ------------------------------------------------------------------------
-    Wait for layout to be available
-    ------------------------------------------------------------------------
-    */
 
     const frame = requestAnimationFrame(() => {
       moveIndicator(activeValue);
@@ -1076,17 +1087,17 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Handle tab press
+  | HANDLE PRESS
   |--------------------------------------------------------------------------
   */
 
   const handlePress = useCallback(
     (item) => {
-      if (item?.disabled) {
+      if (!item || item.disabled) {
         return;
       }
 
-      const nextValue = item?.id;
+      const nextValue = item.id;
 
       if (!isControlled) {
         setInternalValue(nextValue);
@@ -1099,12 +1110,16 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Handle tab layout
+  | HANDLE LAYOUT
   |--------------------------------------------------------------------------
   */
 
   const handleTabLayout = useCallback(
     (id, layout) => {
+      if (id === undefined || id === null) {
+        return;
+      }
+
       layouts.current[id] = layout;
 
       if (activeValue === id) {
@@ -1118,39 +1133,46 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Render tab
+  | RENDER TAB
   |--------------------------------------------------------------------------
   */
 
   const renderTab = useCallback(
-    (item, index) => (
-      <UITabItem
-        key={item?.id ?? `tab-${index}`}
-        item={item}
-        active={activeValue === item?.id}
-        variant={variant}
-        size={size}
-        palette={palette}
-        typography={typography}
-        spacing={spacing}
-        radius={radius}
-        equalWidth={equalWidth}
-        scrollable={scrollable}
-        onPress={() => handlePress(item)}
-        onLayout={(event) =>
-          handleTabLayout(item?.id, event.nativeEvent.layout)
-        }
-        tabStyle={[resolvedTabStyle, item?.style]}
-        labelStyle={[labelStyle, item?.labelStyle]}
-        iconSize={item?.iconSize ?? iconSize}
-        iconColor={item?.iconColor ?? iconColor}
-        iconStrokeWidth={item?.iconStrokeWidth ?? iconStrokeWidth}
-        badgeStyle={[badgeStyle, item?.badgeStyle]}
-        badgeTextStyle={[badgeTextStyle, item?.badgeTextStyle]}
-        dotSize={item?.dotSize ?? dotSize}
-        disabledOpacity={disabledOpacity}
-      />
-    ),
+    (item, index) => {
+      if (!item) {
+        return null;
+      }
+
+      const itemId = item.id ?? `tab-${index}`;
+
+      return (
+        <UITabItem
+          key={itemId}
+          item={item}
+          active={activeValue === item.id}
+          variant={variant}
+          size={size}
+          palette={palette}
+          typography={typography}
+          spacing={spacing}
+          radius={radius}
+          equalWidth={equalWidth}
+          onPress={() => handlePress(item)}
+          onLayout={(event) =>
+            handleTabLayout(item.id, event.nativeEvent.layout)
+          }
+          tabStyle={[resolvedTabStyle, tabStyle, item.style]}
+          labelStyle={[labelStyle, item.labelStyle]}
+          iconSize={item.iconSize ?? iconSize}
+          iconColor={item.iconColor ?? iconColor}
+          iconStrokeWidth={item.iconStrokeWidth ?? iconStrokeWidth}
+          badgeStyle={[badgeStyle, item.badgeStyle]}
+          badgeTextStyle={[badgeTextStyle, item.badgeTextStyle]}
+          dotSize={item.dotSize ?? dotSize}
+          disabledOpacity={disabledOpacity}
+        />
+      );
+    },
     [
       activeValue,
       badgeStyle,
@@ -1167,9 +1189,9 @@ function UITab({
       palette,
       radius,
       resolvedTabStyle,
-      scrollable,
       size,
       spacing,
+      tabStyle,
       typography,
       variant,
     ],
@@ -1177,19 +1199,19 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Header row
+  | HEADER CONTENT
   |--------------------------------------------------------------------------
   */
 
   const headerContent = useMemo(() => {
     const indicator =
-      animated && indicatorLayout ? (
+      animated && indicatorLayout && variant === "underline" ? (
         <UITabIndicator
           layout={indicatorLayout}
           variant={variant}
           palette={palette}
           radius={radius}
-          indicatorHeight={indicatorHeight ?? (variant === "underline" ? 2 : 0)}
+          indicatorHeight={indicatorHeight ?? 2}
           indicatorWidth={indicatorWidth}
           indicatorRadius={indicatorRadius}
           indicatorColor={indicatorColor}
@@ -1223,11 +1245,11 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Header
+  | HEADER
   |--------------------------------------------------------------------------
   */
 
-  const Header = scrollable ? (
+  const header = scrollable ? (
     <ScrollView
       ref={scrollRef}
       horizontal
@@ -1237,17 +1259,21 @@ function UITab({
       showsHorizontalScrollIndicator={false}
       contentContainerStyle={[
         styles.scrollContent,
+
         {
-          paddingHorizontal: spacing.xs,
+          paddingHorizontal: spacing.xs ?? 4,
         },
+
         contentContainerStyle,
       ]}
     >
       <View
         style={[
           styles.row,
+
           {
-            minHeight: size === "lg" ? spacing.xxxl : spacing.xxl,
+            minHeight:
+              size === "lg" ? (spacing.xxxl ?? 40) : (spacing.xxl ?? 32),
           },
         ]}
       >
@@ -1258,9 +1284,11 @@ function UITab({
     <View
       style={[
         styles.row,
+
         {
-          minHeight: size === "lg" ? spacing.xxxl : spacing.xxl,
+          minHeight: size === "lg" ? (spacing.xxxl ?? 40) : (spacing.xxl ?? 32),
         },
+
         contentContainerStyle,
       ]}
     >
@@ -1270,11 +1298,30 @@ function UITab({
 
   /*
   |--------------------------------------------------------------------------
-  | Divider
+  | DIVIDER
   |--------------------------------------------------------------------------
   */
 
   const resolvedDividerHeight = dividerHeight ?? StyleSheet.hairlineWidth;
+
+  /*
+  |--------------------------------------------------------------------------
+  | CONTEXT VALUE
+  |--------------------------------------------------------------------------
+  */
+
+  const contextValue = useMemo(
+    () => ({
+      value: activeValue,
+
+      keepAlive,
+
+      panelStyle,
+
+      panelContentStyle,
+    }),
+    [activeValue, keepAlive, panelStyle, panelContentStyle],
+  );
 
   /*
   |--------------------------------------------------------------------------
@@ -1283,17 +1330,7 @@ function UITab({
   */
 
   return (
-    <UITabsContext.Provider
-      value={{
-        value: activeValue,
-
-        keepAlive,
-
-        panelStyle,
-
-        panelContentStyle,
-      }}
-    >
+    <UITabsContext.Provider value={contextValue}>
       <View
         testID={testID}
         className={className}
@@ -1308,19 +1345,7 @@ function UITab({
           style,
         ]}
       >
-        {/*
-        ======================================================================
-        HEADER
-        ======================================================================
-        */}
-
-        {Header}
-
-        {/*
-        ======================================================================
-        DIVIDER
-        ======================================================================
-        */}
+        {header}
 
         {showDivider && variant === "underline" ? (
           <View
@@ -1332,12 +1357,6 @@ function UITab({
           />
         ) : null}
 
-        {/*
-        ======================================================================
-        PANELS
-        ======================================================================
-        */}
-
         <View style={styles.panelsContainer}>{children}</View>
       </View>
     </UITabsContext.Provider>
@@ -1346,36 +1365,26 @@ function UITab({
 
 /*
 |--------------------------------------------------------------------------
+| DISPLAY NAME
+|--------------------------------------------------------------------------
+*/
+
+UITab.displayName = "UITab";
+
+/*
+|--------------------------------------------------------------------------
 | STYLES
 |--------------------------------------------------------------------------
 */
 
 const styles = StyleSheet.create({
-  /*
-    ========================================================================
-    TABS CONTAINER
-    ========================================================================
-    */
-
   container: {
     width: "100%",
   },
 
-  /*
-    ========================================================================
-    SCROLL
-    ========================================================================
-    */
-
   scrollContent: {
     flexGrow: 1,
   },
-
-  /*
-    ========================================================================
-    ROW
-    ========================================================================
-    */
 
   row: {
     position: "relative",
@@ -1384,12 +1393,6 @@ const styles = StyleSheet.create({
 
     alignItems: "center",
   },
-
-  /*
-    ========================================================================
-    TAB
-    ========================================================================
-    */
 
   tabPressable: {
     justifyContent: "center",
@@ -1421,12 +1424,6 @@ const styles = StyleSheet.create({
     textAlignVertical: "center",
   },
 
-  /*
-    ========================================================================
-    BADGE
-    ========================================================================
-    */
-
   badge: {
     alignItems: "center",
 
@@ -1439,21 +1436,9 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  /*
-    ========================================================================
-    DOT
-    ========================================================================
-    */
-
   dot: {
     flexShrink: 0,
   },
-
-  /*
-    ========================================================================
-    INDICATOR
-    ========================================================================
-    */
 
   indicator: {
     position: "absolute",
@@ -1461,22 +1446,16 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
 
-  /*
-    ========================================================================
-    PANELS
-    ========================================================================
-    */
-
   panelsContainer: {
-    flex: 1,
+    width: "100%",
   },
 
   panel: {
-    flex: 1,
+    width: "100%",
   },
 
   panelContent: {
-    flex: 1,
+    width: "100%",
   },
 });
 
@@ -1486,6 +1465,18 @@ const styles = StyleSheet.create({
 |--------------------------------------------------------------------------
 */
 
-export { UITabItem, UITabPanel, UITabIndicator };
-
+/*
+ * Default export
+ */
 export default UITab;
+
+/*
+ * Named exports
+ *
+ * IMPORTANT:
+ * UITab itself is explicitly exported here.
+ * This fixes:
+ *
+ * TypeError: Cannot read property 'displayName' of undefined
+ */
+export { UITab, UITabItem, UITabPanel, UITabIndicator };
