@@ -13,7 +13,7 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
-import { useUITheme } from "../../theme";
+import { useUITheme } from "../../../theme";
 
 /*
 |--------------------------------------------------------------------------
