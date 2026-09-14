@@ -1,8 +1,8 @@
 export {
-  default as UITabs,
+  default as UITab,
   UITabItem,
   UITabPanel,
   UITabIndicator,
   UI_TABS_VARIANTS,
   UI_TABS_SIZES,
-} from "./UITabs";
+} from "./UITab";

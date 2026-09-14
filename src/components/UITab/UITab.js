@@ -1488,4 +1488,4 @@ const styles = StyleSheet.create({
 
 export { UITabItem, UITabPanel, UITabIndicator };
 
-export default UITabs;
+export default UITab;
