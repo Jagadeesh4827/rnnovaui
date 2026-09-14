@@ -1228,7 +1228,7 @@ function UIRestaurantCard({
             width: logoSize,
             height: logoSize,
             borderRadius: logoBorderRadius,
-            backgroundColor: resolvedCuisineBackground,
+            backgroundColor: resolvedBackgroundColor,
             borderWidth: logoBorderWidth,
             borderColor: logoBorderColor,
           },

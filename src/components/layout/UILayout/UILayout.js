@@ -1,11 +1,6 @@
 import React, { useEffect, useMemo } from "react";
-import {
-  KeyboardAvoidingView,
-  Platform,
-  StyleSheet,
-  View,
-  useColorScheme,
-} from "react-native";
+
+import { KeyboardAvoidingView, Platform, StyleSheet, View } from "react-native";
 
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -18,67 +13,23 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 
+import { useUITheme } from "../../theme";
+
+/*
+|--------------------------------------------------------------------------
+| Defaults
+|--------------------------------------------------------------------------
+*/
+
 const DEFAULT_DURATION = 400;
+
 const DEFAULT_SLIDE_DISTANCE = 24;
+
 const DEFAULT_SCALE_FROM = 0.96;
 
 /*
 |--------------------------------------------------------------------------
-| UILayout theme colors
-|--------------------------------------------------------------------------
-*/
-
-const UILAYOUT_THEMES = {
-  light: {
-    background: "#FFFFFF",
-  },
-
-  dark: {
-    background: "#000000",
-  },
-};
-
-/*
-|--------------------------------------------------------------------------
-| Resolve mode
-|--------------------------------------------------------------------------
-*/
-
-const resolveMode = (mode, systemColorScheme) => {
-  if (mode === "light") {
-    return "light";
-  }
-
-  if (mode === "dark") {
-    return "dark";
-  }
-
-  return systemColorScheme === "dark" ? "dark" : "light";
-};
-
-/*
-|--------------------------------------------------------------------------
-| Resolve background
-|--------------------------------------------------------------------------
-*/
-
-const resolveBackgroundColor = ({
-  mode,
-  systemColorScheme,
-  backgroundColor,
-}) => {
-  if (backgroundColor) {
-    return backgroundColor;
-  }
-
-  const resolvedMode = resolveMode(mode, systemColorScheme);
-
-  return UILAYOUT_THEMES[resolvedMode].background;
-};
-
-/*
-|--------------------------------------------------------------------------
-| Animation helpers
+| Animation resolver
 |--------------------------------------------------------------------------
 */
 
@@ -94,8 +45,22 @@ const resolveAnimationType = (animation) => {
   return animation.type || "fade";
 };
 
+/*
+|--------------------------------------------------------------------------
+| Initial animation values
+|--------------------------------------------------------------------------
+*/
+
 const getInitialValues = ({ animation, slideDistance, scaleFrom }) => {
   switch (animation) {
+    case "none":
+      return {
+        opacity: 1,
+        scale: 1,
+        translateX: 0,
+        translateY: 0,
+      };
+
     case "fade":
     case "fadeIn":
       return {
@@ -123,9 +88,16 @@ const getInitialValues = ({ animation, slideDistance, scaleFrom }) => {
 
     case "slide":
     case "slideFade":
+      return {
+        opacity: 0,
+        scale: 1,
+        translateX: 0,
+        translateY: slideDistance,
+      };
+
     case "slideUp":
       return {
-        opacity: animation === "slideUp" ? 1 : 0,
+        opacity: 1,
         scale: 1,
         translateX: 0,
         translateY: slideDistance,
@@ -175,7 +147,7 @@ const getInitialValues = ({ animation, slideDistance, scaleFrom }) => {
 
 /*
 |--------------------------------------------------------------------------
-| Animated Layout
+| Animated Layout Content
 |--------------------------------------------------------------------------
 */
 
@@ -185,29 +157,41 @@ const AnimatedLayout = ({
   animation = "fade",
 
   animationDuration = DEFAULT_DURATION,
+
   animationDelay = 0,
 
   slideDistance = DEFAULT_SLIDE_DISTANCE,
+
   scaleFrom = DEFAULT_SCALE_FROM,
 
   springConfig,
 
   onAnimationStart,
+
   onAnimationComplete,
 
   style,
 
   accessible,
+
   accessibilityLabel,
+
   accessibilityHint,
+
   accessibilityRole,
+
   accessibilityState,
+
   accessibilityValue,
+
   accessibilityLiveRegion,
+
   accessibilityViewIsModal,
+
   importantForAccessibility,
 
   testID,
+
   onLayout,
 
   ...rest
@@ -230,28 +214,54 @@ const AnimatedLayout = ({
 
   const translateY = useSharedValue(initialValues.translateY);
 
+  /*
+  |--------------------------------------------------------------------------
+  | Run animation
+  |--------------------------------------------------------------------------
+  */
+
   useEffect(() => {
     if (animation === "none") {
-      return;
+      return undefined;
     }
 
+    /*
+    ------------------------------------------------------------------------
+    Reset values
+    ------------------------------------------------------------------------
+    */
+
     opacity.value = initialValues.opacity;
+
     scale.value = initialValues.scale;
+
     translateX.value = initialValues.translateX;
+
     translateY.value = initialValues.translateY;
 
     onAnimationStart?.();
 
+    /*
+    ------------------------------------------------------------------------
+    Timing config
+    ------------------------------------------------------------------------
+    */
+
     const timingConfig = {
       duration: animationDuration,
+
       easing: Easing.out(Easing.cubic),
     };
 
-    const delay = animationDelay;
+    /*
+    ------------------------------------------------------------------------
+    Spring
+    ------------------------------------------------------------------------
+    */
 
     if (animation === "spring") {
       opacity.value = withDelay(
-        delay,
+        animationDelay,
         withTiming(1, timingConfig, (finished) => {
           if (finished) {
             onAnimationComplete?.();
@@ -260,40 +270,55 @@ const AnimatedLayout = ({
       );
 
       scale.value = withDelay(
-        delay,
+        animationDelay,
         withSpring(1, {
           damping: springConfig?.damping ?? 16,
+
           stiffness: springConfig?.stiffness ?? 180,
+
           mass: springConfig?.mass ?? 0.8,
+
           overshootClamping: springConfig?.overshootClamping ?? false,
         }),
       );
 
       translateX.value = withDelay(
-        delay,
+        animationDelay,
         withSpring(0, {
           damping: springConfig?.damping ?? 16,
+
           stiffness: springConfig?.stiffness ?? 180,
+
           mass: springConfig?.mass ?? 0.8,
+
           overshootClamping: springConfig?.overshootClamping ?? false,
         }),
       );
 
       translateY.value = withDelay(
-        delay,
+        animationDelay,
         withSpring(0, {
           damping: springConfig?.damping ?? 16,
+
           stiffness: springConfig?.stiffness ?? 180,
+
           mass: springConfig?.mass ?? 0.8,
+
           overshootClamping: springConfig?.overshootClamping ?? false,
         }),
       );
 
-      return;
+      return undefined;
     }
 
+    /*
+    |--------------------------------------------------------------------------
+    | Standard timing animation
+    |--------------------------------------------------------------------------
+    */
+
     opacity.value = withDelay(
-      delay,
+      animationDelay,
       withTiming(1, timingConfig, (finished) => {
         if (finished) {
           onAnimationComplete?.();
@@ -301,11 +326,13 @@ const AnimatedLayout = ({
       }),
     );
 
-    scale.value = withDelay(delay, withTiming(1, timingConfig));
+    scale.value = withDelay(animationDelay, withTiming(1, timingConfig));
 
-    translateX.value = withDelay(delay, withTiming(0, timingConfig));
+    translateX.value = withDelay(animationDelay, withTiming(0, timingConfig));
 
-    translateY.value = withDelay(delay, withTiming(0, timingConfig));
+    translateY.value = withDelay(animationDelay, withTiming(0, timingConfig));
+
+    return undefined;
   }, [
     animation,
     animationDuration,
@@ -320,6 +347,12 @@ const AnimatedLayout = ({
     translateY,
   ]);
 
+  /*
+  |--------------------------------------------------------------------------
+  | Animated style
+  |--------------------------------------------------------------------------
+  */
+
   const animatedStyle = useAnimatedStyle(() => {
     if (animation === "none") {
       return {};
@@ -332,9 +365,11 @@ const AnimatedLayout = ({
         {
           translateX: translateX.value,
         },
+
         {
           translateY: translateY.value,
         },
+
         {
           scale: scale.value,
         },
@@ -377,37 +412,46 @@ const UILayout = ({
   children,
 
   /*
-   * Theme mode
-   *
-   * light
-   * dark
-   * system
-   */
-  mode = "system",
+  |--------------------------------------------------------------------------
+  | Safe Area
+  |--------------------------------------------------------------------------
+  */
 
-  /*
-   * Safe area
-   */
   edges = ["top", "bottom", "left", "right"],
 
   /*
-   * Layout
-   */
+  |--------------------------------------------------------------------------
+  | Layout
+  |--------------------------------------------------------------------------
+  */
+
   flex = 1,
 
   /*
-   * Background
-   */
+  |--------------------------------------------------------------------------
+  | Background
+  |--------------------------------------------------------------------------
+  |
+  | If provided, this overrides the theme background.
+  |
+  */
+
   backgroundColor,
 
   /*
-   * Content
-   */
+  |--------------------------------------------------------------------------
+  | Content
+  |--------------------------------------------------------------------------
+  */
+
   contentContainerStyle,
 
   /*
-   * Keyboard
-   */
+  |--------------------------------------------------------------------------
+  | Keyboard
+  |--------------------------------------------------------------------------
+  */
+
   keyboardAvoiding = false,
 
   keyboardBehavior,
@@ -415,8 +459,11 @@ const UILayout = ({
   keyboardVerticalOffset = 0,
 
   /*
-   * Reanimated
-   */
+  |--------------------------------------------------------------------------
+  | Reanimated
+  |--------------------------------------------------------------------------
+  */
+
   reanimated = false,
 
   animation = "fade",
@@ -432,69 +479,135 @@ const UILayout = ({
   springConfig,
 
   onAnimationStart,
+
   onAnimationComplete,
 
   /*
-   * Style
-   */
+  |--------------------------------------------------------------------------
+  | Root style
+  |--------------------------------------------------------------------------
+  */
+
   style,
 
   /*
-   * Accessibility
-   */
+  |--------------------------------------------------------------------------
+  | Accessibility
+  |--------------------------------------------------------------------------
+  */
+
   accessible,
+
   accessibilityLabel,
+
   accessibilityHint,
+
   accessibilityRole,
+
   accessibilityState,
+
   accessibilityValue,
+
   accessibilityLiveRegion,
+
   accessibilityViewIsModal,
+
   importantForAccessibility,
 
   testID,
+
   onLayout,
+
+  /*
+  |--------------------------------------------------------------------------
+  | Other View props
+  |--------------------------------------------------------------------------
+  */
 
   ...rest
 }) => {
   /*
-   * Only READ the system color scheme.
-   *
-   * No state update happens here.
-   */
-  const systemColorScheme = useColorScheme();
+  |--------------------------------------------------------------------------
+  | GLOBAL UIProvider THEME
+  |--------------------------------------------------------------------------
+  |
+  | UILayout does NOT resolve:
+  |
+  | - light
+  | - dark
+  | - system
+  |
+  | UIProvider already does that.
+  |
+  */
+
+  const { theme } = useUITheme();
+
+  const {
+    colors,
+    spacing,
+    radius,
+    typography,
+    shadows,
+    sizes,
+    animation: themeAnimation,
+  } = theme;
 
   /*
-   * Resolve light/dark/system.
-   */
-  const resolvedMode = resolveMode(mode, systemColorScheme);
+  |--------------------------------------------------------------------------
+  | Theme background
+  |--------------------------------------------------------------------------
+  */
+
+  const resolvedBackgroundColor =
+    backgroundColor ?? colors?.background ?? "#FFFFFF";
 
   /*
-   * Resolve background.
-   *
-   * Explicit backgroundColor has priority.
-   */
-  const resolvedBackgroundColor = resolveBackgroundColor({
-    mode: resolvedMode,
-    systemColorScheme,
-    backgroundColor,
-  });
+  |--------------------------------------------------------------------------
+  | Theme-based defaults
+  |--------------------------------------------------------------------------
+  */
 
-  const rootStyle = [
-    styles.root,
-    {
-      flex,
-      backgroundColor: resolvedBackgroundColor,
-    },
-    style,
-  ];
+  const resolvedFlex = flex ?? 1;
+
+  const resolvedAnimationDuration =
+    animationDuration ?? themeAnimation?.normal ?? DEFAULT_DURATION;
+
+  /*
+  |--------------------------------------------------------------------------
+  | Resolve animation
+  |--------------------------------------------------------------------------
+  */
 
   const animationType = resolveAnimationType(animation);
 
   /*
-   * Normal View when Reanimated
-   * is disabled.
-   */
+  |--------------------------------------------------------------------------
+  | Root style
+  |--------------------------------------------------------------------------
+  */
+
+  const rootStyle = [
+    styles.root,
+
+    {
+      flex: resolvedFlex,
+
+      backgroundColor: resolvedBackgroundColor,
+    },
+
+    style,
+  ];
+
+  /*
+  |--------------------------------------------------------------------------
+  | Normal content
+  |--------------------------------------------------------------------------
+  |
+  | Used when reanimated={false}
+  |
+  */
+
   const normalContent = (
     <View
       {...rest}
@@ -516,20 +629,25 @@ const UILayout = ({
   );
 
   /*
-   * Animated content only when
-   * explicitly requested.
-   */
+  |--------------------------------------------------------------------------
+  | Animated content
+  |--------------------------------------------------------------------------
+  |
+  | Reanimated is only used when explicitly enabled.
+  |
+  */
+
   const animatedContent = (
     <AnimatedLayout
       animation={animationType}
-      animationDuration={animationDuration}
+      animationDuration={resolvedAnimationDuration}
       animationDelay={animationDelay}
       slideDistance={slideDistance}
       scaleFrom={scaleFrom}
       springConfig={springConfig}
       onAnimationStart={onAnimationStart}
       onAnimationComplete={onAnimationComplete}
-      style={contentContainerStyle}
+      style={[styles.flex, contentContainerStyle]}
       accessible={accessible}
       accessibilityLabel={accessibilityLabel}
       accessibilityHint={accessibilityHint}
@@ -547,7 +665,19 @@ const UILayout = ({
     </AnimatedLayout>
   );
 
+  /*
+  |--------------------------------------------------------------------------
+  | Choose content
+  |--------------------------------------------------------------------------
+  */
+
   const content = reanimated ? animatedContent : normalContent;
+
+  /*
+  |--------------------------------------------------------------------------
+  | Keyboard Avoiding View
+  |--------------------------------------------------------------------------
+  */
 
   const layoutContent = keyboardAvoiding ? (
     <KeyboardAvoidingView
@@ -563,12 +693,24 @@ const UILayout = ({
     content
   );
 
+  /*
+  |--------------------------------------------------------------------------
+  | Safe Area
+  |--------------------------------------------------------------------------
+  */
+
   return (
     <SafeAreaView edges={edges} style={rootStyle}>
       {layoutContent}
     </SafeAreaView>
   );
 };
+
+/*
+|--------------------------------------------------------------------------
+| Styles
+|--------------------------------------------------------------------------
+*/
 
 const styles = StyleSheet.create({
   root: {
@@ -579,5 +721,11 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 });
+
+/*
+|--------------------------------------------------------------------------
+| Export
+|--------------------------------------------------------------------------
+*/
 
 export default UILayout;
