@@ -2004,9 +2004,9 @@ const UIBannerCarousel = ({
           style={[
             styles.headerSafeArea,
 
-            // {
-            //   paddingTop: coverStatusBar ? insets.top : 0,
-            // },
+            {
+              paddingTop: coverStatusBar ? insets.top : 0,
+            },
           ]}
         >
           {renderHeader ? (
