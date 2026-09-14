@@ -166,7 +166,7 @@ export {
   UICarouselTextAnimations,
   UICarouselAssetAnimations,
   UICarouselBackgroundAnimations,
-  UITabs,
+  UITabs as UITab,
   UITabItem,
   UITabPanel,
   UITabIndicator,
